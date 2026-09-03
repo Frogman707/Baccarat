@@ -167,6 +167,36 @@ h2{font-size:14px; font-weight:600; margin:0 0 3px; letter-spacing:-.005em}
 #liveError ol{margin:9px 0 0; padding-left:19px}
 #liveError li{margin-bottom:5px}
 
+/* ── prediction ─────────────────────────────────────────────────────── */
+.aibar{display:grid; grid-template-columns:64px 1fr 56px; align-items:center;
+       gap:11px; margin-bottom:8px}
+.aibar .n{font-size:12.5px; color:var(--ink-2)}
+.aibar .track{height:9px; border-radius:5px; background:var(--surface-3); overflow:hidden}
+.aibar .track i{display:block; height:100%; border-radius:5px}
+.aibar.P .track i{background:var(--player)}
+.aibar.B .track i{background:var(--banker)}
+.aibar.T .track i{background:var(--tie)}
+.aibar .p{font-family:var(--mono); font-size:13.5px; text-align:right;
+          font-variant-numeric:tabular-nums; font-weight:500}
+.aibar.P .p{color:var(--player)} .aibar.B .p{color:var(--banker)} .aibar.T .p{color:var(--tie)}
+.airec{display:flex; align-items:center; justify-content:space-between; gap:12px;
+       margin:15px 0 13px; padding:11px 14px; border-radius:9px;
+       border:1px solid var(--line-2); background:var(--surface-2)}
+.airec .k{font-size:12.5px; font-weight:600; color:var(--ink-2)}
+.airec .v{font-size:17px; font-weight:600; letter-spacing:-.01em}
+.airec .v.P{color:var(--player)} .airec .v.B{color:var(--banker)} .airec .v.T{color:var(--tie)}
+.aigrid{display:grid; grid-template-columns:1fr 1fr; gap:9px 16px}
+.aifact{display:flex; align-items:baseline; justify-content:space-between; gap:8px;
+        padding-bottom:7px; border-bottom:1px solid var(--line)}
+.aifact .k{font-size:11.5px; color:var(--ink-3)}
+.aifact .v{font-family:var(--mono); font-size:13px; font-variant-numeric:tabular-nums}
+.aifact .v.neg{color:var(--banker)}
+.aifact .v small{font-family:var(--sans); font-size:10.5px; color:var(--ink-3); margin-left:3px}
+.ainote{font-size:11.5px; color:var(--ink-3); line-height:1.55; margin:13px 0 0}
+.aiwarn{font-size:11.5px; line-height:1.55; margin:10px 0 0; padding:9px 11px;
+        border-radius:8px; border:1px solid var(--banker); color:var(--ink-2);
+        background:color-mix(in srgb, var(--banker) 7%, transparent)}
+
 /* ── stat tiles ─────────────────────────────────────────────────────── */
 #kpis{display:grid; grid-template-columns:1fr 1fr; gap:10px}
 .tile{background:var(--surface-2); border:1px solid var(--line); border-radius:9px; padding:11px 12px}
@@ -335,6 +365,19 @@ footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
       </div>
       <div id="readout" hidden></div>
     </div>
+  </section>
+
+  <section class="panel c5" id="aiPanel">
+    <h2 data-i18n="ai.h"></h2>
+    <p class="sub" data-i18n="ai.sub"></p>
+    <div id="aiBars"></div>
+    <div class="airec">
+      <span class="k" data-i18n="ai.recommend"></span>
+      <span class="v" id="aiSide"></span>
+    </div>
+    <div class="aigrid" id="aiFacts"></div>
+    <p class="ainote" id="aiWhy"></p>
+    <p class="aiwarn" id="aiDisclaimer"></p>
   </section>
 
   <section class="panel c5">
@@ -630,6 +673,55 @@ const S = {
     "zh-Hant": "開頭與目前牌靴不同 — 看來已開新靴。",
     "zh-Hans": "开头与当前牌靴不同 — 看来已开新靴。",
   },
+
+  /* ------------------------------------------------------------ prediction */
+  "ai.h": { ko: "AI 예측", en: "AI prediction", "zh-Hant": "AI 預測", "zh-Hans": "AI 预测" },
+  "ai.sub": {
+    ko: "다음 판의 확률 추정과, 두 베팅 중 어느 쪽이 덜 나쁜지.",
+    en: "The next coup's estimated probabilities, and which of the two bets is less bad.",
+    "zh-Hant": "下一局的機率估計，以及兩種下注中哪一邊比較不吃虧。",
+    "zh-Hans": "下一局的概率估计，以及两种下注中哪一边比较不吃亏。",
+  },
+  "ai.recommend": { ko: "AI 추천", en: "AI pick", "zh-Hant": "AI 推薦", "zh-Hans": "AI 推荐" },
+  "ai.ev": { ko: "기댓값", en: "Expected value", "zh-Hant": "期望值", "zh-Hans": "期望值" },
+  "ai.confidence": { ko: "신뢰도", en: "Confidence", "zh-Hant": "信心度", "zh-Hans": "信心度" },
+  "ai.margin": { ko: "오차범위", en: "Margin", "zh-Hant": "誤差範圍", "zh-Hans": "误差范围" },
+  "ai.cardsLeft": { ko: "남은 카드", en: "Cards left", "zh-Hant": "剩餘牌數", "zh-Hans": "剩余牌数" },
+  "ai.estimated": { ko: "추정", en: "est.", "zh-Hant": "推估", "zh-Hans": "推估" },
+  "ai.conf.low": { ko: "낮음", en: "Low", "zh-Hant": "低", "zh-Hans": "低" },
+  "ai.conf.medium": { ko: "보통", en: "Medium", "zh-Hant": "中", "zh-Hans": "中" },
+  "ai.conf.high": { ko: "높음", en: "High", "zh-Hant": "高", "zh-Hans": "高" },
+  "ai.whyBase": {
+    ko: "남은 카드 구성을 알 수 없어 기본 확률을 씁니다. 결과만으로는 카드를 셀 수 없습니다.",
+    en: "The remaining card composition is unknown, so these are the base probabilities. Results alone cannot count cards.",
+    "zh-Hant": "無法得知剩餘牌張的組成，因此採用基礎機率。只憑結果無法算牌。",
+    "zh-Hans": "无法得知剩余牌张的组成，因此采用基础概率。只凭结果无法算牌。",
+  },
+  "ai.whyThin": {
+    ko: "이 테이블의 관측치({n}판)는 아직 기본값과 구분되지 않습니다.",
+    en: "This table's {n} decided coups still cannot be told apart from the baseline.",
+    "zh-Hant": "本桌已判定的 {n} 局仍無法與基準值區分。",
+    "zh-Hans": "本桌已判定的 {n} 局仍无法与基准值区分。",
+  },
+  "ai.whyMoved": {
+    ko: "이 테이블의 {n}판이 추정치를 기본값에서 {delta}%p 옮겼습니다.",
+    en: "This table's {n} decided coups moved the estimate {delta}pp off the baseline.",
+    "zh-Hant": "本桌的 {n} 局已將估計值自基準移動 {delta}%p。",
+    "zh-Hans": "本桌的 {n} 局已将估计值自基准移动 {delta}%p。",
+  },
+  "ai.crossover": {
+    ko: "뱅커와 플레이어의 우열은 P(뱅커 | 타이 제외) {q}에서 뒤집힙니다. 현재 추정치는 그 선에서 {z}표준오차 떨어져 있습니다.",
+    en: "Banker stops being the better bet below P(Banker | not tie) of {q}. The estimate sits {z} standard errors from that line.",
+    "zh-Hant": "當 P(莊 | 排除和局) 低於 {q} 時，莊就不再是較好的一邊。目前估計值距該線 {z} 個標準誤。",
+    "zh-Hans": "当 P(庄 | 排除和局) 低于 {q} 时，庄就不再是较好的一边。当前估计值距该线 {z} 个标准误。",
+  },
+  "ai.disclaimer": {
+    ko: "바카라는 양쪽 모두 기댓값이 마이너스입니다. 이 추천은 둘 중 덜 나쁜 쪽을 고른 것일 뿐, 수익을 보장하지 않습니다.",
+    en: "Both sides of baccarat have negative expectation. This pick is only the less bad of the two — it does not make money.",
+    "zh-Hant": "百家樂兩邊的期望值皆為負。此推薦只是兩者中較不吃虧的一邊，並不能保證獲利。",
+    "zh-Hans": "百家乐两边的期望值皆为负。此推荐只是两者中较不吃亏的一边，并不能保证盈利。",
+  },
+  "ai.perCoup": { ko: "판당", en: "per coup", "zh-Hant": "每局", "zh-Hans": "每局" },
 
   /* ---------------------------------------------------------- state tiles */
   "state.h": { ko: "현재 상태", en: "Where this table stands", "zh-Hant": "目前狀態", "zh-Hans": "当前状态" },
@@ -1831,12 +1923,15 @@ const median = (xs) => {
 function keepMarks(blobs, w, h) {
   const area = w * h;
   return blobs.filter((b) => {
-    if (b.w < 7 || b.h < 7) return false;
+    if (b.w < 6 || b.h < 6) return false;
     if (b.w > w * 0.25 || b.h > h * 0.45) return false;
     if (b.n > area * 0.04) return false;
     const aspect = b.w / b.h;
     if (aspect < 0.62 || aspect > 1.62) return false;
-    return b.n / (b.w * b.h) >= 0.30;
+    // A filled disc fills 0.79 of its box and a thin ring far less -- the big
+    // road is drawn as rings on most tables, so the floor has to clear them
+    // while still rejecting glyphs and stray strokes.
+    return b.n / (b.w * b.h) >= 0.22;
   });
 }
 
@@ -1853,14 +1948,32 @@ function binAxis(values, gap) {
   return { bin, count: current + 1 };
 }
 
-/** Union-find grouping of blobs into separate boards on the same screenshot. */
-function groupBlobs(marks, reach) {
+const size = (m) => Math.max(m.w, m.h);
+
+/**
+ * Union-find grouping of blobs into the separate boards on one screenshot.
+ *
+ * Two marks join only when they are close AND of a similar size. The size test
+ * is what makes this work on a real table: the bottom strip carries a large
+ * bead plate, a medium big road and a crowd of small derived-road marks, and
+ * the small ones outnumber the rest. Grouping on distance alone would let the
+ * scales bleed into one blob; a single global size filter would go further and
+ * discard the bead plate outright, since the median size belongs to the marks
+ * there are most of.
+ *
+ * Reach scales with the SMALLER of the pair, so a small mark can never reach
+ * out and capture a large one.
+ */
+function groupBlobs(marks) {
   const parent = marks.map((_, i) => i);
   const find = (x) => { while (parent[x] !== x) { parent[x] = parent[parent[x]]; x = parent[x]; } return x; };
   const union = (a, b) => { const ra = find(a), rb = find(b); if (ra !== rb) parent[ra] = rb; };
 
   for (let i = 0; i < marks.length; i++) {
     for (let j = i + 1; j < marks.length; j++) {
+      const a = size(marks[i]), b = size(marks[j]);
+      if (Math.max(a, b) / Math.min(a, b) > 1.8) continue;      // a different board
+      const reach = Math.min(a, b) * 2.2;
       const dx = Math.abs(marks[i].cx - marks[j].cx);
       const dy = Math.abs(marks[i].cy - marks[j].cy);
       if (dx <= reach && dy <= reach) union(i, j);
@@ -1900,26 +2013,38 @@ function buildBoard(marks, diameter) {
   const occupancy = unique.length / Math.max(1, nRows * nCols);
   const hasTie = unique.some((c) => c.outcome === "T");
 
-  // A bead plate is a dense six-row grid that spells ties as their own cells;
-  // a big road is sparser, and marks ties as a slash across a P/B cell.
-  const kind = nRows >= 5 && occupancy >= 0.82 ? "bead" : "bigroad";
+  // A bead plate is a dense grid at most six rows tall that spells ties as
+  // their own cells. Anything taller is a stack of derived roads read as one
+  // block; anything sparser is a big road, which marks a tie as a slash across
+  // a Player/Banker cell rather than opening one.
+  const kind = nRows <= 6 && occupancy >= 0.82 ? "bead" : "bigroad";
 
   return {
-    kind, cells: unique, nRows, nCols, occupancy, hasTie,
+    kind, cells: unique, nRows, nCols, occupancy, hasTie, diameter,
     sequence: unique.map((c) => c.outcome).join(""),
     box: {
       x: Math.min(...marks.map((m) => m.minX)), y: Math.min(...marks.map((m) => m.minY)),
       x2: Math.max(...marks.map((m) => m.maxX)), y2: Math.max(...marks.map((m) => m.maxY)),
     },
-    score: unique.length * (0.4 + occupancy) * (nRows === 6 ? 1.6 : 1) * (hasTie ? 1.15 : 1),
+    // Cell count alone would hand the pick to the derived roads, which carry
+    // far more marks than the bead plate and mean far less. Six rows exactly,
+    // ties as their own cells, and the largest marks on screen are what
+    // actually identify a bead plate, so those decide it.
+    shape: (0.4 + occupancy) * (nRows === 6 ? 3.0 : 0.5) * (hasTie ? 1.5 : 1),
   };
 }
 
 /**
  * Find every board-shaped grid of coloured marks in an ImageData.
  *
- * Returns `{boards, diameter, scale}` with boards ordered best-first. A caller
- * that wants only part of the picture passes `region` in ImageData pixels.
+ * Returns `{boards, bounds, diameter}` with boards ordered best-first.
+ * `bounds` spans every board found together -- on a live table that is the
+ * whole strip of results along the bottom, bead plate through cockroach road.
+ * Reading still comes from one board, but locking and previewing the strip is
+ * what a person watching the table actually sees, and it keeps the region
+ * stable when the derived roads grow into it.
+ *
+ * A caller that wants only part of the picture passes `region` in pixels.
  */
 function detectBoards(imageData, { region = null, minCells = 8 } = {}) {
   const { width: W, height: H, data } = imageData;
@@ -1928,7 +2053,7 @@ function detectBoards(imageData, { region = null, minCells = 8 } = {}) {
   const x1 = region ? Math.min(W, Math.round(region.x + region.w)) : W;
   const y1 = region ? Math.min(H, Math.round(region.y + region.h)) : H;
   const w = x1 - x0, h = y1 - y0;
-  if (w < 20 || h < 20) return { boards: [], diameter: 0 };
+  if (w < 20 || h < 20) return { boards: [], bounds: null, diameter: 0 };
 
   const codes = new Uint8Array(w * h);
   for (let y = 0; y < h; y++) {
@@ -1940,25 +2065,43 @@ function detectBoards(imageData, { region = null, minCells = 8 } = {}) {
   }
 
   const all = labelBlobs(codes, w, h);
-  let marks = keepMarks(all, w, h);
-  if (marks.length < minCells) return { boards: [], diameter: 0 };
-
-  // Cells on one board share a size; drop anything far off the modal diameter.
-  const diameter = median(marks.map((m) => Math.max(m.w, m.h)));
-  marks = marks.filter((m) => {
-    const s = Math.max(m.w, m.h);
-    return s >= diameter * 0.55 && s <= diameter * 1.85;
-  });
-  if (marks.length < minCells) return { boards: [], diameter };
+  const marks = keepMarks(all, w, h);
+  if (marks.length < minCells) return { boards: [], bounds: null, diameter: 0 };
 
   for (const m of marks) { m.cx += x0; m.cy += y0; m.minX += x0; m.maxX += x0; m.minY += y0; m.maxY += y0; }
 
-  const boards = groupBlobs(marks, diameter * 1.95)
-    .filter((g) => g.length >= minCells)
-    .map((g) => buildBoard(g, diameter))
-    .sort((a, b) => b.score - a.score);
+  // Size is judged per board, never across the screenshot. A single global
+  // median belongs to whichever board has the most marks -- on a real strip,
+  // the derived roads -- and filtering against it discards the bead plate,
+  // which is both the largest board and the one worth reading.
+  const boards = [];
+  for (const group of groupBlobs(marks)) {
+    if (group.length < minCells) continue;
+    const d = median(group.map(size));
+    const cells = group.filter((m) => size(m) >= d * 0.55 && size(m) <= d * 1.85);
+    if (cells.length >= minCells) boards.push(buildBoard(cells, d));
+  }
 
-  return { boards, diameter };
+  // Mark size only means something relative to the other boards on the same
+  // screen, so it is applied once they are all known.
+  const largest = Math.max(...boards.map((b) => b.diameter), 1);
+  for (const b of boards) b.score = b.cells.length * b.shape * (b.diameter / largest) ** 1.5;
+  boards.sort((a, b) => b.score - a.score);
+
+  return {
+    boards,
+    bounds: unionBox(boards),
+    diameter: boards.length ? boards[0].diameter : 0,
+  };
+}
+
+/** The box containing every board found -- the whole result strip. */
+function unionBox(boards) {
+  if (!boards.length) return null;
+  return boards.reduce((acc, b) => ({
+    x: Math.min(acc.x, b.box.x), y: Math.min(acc.y, b.box.y),
+    x2: Math.max(acc.x2, b.box.x2), y2: Math.max(acc.y2, b.box.y2),
+  }), { ...boards[0].box });
 }
 
 /**
@@ -2034,7 +2177,6 @@ function parseSequenceText(text) {
  */
 
 
-
 /** Consecutive identical readings required before a change is accepted. */
 const CONFIRM_GROWTH = 2;
 const CONFIRM_RESET = 3;
@@ -2058,6 +2200,8 @@ class LiveWatcher {
     this.canvas = null;
     this.timer = null;
     this.region = null;
+    this.bounds = null;      // the whole result strip, in frame pixels
+    this.anchor = null;      // centre of the board being read, to keep the pick stable
     this.misses = 0;
     this.candidate = null;
     this.repeats = 0;
@@ -2141,6 +2285,8 @@ class LiveWatcher {
   /** Forget the locked position, e.g. after switching tables. */
   relock() {
     this.region = null;
+    this.bounds = null;
+    this.anchor = null;
     this.misses = 0;
     this.candidate = null;
     this.repeats = 0;
@@ -2155,10 +2301,7 @@ class LiveWatcher {
   }
 
   _reset() {
-    this.region = null;
-    this.misses = 0;
-    this.candidate = null;
-    this.repeats = 0;
+    this.relock();
     this.lastBoard = null;
     this.reads = 0;
   }
@@ -2168,6 +2311,7 @@ class LiveWatcher {
       active: this.active,
       error: this.error,
       board: this.lastBoard,
+      bounds: this.bounds,
       locked: !!this.region,
       lastReadAt: this.lastReadAt,
       reads: this.reads,
@@ -2190,7 +2334,7 @@ class LiveWatcher {
     ctx.drawImage(v, 0, 0, w, h);
     const frame = ctx.getImageData(0, 0, w, h);
 
-    let { boards } = detectBoards(frame, { region: this.region });
+    const { boards, bounds } = detectBoards(frame, { region: this.region });
     if (!boards.length && this.region) {
       this.misses += 1;
       if (this.misses >= LOCK_PATIENCE) { this.region = null; this.misses = 0; }
@@ -2199,8 +2343,11 @@ class LiveWatcher {
     }
     if (!boards.length) { this.lastBoard = null; this._emit(); return; }
 
-    const board = boards[0];
+    // Prefer the board this run has been reading, so a strip that gains a
+    // derived road between frames does not move the reading somewhere else.
+    const board = this.anchor ? nearestTo(boards, this.anchor) : boards[0];
     this.misses = 0;
+    this.bounds = bounds;
     this.lastBoard = { ...board, frameWidth: w, frameHeight: h };
     this.lastReadAt = Date.now();
     this.reads += 1;
@@ -2208,20 +2355,29 @@ class LiveWatcher {
     if (board.sequence === this.candidate) this.repeats += 1;
     else { this.candidate = board.sequence; this.repeats = 1; }
 
-    // Lock on once a reading has held still, so later frames search a small box.
+    // Lock on once a reading has held still. The locked region is the whole
+    // strip, not just the board being read: the derived roads fill in as the
+    // shoe goes on, and a box drawn tight around the bead plate would keep
+    // cutting them off.
     if (!this.region && this.repeats >= CONFIRM_GROWTH) {
-      const pad = Math.max(24, (board.box.x2 - board.box.x) * 0.06);
+      const pad = Math.max(30, (bounds.x2 - bounds.x) * 0.04);
       this.region = {
-        x: board.box.x - pad, y: board.box.y - pad,
-        w: board.box.x2 - board.box.x + pad * 2, h: board.box.y2 - board.box.y + pad * 2,
+        x: bounds.x - pad, y: bounds.y - pad,
+        w: bounds.x2 - bounds.x + pad * 2, h: bounds.y2 - bounds.y + pad * 2,
       };
+      this.anchor = { x: (board.box.x + board.box.x2) / 2, y: (board.box.y + board.box.y2) / 2 };
     }
 
     this.onRead(board.sequence, this.lastBoard, this.repeats);
     this._emit();
   }
 
-  /** Paint the most recent frame, dimmed outside the board, into `target`. */
+  /**
+   * Paint the most recent frame into `target`: the whole result strip stays
+   * lit, everything else dims, and the board being read is outlined with its
+   * cells ringed, so it is obvious both what is being watched and what is
+   * actually being counted.
+   */
   drawPreview(target) {
     const v = this.video, board = this.lastBoard;
     if (!v || !v.videoWidth || !this.canvas) return false;
@@ -2230,26 +2386,7 @@ class LiveWatcher {
     const ctx = target.getContext("2d");
     ctx.drawImage(this.canvas, 0, 0);
     if (!board) return true;
-
-    const css = getComputedStyle(document.documentElement);
-    const pad = 10;
-    ctx.save();
-    ctx.fillStyle = "rgba(0,0,0,0.58)";
-    ctx.fillRect(0, 0, w, h);
-    const bx = board.box.x - pad, by = board.box.y - pad;
-    const bw = board.box.x2 - board.box.x + pad * 2, bh = board.box.y2 - board.box.y + pad * 2;
-    ctx.drawImage(this.canvas, bx, by, bw, bh, bx, by, bw, bh);
-    ctx.strokeStyle = css.getPropertyValue("--accent").trim();
-    ctx.lineWidth = 2;
-    ctx.strokeRect(bx, by, bw, bh);
-    ctx.strokeStyle = css.getPropertyValue("--mark-ring").trim() || "#fff";
-    ctx.lineWidth = 1.6;
-    for (const c of board.cells) {
-      ctx.beginPath();
-      ctx.arc(c.cx, c.cy, c.r * 1.12, 0, Math.PI * 2);
-      ctx.stroke();
-    }
-    ctx.restore();
+    drawStrip(ctx, this.canvas, this.bounds || board.box, board);
     return true;
   }
 }
@@ -2268,6 +2405,59 @@ function diagnose(current, incoming) {
   if (incoming.startsWith(current)) return "grow";
   if (current.startsWith(incoming)) return "hold";
   return "reset";
+}
+
+
+/** The board whose centre is closest to `point`, falling back to the best. */
+function nearestTo(boards, point) {
+  let best = boards[0], bestD = Infinity;
+  for (const b of boards) {
+    const cx = (b.box.x + b.box.x2) / 2, cy = (b.box.y + b.box.y2) / 2;
+    const d = (cx - point.x) ** 2 + (cy - point.y) ** 2;
+    if (d < bestD) { bestD = d; best = b; }
+  }
+  return best;
+}
+
+/**
+ * Dim everything outside `bounds`, then mark `board` inside it.
+ *
+ * Shared by the live preview and the pasted-capture view so both show the same
+ * thing: the strip being watched, and the board being counted.
+ */
+function drawStrip(ctx, source, bounds, board) {
+  const css = getComputedStyle(document.documentElement);
+  const w = source.width, h = source.height;
+  const pad = Math.max(12, (bounds.x2 - bounds.x) * 0.02);
+  const bx = Math.max(0, bounds.x - pad), by = Math.max(0, bounds.y - pad);
+  const bw = Math.min(w - bx, bounds.x2 - bounds.x + pad * 2);
+  const bh = Math.min(h - by, bounds.y2 - bounds.y + pad * 2);
+
+  ctx.save();
+  ctx.fillStyle = "rgba(0,0,0,0.6)";
+  ctx.fillRect(0, 0, w, h);
+  ctx.drawImage(source, bx, by, bw, bh, bx, by, bw, bh);
+
+  ctx.strokeStyle = css.getPropertyValue("--accent").trim();
+  ctx.lineWidth = 2;
+  ctx.strokeRect(bx, by, bw, bh);
+
+  if (board) {
+    const p = 6;
+    ctx.setLineDash([5, 4]);
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(board.box.x - p, board.box.y - p,
+                   board.box.x2 - board.box.x + p * 2, board.box.y2 - board.box.y + p * 2);
+    ctx.setLineDash([]);
+    ctx.strokeStyle = css.getPropertyValue("--mark-ring").trim() || "#fff";
+    ctx.lineWidth = 1.6;
+    for (const c of board.cells) {
+      ctx.beginPath();
+      ctx.arc(c.cx, c.cy, c.r * 1.12, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+  }
+  ctx.restore();
 }
 
 /* ═══ store.js ═══ */
@@ -2589,15 +2779,16 @@ function classifyPaste(current, pasted) {
 async function handleImage(source) {
   const canvas = document.createElement("canvas");
   const work = toWorkingImage(source, canvas);
-  const { boards, diameter } = detectBoards(work.imageData);
-  shot = { ...work, canvas, boards, pick: 0, diameter, region: null };
+  const { boards, bounds, diameter } = detectBoards(work.imageData);
+  shot = { ...work, canvas, boards, bounds, pick: 0, diameter, region: null };
   renderShot();
 }
 
 function rerunDetection(region) {
   if (!shot) return;
-  const { boards } = detectBoards(shot.imageData, { region });
+  const { boards, bounds } = detectBoards(shot.imageData, { region });
   shot.boards = boards;
+  shot.bounds = bounds;
   shot.pick = 0;
   shot.region = region;
   renderShot();
@@ -2615,28 +2806,8 @@ function renderShot() {
 
   const board = shot.boards[shot.pick];
   if (board) {
-    ctx.save();
-    ctx.fillStyle = "rgba(0,0,0,0.55)";
-    ctx.fillRect(0, 0, shot.width, shot.height);
-    const b = board.box, pad = shot.diameter * 0.45;
-    ctx.clearRect(b.x - pad, b.y - pad, b.x2 - b.x + pad * 2, b.y2 - b.y + pad * 2);
-    ctx.drawImage(shot.canvas, b.x - pad, b.y - pad, b.x2 - b.x + pad * 2, b.y2 - b.y + pad * 2,
-      b.x - pad, b.y - pad, b.x2 - b.x + pad * 2, b.y2 - b.y + pad * 2);
-
-    const css = getComputedStyle(document.documentElement);
-    const ink = css.getPropertyValue("--mark-ring").trim() || "#fff";
-    board.cells.forEach((c, i) => {
-      ctx.beginPath();
-      ctx.arc(c.cx, c.cy, c.r * 1.12, 0, Math.PI * 2);
-      ctx.lineWidth = 2; ctx.strokeStyle = ink; ctx.stroke();
-      if (i === board.cells.length - 1) {
-        ctx.beginPath();
-        ctx.arc(c.cx, c.cy, c.r * 1.5, 0, Math.PI * 2);
-        ctx.lineWidth = 1.5; ctx.strokeStyle = css.getPropertyValue("--accent").trim();
-        ctx.stroke();
-      }
-    });
-    ctx.restore();
+    // Light the whole strip of results, outline the board being counted.
+    drawStrip(ctx, shot.canvas, unionBox(shot.boards) || board.box, board);
   }
 
   const readout = $("readout");
@@ -2867,6 +3038,104 @@ function edges(q, tieP) {
   return { B: decided * (q * 0.95 - (1 - q)), P: decided * (1 - 2 * q) };
 }
 
+/* ------------------------------------------------------------ prediction */
+
+/**
+ * Where a Banker bet stops being the better of the two losing wagers.
+ *
+ * Banker returns 0.95q - (1-q), Player returns (1-q) - q, so Banker is ahead
+ * while q > 2/3.95 = 50.6329%. A fresh shoe sits at 50.6825% -- just 0.05pp
+ * above the line, which is why the pick is never held with any confidence.
+ */
+const SIDE_CROSSOVER = 2 / 3.95;
+
+/** Cards consumed per coup and by the burn, measured over 3,000 simulated shoes. */
+const CARDS_PER_COUP = 4.9392;
+const MEAN_BURN = 7.518;
+const SHOE_CARDS = 416;
+
+/**
+ * The next coup's probabilities, as a posterior rather than a raw rate.
+ *
+ * The prior is a fair shoe, with a width equal to the Banker break-even gap:
+ * a deviation smaller than that could not matter, and one much larger would be
+ * extraordinary. So a handful of shoes barely moves the estimate -- which is
+ * the honest behaviour, since a handful of shoes genuinely says nothing -- and
+ * a large, real deviation moves it as far as the evidence warrants.
+ */
+function predict() {
+  const o = observed();
+  const q0 = BASE_BANKER_SHARE, s0 = BANKER_BREAKEVEN_GAP;
+
+  let q = q0, se = s0, informed = false;
+  if (o.n >= 30) {
+    const w0 = 1 / (s0 * s0), w1 = 1 / (o.se * o.se);
+    q = (q0 * w0 + o.q * w1) / (w0 + w1);
+    se = Math.sqrt(1 / (w0 + w1));
+    informed = true;
+  }
+
+  const tie = BASE_TIE, decided = 1 - tie;
+  const e = edges(q, tie);
+  const pick = e.B >= e.P ? "B" : "P";
+  const z = se > 0 ? Math.abs(q - SIDE_CROSSOVER) / se : 0;
+
+  return {
+    q, se, informed, n: o.n, z, pick, edge: e[pick],
+    probability: { P: decided * (1 - q), B: decided * q, T: tie },
+    confidence: z >= 2 ? "high" : z >= 1 ? "medium" : "low",
+    moved: Math.abs(q - q0),
+    cardsLeft: Math.max(0, Math.round(SHOE_CARDS - MEAN_BURN - currentShoe().o.length * CARDS_PER_COUP)),
+  };
+}
+
+function renderPrediction() {
+  const p = predict();
+
+  const bars = $("aiBars");
+  bars.innerHTML = "";
+  for (const code of ["P", "B", "T"]) {
+    const row = el("div", "aibar " + code);
+    row.appendChild(el("span", "n", side(code)));
+    const track = el("div", "track");
+    const fill = el("i");
+    // Scaled against the largest share so the three bars stay readable.
+    fill.style.width = (p.probability[code] / 0.5) * 100 + "%";
+    track.appendChild(fill);
+    row.appendChild(track);
+    row.appendChild(el("span", "p", pct(p.probability[code], 1)));
+    bars.appendChild(row);
+  }
+
+  const pick = $("aiSide");
+  pick.textContent = side(p.pick);
+  pick.className = "v " + p.pick;
+
+  const facts = [
+    { k: t("ai.ev"), v: pct(p.edge, 2), sub: t("ai.perCoup"), neg: p.edge < 0 },
+    { k: t("ai.confidence"), v: t("ai.conf." + p.confidence) },
+    { k: t("ai.margin"), v: "±" + (1.96 * p.se * 100).toFixed(2) + "%p" },
+    { k: t("ai.cardsLeft"), v: String(p.cardsLeft), sub: t("ai.estimated") },
+  ];
+  const grid = $("aiFacts");
+  grid.innerHTML = "";
+  for (const f of facts) {
+    const row = el("div", "aifact");
+    row.appendChild(el("span", "k", f.k));
+    const v = el("span", "v" + (f.neg ? " neg" : ""), f.v);
+    if (f.sub) v.appendChild(el("small", null, f.sub));
+    row.appendChild(v);
+    grid.appendChild(row);
+  }
+
+  const why = [t("ai.whyBase")];
+  if (!p.informed || p.moved < 0.0002) why.push(t("ai.whyThin", { n: p.n }));
+  else why.push(t("ai.whyMoved", { n: p.n, delta: (p.moved * 100).toFixed(2) }));
+  why.push(t("ai.crossover", { q: pct(SIDE_CROSSOVER, 4), z: p.z.toFixed(1) }));
+  $("aiWhy").textContent = why.join(" ");
+  $("aiDisclaimer").textContent = t("ai.disclaimer");
+}
+
 /* ---------------------------------------------------------------- render */
 
 /** The interval options carry a number, so their labels are built not stored. */
@@ -2888,6 +3157,7 @@ function renderAll() {
 
 function render() {
   renderHeader();
+  renderPrediction();
   renderKpis();
   renderScale();
   renderBoard();
