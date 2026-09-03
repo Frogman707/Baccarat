@@ -1628,6 +1628,10 @@ function conditionalChi2(signs, idx, depth) {
  * A ratio near 1 is what independent-within-shoe sampling produces; above 1
  * means shoes cluster, which is what a poorly shuffled pack looks like from
  * the outside.
+ *
+ * Exported because the interface wants this one statistic on every render, to
+ * widen its confidence interval honestly. Running the whole battery for it
+ * costs a hundred milliseconds a keystroke at two thousand shoes.
  */
 function shoeShareDispersion(shoes) {
   const shares = [], weights = [];
@@ -2292,7 +2296,8 @@ class LiveWatcher {
     this.repeats = 0;
   }
 
-  setInterval(ms) {
+  /** Named apart from the global `setInterval` it calls, to stay readable. */
+  setSampleInterval(ms) {
     this.intervalMs = ms;
     if (this.timer) {
       clearInterval(this.timer);
@@ -2460,6 +2465,58 @@ function drawStrip(ctx, source, bounds, board) {
   ctx.restore();
 }
 
+/* ═══ corpus.js ═══ */
+/* Turning the collected shoes into something the desktop package can read.
+ *
+ * Kept apart from the interface because it is pure: it takes the corpus and
+ * returns text, touches no DOM, and is therefore testable in the same place
+ * as the rest of the analysis -- which matters, because the CSV it writes is
+ * fed straight to `baccarat ingest` and a quoting mistake there corrupts a
+ * corpus silently rather than failing.
+ */
+
+/** Seconds a live table takes per coup, used to space the timestamps. */
+const SECONDS_PER_COUP = 45;
+
+/** The columns `baccarat ingest` sniffs for, in the order it expects. */
+const COLUMNS = ["outcome", "shoe_id", "game_no", "table_id", "played_at"];
+
+/** One row per coup, across every table. */
+function corpusRows(tables) {
+  const rows = [];
+  for (const [tableId, entry] of Object.entries(tables)) {
+    for (const shoe of entry.shoes) {
+      if (!shoe.o.length) continue;
+      [...shoe.o].forEach((outcome, i) => {
+        rows.push({
+          outcome,
+          shoe_id: shoe.id,
+          game_no: i + 1,
+          table_id: tableId,
+          played_at: new Date(shoe.t + i * SECONDS_PER_COUP * 1000).toISOString(),
+        });
+      });
+    }
+  }
+  return rows;
+}
+
+/**
+ * RFC 4180 quoting. Table names are typed by hand, so a comma or a quote in
+ * one has to survive the round trip rather than shift every later column.
+ */
+function csvCell(value) {
+  const text = String(value ?? "");
+  return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+}
+
+function toCsv(rows) {
+  return [
+    COLUMNS.join(","),
+    ...rows.map((r) => COLUMNS.map((c) => csvCell(r[c])).join(",")),
+  ].join("\n") + "\n";
+}
+
 /* ═══ store.js ═══ */
 /* Where the collected shoes live.
  *
@@ -2534,7 +2591,9 @@ class Store {
       const tables = {};
       snap.docs.forEach((d) => {
         const v = d.data();
-        if (!v || typeof v.outcomes !== "string") return;
+        // An empty shoe carries nothing and would just accumulate; earlier
+        // versions wrote them, so they are skipped on the way in as well.
+        if (!v || typeof v.outcomes !== "string" || !v.outcomes.length) return;
         const t = String(v.table || "live");
         (tables[t] ||= { shoes: [] }).shoes.push({
           id: d.id, o: v.outcomes, closed: !!v.closed, t: Number(v.started) || 0,
@@ -2566,10 +2625,16 @@ class Store {
     for (const id of changedShoeIds) {
       for (const [table, entry] of Object.entries(state.tables)) {
         const shoe = entry.shoes.find((s) => s.id === id);
-        if (shoe) {
+        if (!shoe) continue;
+        // A shoe with no coups is not written: it says nothing, an artifact's
+        // database is capped at five thousand documents, and undo can drop one
+        // locally at any time -- which would leave the document orphaned.
+        if (shoe.o.length) {
           this._pending.set(id, { table, outcomes: shoe.o, closed: shoe.closed, started: shoe.t });
-          break;
+        } else {
+          this._pending.delete(id);
         }
+        break;
       }
     }
     this._metaDirty = true;
@@ -2622,6 +2687,7 @@ class Store {
  * with the same code the desktop package runs, so no install is needed and
  * nothing about the operator's site is touched.
  */
+
 
 
 
@@ -2685,6 +2751,7 @@ function exampleState() {
 const table = () => state.tables[state.active] || (state.tables[state.active] = { shoes: [] });
 const shoes = () => table().shoes;
 
+/** The shoe in progress, opening one if the last is closed. Mutates. */
 function currentShoe() {
   const list = shoes();
   let last = list[list.length - 1];
@@ -2695,7 +2762,15 @@ function currentShoe() {
   return last;
 }
 
+/** The same shoe for reading only -- render paths must not open one. */
+function openShoe() {
+  const list = shoes();
+  const last = list[list.length - 1];
+  return !last || last.closed ? { id: null, o: "", closed: false, t: 0 } : last;
+}
+
 function commit(changedIds) {
+  invalidate();
   store.save(state, changedIds);
   render();
 }
@@ -2763,24 +2838,13 @@ function clearExample() {
   state = { tables: { "Table 1": { shoes: [] } }, active: "Table 1", isExample: false };
 }
 
-/**
- * Is a pasted board the shoe already in progress, or a new one?
- * A live bead plate grows from the left, so the shorter of the two being a
- * prefix of the longer means it is the same shoe seen at a different moment.
- */
-function classifyPaste(current, pasted) {
-  if (!current.length) return "same";
-  const [a, b] = current.length <= pasted.length ? [current, pasted] : [pasted, current];
-  return b.startsWith(a) ? "same" : "new";
-}
-
 /* ------------------------------------------------------------ screenshots */
 
 async function handleImage(source) {
   const canvas = document.createElement("canvas");
   const work = toWorkingImage(source, canvas);
-  const { boards, bounds, diameter } = detectBoards(work.imageData);
-  shot = { ...work, canvas, boards, bounds, pick: 0, diameter, region: null };
+  const { boards, bounds } = detectBoards(work.imageData);
+  shot = { ...work, canvas, boards, bounds, pick: 0, region: null };
   renderShot();
 }
 
@@ -2818,7 +2882,9 @@ function renderShot() {
   }
 
   const seq = board.sequence;
-  const mode = classifyPaste(currentShoe().o, seq);
+  // The same comparison the live feed uses: a reading that shares a prefix
+  // with the shoe in progress is that shoe seen later, not a new one.
+  const mode = diagnose(openShoe().o, seq) === "reset" ? "new" : "same";
   const head = el("div", "readhead");
   head.appendChild(el("span", "chip " + (board.kind === "bead" ? "ok" : "warn"),
     t(board.kind === "bead" ? "paste.kindBead" : "paste.kindBigRoad")));
@@ -2899,7 +2965,7 @@ function liveLog(text, kind) {
 }
 
 function onLiveRead(seq, board, repeats) {
-  const current = currentShoe().o;
+  const current = openShoe().o;
   const verdict = diagnose(current, seq);
 
   if (verdict === "same") { liveHolds = 0; setLiveWarn(null); return; }
@@ -3007,8 +3073,33 @@ function setMode(mode) {
 
 /* --------------------------------------------------------------- analysis */
 
-/** Banker's share of decided coups at this table, with an honest interval. */
+/**
+ * Banker's share of decided coups at this table, with an honest interval.
+ *
+ * Memoised, because three panels read it and its dispersion term walks the
+ * whole corpus. That corpus is meant to reach two thousand shoes -- the
+ * collection panel says so -- and recomputing per panel put a keystroke at
+ * a third of a second there.
+ */
+let revision = 0;
+let observedCache = null;
+
+/** Called wherever the corpus or the selected table changes. */
+function invalidate() {
+  revision += 1;
+  observedCache = null;
+}
+
 function observed() {
+  if (observedCache && observedCache.revision === revision && observedCache.table === state.active) {
+    return observedCache.value;
+  }
+  const value = measure();
+  observedCache = { revision, table: state.active, value };
+  return value;
+}
+
+function measure() {
   const list = shoes().filter((s) => s.o.length);
   let b = 0, n = 0, ties = 0, coups = 0;
   for (const s of list) {
@@ -3022,8 +3113,10 @@ function observed() {
 
   const q = b / n;
   // Within-shoe clustering inflates the true standard error above the
-  // binomial one; the dispersion statistic measures exactly that ratio.
-  const disp = list.length >= 5 ? computeStatistics(list.map((s) => s.o)).shoe_share_dispersion : NaN;
+  // binomial one, and the dispersion statistic measures exactly that ratio.
+  // Only that one statistic is computed: the rest of the battery costs a
+  // hundred milliseconds a keystroke at collection scale and says nothing here.
+  const disp = list.length >= 5 ? shoeShareDispersion(list.map((s) => s.o)) : NaN;
   const inflate = Number.isFinite(disp) ? Math.sqrt(Math.max(1, disp)) : 1;
   const se = Math.sqrt((q * (1 - q)) / n) * inflate;
   return {
@@ -3085,7 +3178,7 @@ function predict() {
     probability: { P: decided * (1 - q), B: decided * q, T: tie },
     confidence: z >= 2 ? "high" : z >= 1 ? "medium" : "low",
     moved: Math.abs(q - q0),
-    cardsLeft: Math.max(0, Math.round(SHOE_CARDS - MEAN_BURN - currentShoe().o.length * CARDS_PER_COUP)),
+    cardsLeft: Math.max(0, Math.round(SHOE_CARDS - MEAN_BURN - openShoe().o.length * CARDS_PER_COUP)),
   };
 }
 
@@ -3100,7 +3193,7 @@ function renderPrediction() {
     const track = el("div", "track");
     const fill = el("i");
     // Scaled against the largest share so the three bars stay readable.
-    fill.style.width = (p.probability[code] / 0.5) * 100 + "%";
+    fill.style.width = Math.min(100, (p.probability[code] / 0.5) * 100) + "%";
     track.appendChild(fill);
     row.appendChild(track);
     row.appendChild(el("span", "p", pct(p.probability[code], 1)));
@@ -3174,7 +3267,7 @@ function renderHeader() {
     if (name === state.active) o.selected = true;
     sel.appendChild(o);
   }
-  const shoe = currentShoe();
+  const shoe = openShoe();
   $("shoeMeta").textContent = t("header.shoeMeta", {
     shoes: shoes().filter((s) => s.o.length).length, coups: shoe.o.length,
   });
@@ -3305,7 +3398,7 @@ function renderScale() {
 }
 
 function renderBoard() {
-  const shoe = currentShoe();
+  const shoe = openShoe();
   const outcomes = [...shoe.o];
   const road = new BigRoad();
   for (const o of outcomes) road.add(o);
@@ -3503,27 +3596,6 @@ function renderIntegrityResult(rep) {
 
 /* ------------------------------------------------------------ import/out */
 
-function corpusRows() {
-  const rows = [];
-  for (const [tableId, entry] of Object.entries(state.tables)) {
-    for (const shoe of entry.shoes) {
-      if (!shoe.o.length) continue;
-      [...shoe.o].forEach((o, i) => {
-        rows.push({
-          outcome: o, shoe_id: shoe.id, game_no: i + 1, table_id: tableId,
-          played_at: new Date(shoe.t + i * 45000).toISOString(),
-        });
-      });
-    }
-  }
-  return rows;
-}
-
-function toCsv(rows) {
-  const cols = ["outcome", "shoe_id", "game_no", "table_id", "played_at"];
-  return [cols.join(","), ...rows.map((r) => cols.map((c) => r[c]).join(","))].join("\n") + "\n";
-}
-
 /**
  * Hand the file to the viewer, by whichever route this page has.
  *
@@ -3630,13 +3702,14 @@ function bindPaste() {
 }
 
 function bindControls() {
-  $("tableSel").onchange = (e) => { state.active = e.target.value; store.save(state, []); render(); };
+  $("tableSel").onchange = (e) => { state.active = e.target.value; invalidate(); store.save(state, []); render(); };
   $("addTable").onclick = () => {
     const name = prompt(t("header.newTablePrompt"));
     if (!name) return;
     clearExample();
     state.tables[name] ||= { shoes: [] };
     state.active = name;
+    invalidate();
     store.save(state, []);
     render();
   };
@@ -3693,7 +3766,7 @@ function bindControls() {
   $("liveStart").onclick = () => live.start();
   $("liveStop").onclick = () => { live.stop(); liveLog(t("live.logStopped")); };
   $("liveRelock").onclick = () => { live.relock(); liveHolds = 0; setLiveWarn(null); liveLog(t("live.logRelock")); };
-  $("liveInterval").onchange = (e) => live.setInterval(Number(e.target.value));
+  $("liveInterval").onchange = (e) => live.setSampleInterval(Number(e.target.value));
   if (!LiveWatcher.supported) { live.error = "unsupported"; live._emit(); }
 
   $("runIntegrity").onclick = runIntegrity;
@@ -3701,12 +3774,12 @@ function bindControls() {
   $("cancelIntegrity").onclick = () => { if (integrityRun) integrityRun.cancelled = true; };
 
   $("exportCsv").onclick = () => {
-    const rows = corpusRows();
+    const rows = corpusRows(state.tables);
     if (!rows.length) { $("exportNote").textContent = t("tools.exportEmpty"); return; }
     download(`baccarat-${new Date().toISOString().slice(0, 10)}.csv`, toCsv(rows));
   };
   $("exportJson").onclick = () => {
-    const rows = corpusRows();
+    const rows = corpusRows(state.tables);
     if (!rows.length) { $("exportNote").textContent = t("tools.exportEmpty"); return; }
     download(`baccarat-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(rows, null, 1));
   };
@@ -3764,12 +3837,13 @@ async function boot() {
   }
 
   state = store.readLocal() || exampleState();
+  invalidate();
   render();
   renderShot();
 
   await store.connect();
   const loaded = await store.load();
-  if (loaded && Object.keys(loaded.tables || {}).length) { state = loaded; render(); }
+  if (loaded && Object.keys(loaded.tables || {}).length) { state = loaded; invalidate(); render(); }
 }
 
 boot();
