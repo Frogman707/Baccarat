@@ -17,7 +17,9 @@
   --zone:#e2eae4; --dead:#f0f2f5; --band:#dfe5ed; --mark-ring:#ffffff;
   --shadow:0 1px 2px rgba(16,26,40,.06), 0 6px 18px -10px rgba(16,26,40,.18);
   --mono:"IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
-  --sans:"IBM Plex Sans KR", -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans KR", sans-serif;
+  --sans:"IBM Plex Sans KR", -apple-system, BlinkMacSystemFont, "Segoe UI",
+        "Noto Sans KR", "PingFang TC", "PingFang SC", "Microsoft JhengHei",
+        "Microsoft YaHei", "Noto Sans TC", "Noto Sans SC", sans-serif;
 }
 @media (prefers-color-scheme: dark){
   :root:not([data-theme="light"]){
@@ -67,6 +69,13 @@ select,input[type=text],textarea{
 .badge{font-size:11px; padding:2px 8px; border-radius:20px; background:var(--accent-soft);
        color:var(--accent); border:1px solid var(--accent); font-weight:500}
 .store{display:flex; align-items:center; gap:7px; font-size:12px; color:var(--ink-3)}
+#langSel{font-size:12.5px; padding:4px 8px}
+.themeseg{display:inline-flex; padding:2px; gap:2px; border-radius:8px; background:var(--surface-3)}
+.themebtn{width:28px; height:24px; display:grid; place-items:center; border:none; border-radius:6px;
+          background:none; color:var(--ink-3); cursor:pointer; padding:0}
+.themebtn svg{width:15px; height:15px; display:block}
+.themebtn:hover{color:var(--ink-2)}
+.themebtn.on{background:var(--surface); color:var(--ink); box-shadow:var(--shadow)}
 .sdot{width:7px; height:7px; border-radius:50%; background:var(--ink-3)}
 .sdot.synced{background:var(--tie)} .sdot.syncing{background:var(--accent)}
 .sdot.error,.sdot.full{background:var(--banker)}
@@ -241,40 +250,48 @@ footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
 
 <header>
   <div class="hin">
-    <span class="brand"><span class="pips"><i></i><i></i><i></i></span>바카라 슈 판독기</span>
-    <select id="tableSel" aria-label="테이블 선택"></select>
-    <button class="btn ghost" id="addTable">+ 테이블</button>
-    <span id="exampleBadge" class="badge" hidden>예시 데이터</span>
+    <span class="brand"><span class="pips"><i></i><i></i><i></i></span><span data-i18n="app.title"></span></span>
+    <select id="tableSel" data-i18n-aria="header.tableAria"></select>
+    <button class="btn ghost" id="addTable" data-i18n="header.addTable"></button>
+    <span id="exampleBadge" class="badge" data-i18n="header.example" hidden></span>
     <span class="spacer"></span>
     <span id="shoeMeta"></span>
-    <span class="store"><i class="sdot" id="storeDot"></i><span id="storeLabel">이 브라우저에만 저장</span></span>
+    <select id="langSel" data-i18n-aria="header.langAria"></select>
+    <span class="themeseg" role="group" data-i18n-aria="theme.auto">
+      <button class="themebtn" id="themeAuto" data-i18n-title="theme.auto" data-i18n-aria="theme.auto">
+        <svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="8" r="5.6" stroke="currentColor" stroke-width="1.5"/><path d="M8 2.4a5.6 5.6 0 0 1 0 11.2z" fill="currentColor"/></svg>
+      </button>
+      <button class="themebtn" id="themeLight" data-i18n-title="theme.light" data-i18n-aria="theme.light">
+        <svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="8" r="3.2" stroke="currentColor" stroke-width="1.5"/><path d="M8 .9v1.8M8 13.3v1.8M15.1 8h-1.8M2.7 8H.9M13 3l-1.3 1.3M4.3 11.7 3 13M13 13l-1.3-1.3M4.3 4.3 3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      </button>
+      <button class="themebtn" id="themeDark" data-i18n-title="theme.dark" data-i18n-aria="theme.dark">
+        <svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M13.4 9.6A5.9 5.9 0 0 1 6.4 2.6a5.9 5.9 0 1 0 7 7z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
+      </button>
+    </span>
+    <span class="store"><i class="sdot" id="storeDot"></i><span id="storeLabel"></span></span>
   </div>
 </header>
 
 <main>
   <section class="panel c7">
-    <h2>테이블 화면 읽기</h2>
-    <p class="sub">구슬판의 색 원을 화면에서 직접 읽습니다. 카지노 사이트에 접속하지 않고
-      화면에 이미 떠 있는 그림만 분석하므로, 어느 운영사 화면이든 동작합니다.</p>
+    <h2 data-i18n="capture.h"></h2>
+    <p class="sub" data-i18n-html="capture.sub"></p>
 
     <div class="seg" role="tablist">
-      <button class="segbtn on" id="modeLive" role="tab" aria-selected="true">실시간 읽기</button>
-      <button class="segbtn" id="modePaste" role="tab" aria-selected="false">캡처 붙여넣기</button>
+      <button class="segbtn on" id="modeLive" role="tab" aria-selected="true" data-i18n="capture.modeLive"></button>
+      <button class="segbtn" id="modePaste" role="tab" aria-selected="false" data-i18n="capture.modePaste"></button>
     </div>
 
     <!-- ── live ────────────────────────────────────────────────────── -->
     <div id="livePane">
       <div id="liveIdle">
         <div class="livebox">
-          <div class="big">브라우저 화면을 실시간으로 읽습니다</div>
-          <p class="small">화면 공유를 시작하면 아바타 스피드 탭을 고르는 창이 뜹니다.
-            고른 뒤에는 캡처도 붙여넣기도 필요 없습니다 — 몇 초마다 구슬판을 다시 읽어
-            새 판이 나오는 대로 알아서 들어옵니다.</p>
+          <div class="big" data-i18n="live.idleH"></div>
+          <p class="small" data-i18n="live.idleBody"></p>
           <div class="actions" style="justify-content:center">
-            <button class="btn primary" id="liveStart">화면 공유 시작</button>
+            <button class="btn primary" id="liveStart" data-i18n="live.start"></button>
           </div>
-          <p class="small" style="margin-top:12px">브라우저가 어느 화면을 공유할지 직접 묻습니다.
-            영상은 이 페이지 밖으로 나가지 않고, 녹화되지도 않습니다.</p>
+          <p class="small" style="margin-top:12px" data-i18n="live.privacy"></p>
         </div>
       </div>
 
@@ -282,16 +299,16 @@ footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
         <canvas id="liveCanvas"></canvas>
         <div class="livebar">
           <span class="livedot" id="liveDot"></span>
-          <span id="liveStatus">시작하는 중…</span>
+          <span id="liveStatus"></span>
           <span class="spacer"></span>
-          <select id="liveInterval" aria-label="읽는 간격">
-            <option value="1000">1초마다</option>
-            <option value="1500" selected>1.5초마다</option>
-            <option value="3000">3초마다</option>
-            <option value="6000">6초마다</option>
+          <select id="liveInterval" data-i18n-aria="live.intervalAria">
+            <option value="1000"></option>
+            <option value="1500" selected></option>
+            <option value="3000"></option>
+            <option value="6000"></option>
           </select>
-          <button class="btn ghost" id="liveRelock">영역 다시 찾기</button>
-          <button class="btn" id="liveStop">멈춤</button>
+          <button class="btn ghost" id="liveRelock" data-i18n="live.relock"></button>
+          <button class="btn" id="liveStop" data-i18n="live.stop"></button>
         </div>
         <div id="liveWarn" class="warn" hidden></div>
         <div id="liveLog" class="livelog"></div>
@@ -304,12 +321,11 @@ footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
     <div id="pastePane" hidden>
       <div id="drop">
         <div id="dropIdle">
-          <div class="big">화면을 캡처해서 여기에 붙여넣으세요</div>
+          <div class="big" data-i18n="paste.h"></div>
           <div class="kbd"><b>Ctrl</b><b>V</b></div>
-          <div class="small">Windows는 <b>Win + Shift + S</b>, Mac은 <b>⌘ + Shift + 4</b>로 캡처 ·
-            이미지를 끌어다 놓아도 됩니다</div>
+          <div class="small" data-i18n-html="paste.hint"></div>
           <div class="small" style="margin-top:10px">
-            <button class="linkish" id="pickFile">파일에서 고르기</button>
+            <button class="linkish" id="pickFile" data-i18n="paste.pickFile"></button>
             <input type="file" id="filePick" accept="image/*" hidden>
           </div>
         </div>
@@ -322,55 +338,47 @@ footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
   </section>
 
   <section class="panel c5">
-    <h2>현재 상태</h2>
-    <p class="sub">모은 양과, 이 테이블이 실제로 어디에 서 있는지.</p>
+    <h2 data-i18n="state.h"></h2>
+    <p class="sub" data-i18n="state.sub"></p>
     <div id="kpis"></div>
   </section>
 
   <section class="panel c12">
-    <h2>손익분기 눈금 — 베팅할 가치가 있는가</h2>
-    <p class="sub">뱅커 베팅은 P(뱅커 | 타이 제외)가 51.282%를 넘어야, 플레이어는 50.000% 아래여야
-      기댓값이 플러스가 됩니다. 신선한 8덱 슈는 50.68% — 두 선 사이 <b>죽은 구간</b>입니다.
-      이 테이블의 실측값이 어디 있는지 함께 표시합니다.</p>
-    <svg id="scale" viewBox="0 0 720 150" role="img"
-         aria-label="P(뱅커 | 타이 제외) 눈금. 50.000% 미만은 플레이어 이익, 51.282% 초과는 뱅커 이익, 그 사이는 두 베팅 모두 손실인 죽은 구간."></svg>
+    <h2 data-i18n="scale.h"></h2>
+    <p class="sub" data-i18n-html="scale.sub"></p>
+    <svg id="scale" viewBox="0 0 720 168" role="img" data-i18n-aria="scale.axis"></svg>
     <div id="scaleNote" class="verdict neutral"></div>
   </section>
 
   <section class="panel c12">
-    <h2>보드 — 현재 슈</h2>
-    <p class="sub">구슬판과 빅로드, 그리고 빅로드에서 파생되는 세 로드. 파생 로드는 빅로드의
-      결정론적 함수라 새로운 정보를 담지 않습니다 — 사람이 읽는 형태로 함께 보여줄 뿐입니다.</p>
+    <h2 data-i18n="board.h"></h2>
+    <p class="sub" data-i18n="board.sub"></p>
     <div class="boards">
-      <div class="boardbox"><div class="blabel">구슬판</div><div class="roadscroll"><div id="bead"></div></div></div>
-      <div class="boardbox"><div class="blabel">빅로드</div><div class="roadscroll"><div id="big"></div></div></div>
-      <div class="boardbox"><div class="blabel">빅아이보이</div><div class="roadscroll"><div id="beb"></div></div></div>
-      <div class="boardbox"><div class="blabel">스몰로드</div><div class="roadscroll"><div id="small"></div></div></div>
-      <div class="boardbox"><div class="blabel">코크로치</div><div class="roadscroll"><div id="roach"></div></div></div>
+      <div class="boardbox"><div class="blabel" data-i18n="board.bead"></div><div class="roadscroll"><div id="bead"></div></div></div>
+      <div class="boardbox"><div class="blabel" data-i18n="board.big"></div><div class="roadscroll"><div id="big"></div></div></div>
+      <div class="boardbox"><div class="blabel" data-i18n="board.beb"></div><div class="roadscroll"><div id="beb"></div></div></div>
+      <div class="boardbox"><div class="blabel" data-i18n="board.small"></div><div class="roadscroll"><div id="small"></div></div></div>
+      <div class="boardbox"><div class="blabel" data-i18n="board.roach"></div><div class="roadscroll"><div id="roach"></div></div></div>
     </div>
     <div id="boardMeta"></div>
   </section>
 
   <section class="panel c5">
-    <h2>수집 진행</h2>
-    <p class="sub">표본이 클수록 작은 편향까지 잡아냅니다. 각 단계는 실제로 측정한
-      탐지력 기준입니다 — 80슈에서 3% 편향을 80% 확률로 잡아냅니다.</p>
+    <h2 data-i18n="collect.h"></h2>
+    <p class="sub" data-i18n="collect.sub"></p>
     <div id="milestones"></div>
   </section>
 
   <section class="panel c7">
-    <h2>셔플 무결성 검정</h2>
-    <p class="sub">결과만 있는 데이터가 답할 수 있는 가장 값진 질문입니다.
-      정직한 8덱 슈에는 이용할 수 있는 신호가 없으므로, 패턴이 통하려면 이 테이블의 셔플이
-      제대로 되지 않았어야 합니다. 17개 순서 통계를 <b>같은 크기의 시뮬레이션 슈</b>와 비교합니다 —
-      "50.68%의 독립시행"이 아니라 진짜 슈와 비교해야 정직한 테이블을 오탐하지 않습니다.</p>
+    <h2 data-i18n="int.h"></h2>
+    <p class="sub" data-i18n-html="int.sub"></p>
     <div class="introw">
-      <button class="btn primary" id="runIntegrity">검정 실행</button>
-      <button class="btn ghost" id="cancelIntegrity">중단</button>
-      <select id="reps" aria-label="귀무분포 복제 횟수">
-        <option value="100">복제 100회 (빠름)</option>
-        <option value="200" selected>복제 200회 (기본)</option>
-        <option value="400">복제 400회 (정밀)</option>
+      <button class="btn primary" id="runIntegrity" data-i18n="int.run"></button>
+      <button class="btn ghost" id="cancelIntegrity" data-i18n="int.cancel"></button>
+      <select id="reps" data-i18n-aria="int.repsAria">
+        <option value="100" data-i18n="int.reps100"></option>
+        <option value="200" selected data-i18n="int.reps200"></option>
+        <option value="400" data-i18n="int.reps400"></option>
       </select>
       <span class="note" id="intHint" style="margin:0"></span>
     </div>
@@ -386,37 +394,37 @@ footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
   </section>
 
   <section class="panel c12">
-    <h2>직접 입력과 내보내기</h2>
+    <h2 data-i18n="tools.h"></h2>
     <div class="tools">
       <div>
-        <div class="blabel">한 판씩 입력</div>
+        <div class="blabel" data-i18n="tools.keysH"></div>
         <div class="keys">
-          <button class="btn" id="keyP">플레이어<b>P</b></button>
-          <button class="btn" id="keyB">뱅커<b>B</b></button>
-          <button class="btn" id="keyT">타이<b>T</b></button>
-          <button class="btn ghost" id="keyUndo">실행취소<b>U</b></button>
-          <button class="btn ghost" id="keyNew">새 슈<b>N</b></button>
+          <button class="btn" id="keyP"><span data-i18n="side.P"></span><b>P</b></button>
+          <button class="btn" id="keyB"><span data-i18n="side.B"></span><b>B</b></button>
+          <button class="btn" id="keyT"><span data-i18n="side.T"></span><b>T</b></button>
+          <button class="btn ghost" id="keyUndo"><span data-i18n="tools.undo"></span><b>U</b></button>
+          <button class="btn ghost" id="keyNew"><span data-i18n="tools.newShoe"></span><b>N</b></button>
         </div>
-        <p class="note">입력창 밖에서는 키보드 단축키가 그대로 동작합니다.</p>
+        <p class="note" data-i18n="tools.keysNote"></p>
       </div>
       <div>
-        <div class="blabel">결과를 글로 붙여넣기</div>
-        <textarea id="textIn" placeholder="PBBTP… / 플레이어 뱅커 타이 / 莊閒和 — 어떤 형식이든"></textarea>
+        <div class="blabel" data-i18n="tools.textH"></div>
+        <textarea id="textIn" data-i18n-ph="tools.textPlaceholder"></textarea>
         <div class="actions" style="margin-top:8px">
-          <button class="btn" id="textAdd">현재 슈에 추가</button>
-          <button class="btn ghost" id="textNew">새 슈로</button>
+          <button class="btn" id="textAdd" data-i18n="tools.textAdd"></button>
+          <button class="btn ghost" id="textNew" data-i18n="tools.textNew"></button>
         </div>
         <p class="note" id="textNote"></p>
       </div>
       <div>
-        <div class="blabel">데이터 내보내기</div>
+        <div class="blabel" data-i18n="tools.exportH"></div>
         <div class="actions" style="margin-top:0">
           <button class="btn" id="exportCsv">CSV</button>
           <button class="btn" id="exportJson">JSON</button>
-          <button class="btn ghost" id="resetBtn">이 테이블 지우기</button>
+          <button class="btn ghost" id="resetBtn" data-i18n="tools.reset"></button>
         </div>
-        <p class="note">데스크톱 패키지로 그대로 넘어갑니다:
-          <code>python -m baccarat ingest 파일.csv --save 내데이터</code></p>
+        <p class="note"><span data-i18n="tools.ingestNote"></span>
+          <code>python -m baccarat ingest data.csv --save mydata</code></p>
         <p class="note" id="exportNote"></p>
         <textarea id="exportDump" hidden readonly></textarea>
       </div>
@@ -424,12 +432,645 @@ footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
   </section>
 </main>
 
-<footer>
-  브라우저 안에서만 동작합니다 — 붙여넣은 이미지도, 모은 결과도 어떤 카지노 사이트로도 전송되지 않습니다.
-  확률·로드·무결성 계산은 데스크톱 패키지와 같은 코드를 옮긴 것이며, 파이썬 원본과 동일한 값을 내도록 검증돼 있습니다.
-</footer>
+<footer data-i18n="footer"></footer>
 
 <script type="module">
+/* ═══ i18n.js ═══ */
+/* Language and theme.
+ *
+ * Every string a person reads lives here, keyed by meaning and carrying all
+ * four languages together -- so a missing translation is visible at a glance
+ * rather than discovered on screen. The markup carries `data-i18n` keys and
+ * the rendered views call `t()`, which means switching language re-labels the
+ * whole page without a reload.
+ *
+ * Baccarat has settled Chinese terminology and it is not a literal translation
+ * of the English: the roads are 珠盤路 / 大路 / 大眼仔 / 小路, and the wagers are
+ * 莊 / 閒 / 和. Using anything else would read as machine output to anyone who
+ * plays the game.
+ */
+
+const LANGS = [
+  { code: "ko", label: "한국어" },
+  { code: "en", label: "English" },
+  { code: "zh-Hant", label: "繁體中文" },
+  { code: "zh-Hans", label: "简体中文" },
+];
+
+const THEMES = ["auto", "light", "dark"];
+
+const LANG_KEY = "baccarat.lang";
+const THEME_KEY = "baccarat.theme";
+
+/** key -> { ko, en, zh-Hant, zh-Hans } */
+const S = {
+  /* ---------------------------------------------------------- app + header */
+  "app.title": {
+    ko: "바카라 슈 판독기", en: "Baccarat Shoe Reader",
+    "zh-Hant": "百家樂牌靴判讀器", "zh-Hans": "百家乐牌靴判读器",
+  },
+  "header.addTable": { ko: "+ 테이블", en: "+ Table", "zh-Hant": "+ 桌台", "zh-Hans": "+ 桌台" },
+  "header.tableAria": { ko: "테이블 선택", en: "Select table", "zh-Hant": "選擇桌台", "zh-Hans": "选择桌台" },
+  "header.example": { ko: "예시 데이터", en: "Sample data", "zh-Hant": "範例資料", "zh-Hans": "示例数据" },
+  "header.langAria": { ko: "언어", en: "Language", "zh-Hant": "語言", "zh-Hans": "语言" },
+  "header.newTablePrompt": {
+    ko: "테이블 이름 (예: HANN-Speed-03)", en: "Table name (e.g. HANN-Speed-03)",
+    "zh-Hant": "桌台名稱（例：HANN-Speed-03）", "zh-Hans": "桌台名称（例：HANN-Speed-03）",
+  },
+  "header.shoeMeta": {
+    ko: "{shoes}슈 수집 · 현재 슈 {coups}판", en: "Shoes {shoes} · this shoe {coups}",
+    "zh-Hant": "已收集 {shoes} 靴 · 本靴 {coups} 局", "zh-Hans": "已收集 {shoes} 靴 · 本靴 {coups} 局",
+  },
+
+  "theme.auto": { ko: "시스템", en: "Auto", "zh-Hant": "自動", "zh-Hans": "自动" },
+  "theme.light": { ko: "밝게", en: "Light", "zh-Hant": "淺色", "zh-Hans": "浅色" },
+  "theme.dark": { ko: "어둡게", en: "Dark", "zh-Hant": "深色", "zh-Hans": "深色" },
+
+  "store.local": { ko: "이 브라우저에만 저장", en: "Saved in this browser", "zh-Hant": "僅存於此瀏覽器", "zh-Hans": "仅存于此浏览器" },
+  "store.syncing": { ko: "저장 중…", en: "Saving…", "zh-Hant": "儲存中…", "zh-Hans": "保存中…" },
+  "store.synced": { ko: "저장됨", en: "Saved", "zh-Hant": "已儲存", "zh-Hans": "已保存" },
+  "store.error": { ko: "저장 실패", en: "Save failed", "zh-Hant": "儲存失敗", "zh-Hans": "保存失败" },
+  "store.full": { ko: "저장 공간 가득 참", en: "Storage full", "zh-Hant": "儲存空間已滿", "zh-Hans": "存储空间已满" },
+
+  /* ------------------------------------------------------------ side names */
+  "side.P": { ko: "플레이어", en: "Player", "zh-Hant": "閒", "zh-Hans": "闲" },
+  "side.B": { ko: "뱅커", en: "Banker", "zh-Hant": "莊", "zh-Hans": "庄" },
+  "side.T": { ko: "타이", en: "Tie", "zh-Hant": "和", "zh-Hans": "和" },
+  "mark.P": { ko: "플", en: "P", "zh-Hant": "閒", "zh-Hans": "闲" },
+  "mark.B": { ko: "뱅", en: "B", "zh-Hant": "莊", "zh-Hans": "庄" },
+  "mark.T": { ko: "타", en: "T", "zh-Hant": "和", "zh-Hans": "和" },
+
+  /* ------------------------------------------------------------- capture */
+  "capture.h": { ko: "테이블 화면 읽기", en: "Read the table screen", "zh-Hant": "讀取桌台畫面", "zh-Hans": "读取桌台画面" },
+  "capture.sub": {
+    ko: "구슬판의 색 원을 화면에서 직접 읽습니다. 카지노 사이트에 접속하지 않고 화면에 이미 떠 있는 그림만 분석하므로, 어느 운영사 화면이든 동작합니다.",
+    en: "Reads the coloured beads straight off the picture. It never connects to the casino — it only analyses what is already on your screen — so it works with any operator's layout.",
+    "zh-Hant": "直接從畫面讀取珠盤路的彩色圓點。不會連線到賭場網站，只分析畫面上已顯示的影像，因此任何營運商的介面都能使用。",
+    "zh-Hans": "直接从画面读取珠盘路的彩色圆点。不会连接赌场网站，只分析屏幕上已显示的图像，因此任何运营商的界面都能使用。",
+  },
+  "capture.modeLive": { ko: "실시간 읽기", en: "Live reading", "zh-Hant": "即時讀取", "zh-Hans": "实时读取" },
+  "capture.modePaste": { ko: "캡처 붙여넣기", en: "Paste a capture", "zh-Hant": "貼上截圖", "zh-Hans": "粘贴截图" },
+
+  /* ---------------------------------------------------------------- live */
+  "live.idleH": { ko: "브라우저 화면을 실시간으로 읽습니다", en: "Read your browser screen as it changes", "zh-Hant": "即時讀取瀏覽器畫面", "zh-Hans": "实时读取浏览器画面" },
+  "live.idleBody": {
+    ko: "화면 공유를 시작하면 어느 창을 공유할지 묻는 창이 뜹니다. 테이블이 열린 탭을 고른 뒤에는 캡처도 붙여넣기도 필요 없습니다 — 몇 초마다 구슬판을 다시 읽어 새 판이 나오는 대로 알아서 들어옵니다.",
+    en: "Starting screen sharing opens your browser's own picker. Choose the tab with the table, and that is the last step — the bead plate is re-read every few seconds and new coups arrive on their own.",
+    "zh-Hant": "開始畫面分享後，瀏覽器會請您選擇要分享的視窗。選擇開著桌台的分頁之後就不必再截圖或貼上 — 每隔數秒重新讀取珠盤路，新的一局會自動進來。",
+    "zh-Hans": "开始画面共享后，浏览器会请您选择要共享的窗口。选择开着桌台的标签页之后就不必再截图或粘贴 — 每隔数秒重新读取珠盘路，新的一局会自动进来。",
+  },
+  "live.start": { ko: "화면 공유 시작", en: "Start screen sharing", "zh-Hant": "開始畫面分享", "zh-Hans": "开始画面共享" },
+  "live.privacy": {
+    ko: "브라우저가 어느 화면을 공유할지 직접 묻습니다. 영상은 이 페이지 밖으로 나가지 않고, 녹화되지도 않습니다.",
+    en: "Your browser asks which screen to share. The video never leaves this page and is never recorded.",
+    "zh-Hant": "由瀏覽器詢問您要分享哪個畫面。影像不會離開本頁，也不會被錄製。",
+    "zh-Hans": "由浏览器询问您要共享哪个画面。视频不会离开本页，也不会被录制。",
+  },
+  "live.intervalAria": { ko: "읽는 간격", en: "Reading interval", "zh-Hant": "讀取間隔", "zh-Hans": "读取间隔" },
+  "live.every": { ko: "{n}초마다", en: "Every {n}s", "zh-Hant": "每 {n} 秒", "zh-Hans": "每 {n} 秒" },
+  "live.relock": { ko: "영역 다시 찾기", en: "Find the board again", "zh-Hant": "重新尋找區域", "zh-Hans": "重新寻找区域" },
+  "live.stop": { ko: "멈춤", en: "Stop", "zh-Hant": "停止", "zh-Hans": "停止" },
+  "live.starting": { ko: "시작하는 중…", en: "Starting…", "zh-Hant": "啟動中…", "zh-Hans": "启动中…" },
+  "live.reading": {
+    ko: "{n}판 읽음 · {lock} · {ago}초 전", en: "{n} read · {lock} · {ago}s ago",
+    "zh-Hant": "已讀 {n} 局 · {lock} · {ago} 秒前", "zh-Hans": "已读 {n} 局 · {lock} · {ago} 秒前",
+  },
+  "live.locked": { ko: "영역 고정", en: "board locked", "zh-Hant": "區域已鎖定", "zh-Hans": "区域已锁定" },
+  "live.locking": { ko: "영역 찾는 중", en: "finding the board", "zh-Hant": "尋找區域中", "zh-Hans": "寻找区域中" },
+  "live.searching": {
+    ko: "구슬판을 찾는 중 — 테이블 화면이 보이는 창을 공유했는지 확인하세요",
+    en: "Looking for the bead plate — check that you shared the window showing the table",
+    "zh-Hant": "正在尋找珠盤路 — 請確認分享的是顯示桌台的視窗",
+    "zh-Hans": "正在寻找珠盘路 — 请确认共享的是显示桌台的窗口",
+  },
+  "live.logGrow": { ko: "+{n}판 → {total}판  {sides}", en: "+{n} → {total}  {sides}", "zh-Hant": "+{n} 局 → {total} 局  {sides}", "zh-Hans": "+{n} 局 → {total} 局  {sides}" },
+  "live.logNewShoe": { ko: "새 슈 시작 — {n}판 읽음", en: "New shoe — {n} read", "zh-Hant": "新牌靴 — 已讀 {n} 局", "zh-Hans": "新牌靴 — 已读 {n} 局" },
+  "live.logStopped": { ko: "화면 공유 중단", en: "Screen sharing stopped", "zh-Hant": "已停止畫面分享", "zh-Hans": "已停止画面共享" },
+  "live.logRelock": { ko: "영역을 다시 찾습니다", en: "Finding the board again", "zh-Hant": "重新尋找區域", "zh-Hans": "重新寻找区域" },
+  "live.logManual": { ko: "{n}판으로 수동 교체", en: "Replaced by hand with {n}", "zh-Hant": "手動替換為 {n} 局", "zh-Hans": "手动替换为 {n} 局" },
+  "live.shortWarn": {
+    ko: "읽은 값이 {read}판으로 현재 슈({cur}판)보다 짧습니다. 구슬판이 잘렸거나 옆으로 밀렸을 수 있습니다 — 화면에 구슬판 전체가 보이는지 확인하세요.",
+    en: "The reading is {read} coups, shorter than the {cur} in this shoe. The bead plate may be cropped or scrolled — check that all of it is visible.",
+    "zh-Hant": "讀到 {read} 局，比目前牌靴的 {cur} 局還短。珠盤路可能被裁切或捲動 — 請確認畫面上看得到完整珠盤路。",
+    "zh-Hans": "读到 {read} 局，比当前牌靴的 {cur} 局还短。珠盘路可能被裁切或滚动 — 请确认画面上看得到完整珠盘路。",
+  },
+  "live.shortSwap": { ko: "{n}판으로 교체", en: "Replace with {n}", "zh-Hant": "替換為 {n} 局", "zh-Hans": "替换为 {n} 局" },
+  "live.retry": { ko: "다시 시도", en: "Try again", "zh-Hant": "重試", "zh-Hans": "重试" },
+  "live.toPaste": { ko: "캡처 붙여넣기로 전환", en: "Switch to pasting a capture", "zh-Hant": "改用貼上截圖", "zh-Hans": "改用粘贴截图" },
+  "live.errUnsupportedH": { ko: "이 브라우저에서는 화면 공유를 쓸 수 없습니다", en: "This browser cannot share a screen", "zh-Hant": "此瀏覽器無法使用畫面分享", "zh-Hans": "此浏览器无法使用画面共享" },
+  "live.errUnsupportedBody": {
+    ko: "모바일 브라우저 대부분과 일부 구형 브라우저는 화면 공유를 지원하지 않습니다. PC의 Chrome · Edge · Firefox에서 열거나, <b>캡처 붙여넣기</b> 방식을 쓰세요.",
+    en: "Most mobile browsers and some older desktop ones do not support screen sharing. Open this on a desktop Chrome, Edge or Firefox, or use <b>paste a capture</b> instead.",
+    "zh-Hant": "大多數行動瀏覽器與部分舊版瀏覽器不支援畫面分享。請在電腦版 Chrome、Edge 或 Firefox 開啟，或改用<b>貼上截圖</b>。",
+    "zh-Hans": "大多数移动浏览器与部分旧版浏览器不支持画面共享。请在电脑版 Chrome、Edge 或 Firefox 打开，或改用<b>粘贴截图</b>。",
+  },
+  "live.errDeniedH": { ko: "화면 공유가 차단되었습니다", en: "Screen sharing was blocked", "zh-Hant": "畫面分享被阻擋", "zh-Hans": "画面共享被阻止" },
+  "live.errDeniedIntro": { ko: "둘 중 하나입니다.", en: "One of two things happened.", "zh-Hant": "可能是以下兩種情況之一。", "zh-Hans": "可能是以下两种情况之一。" },
+  "live.errDenied1": {
+    ko: "<b>공유 창에서 취소를 눌렀다면</b> — 다시 시작하고 테이블이 열린 탭을 고르세요.",
+    en: "<b>You cancelled the picker</b> — start again and choose the tab with the table.",
+    "zh-Hant": "<b>若您在選擇視窗時按了取消</b> — 請重新開始並選擇開著桌台的分頁。",
+    "zh-Hans": "<b>若您在选择窗口时按了取消</b> — 请重新开始并选择开着桌台的标签页。",
+  },
+  "live.errDenied2": {
+    ko: "<b>창이 아예 뜨지 않았다면</b> — 이 페이지가 다른 페이지 안에 삽입돼 있어 화면 공유 권한을 받지 못한 경우입니다. 아래 링크로 이 페이지를 <b>새 탭에서 직접 열면</b> 됩니다.",
+    en: "<b>No picker appeared at all</b> — this page is embedded in another one and was not granted screen-capture permission. Open it <b>directly in its own tab</b> with the link below.",
+    "zh-Hant": "<b>若完全沒有出現選擇視窗</b> — 表示本頁被嵌入在其他頁面中，未取得畫面擷取權限。請用下方連結<b>在新分頁直接開啟</b>。",
+    "zh-Hans": "<b>若完全没有出现选择窗口</b> — 表示本页被嵌入在其他页面中，未取得画面捕获权限。请用下方链接<b>在新标签页直接打开</b>。",
+  },
+  "live.errOpenTop": { ko: "이 페이지를 새 탭에서 열기 →", en: "Open this page in its own tab →", "zh-Hant": "在新分頁開啟本頁 →", "zh-Hans": "在新标签页打开本页 →" },
+  "live.errNoSourceH": { ko: "공유할 화면을 찾지 못했습니다", en: "No screen was available to share", "zh-Hant": "找不到可分享的畫面", "zh-Hans": "找不到可共享的画面" },
+  "live.errNoSourceBody": { ko: "다시 시도해 주세요.", en: "Please try again.", "zh-Hant": "請再試一次。", "zh-Hans": "请再试一次。" },
+  "live.errFailedH": { ko: "화면 공유를 시작하지 못했습니다", en: "Screen sharing could not start", "zh-Hant": "無法開始畫面分享", "zh-Hans": "无法开始画面共享" },
+  "live.errFailedBody": {
+    ko: "브라우저를 새로고침한 뒤 다시 시도하거나, <b>캡처 붙여넣기</b> 방식을 쓰세요.",
+    en: "Reload the page and try again, or use <b>paste a capture</b> instead.",
+    "zh-Hant": "請重新整理後再試，或改用<b>貼上截圖</b>。",
+    "zh-Hans": "请刷新后再试，或改用<b>粘贴截图</b>。",
+  },
+
+  /* --------------------------------------------------------------- paste */
+  "paste.h": { ko: "화면을 캡처해서 여기에 붙여넣으세요", en: "Capture your screen and paste it here", "zh-Hant": "請截圖後貼到這裡", "zh-Hans": "请截图后粘贴到这里" },
+  "paste.hint": {
+    ko: "Windows는 <b>Win + Shift + S</b>, Mac은 <b>⌘ + Shift + 4</b>로 캡처 · 이미지를 끌어다 놓아도 됩니다",
+    en: "<b>Win + Shift + S</b> on Windows, <b>⌘ + Shift + 4</b> on Mac · dragging an image in also works",
+    "zh-Hant": "Windows 用 <b>Win + Shift + S</b>，Mac 用 <b>⌘ + Shift + 4</b> 截圖 · 也可直接拖曳圖片進來",
+    "zh-Hans": "Windows 用 <b>Win + Shift + S</b>，Mac 用 <b>⌘ + Shift + 4</b> 截图 · 也可直接拖拽图片进来",
+  },
+  "paste.pickFile": { ko: "파일에서 고르기", en: "Choose a file", "zh-Hant": "從檔案選擇", "zh-Hans": "从文件选择" },
+  "paste.notFound": {
+    ko: "이 이미지에서 구슬판을 찾지 못했습니다. 구슬판이 잘 보이도록 다시 캡처하거나, 이미지 위에서 구슬판 영역을 드래그해 지정해 보세요.",
+    en: "No bead plate found in this image. Capture again with the bead plate clearly visible, or drag a box over it on the picture.",
+    "zh-Hant": "在這張圖中找不到珠盤路。請重新截取讓珠盤路清楚可見，或在圖片上拖曳框選珠盤路區域。",
+    "zh-Hans": "在这张图中找不到珠盘路。请重新截取让珠盘路清楚可见，或在图片上拖拽框选珠盘路区域。",
+  },
+  "paste.kindBead": { ko: "구슬판", en: "Bead plate", "zh-Hant": "珠盤路", "zh-Hans": "珠盘路" },
+  "paste.kindBigRoad": { ko: "빅로드(추정)", en: "Big road (likely)", "zh-Hant": "大路（推測）", "zh-Hans": "大路（推测）" },
+  "paste.readMeta": { ko: "{n}판 · {rows}행 × {cols}열", en: "{n} coups · {rows} × {cols}", "zh-Hant": "{n} 局 · {rows} 列 × {cols} 行", "zh-Hans": "{n} 局 · {rows} 行 × {cols} 列" },
+  "paste.bigRoadWarn": {
+    ko: "구슬판이 아니라 빅로드로 보입니다. 빅로드는 타이가 표시되지 않고 6줄을 넘는 연속이 옆으로 꺾여 순서가 어긋날 수 있습니다. 가능하면 구슬판이 나오게 캡처하세요.",
+    en: "This looks like the big road, not the bead plate. The big road omits ties and turns a run past six rows sideways, so the order can come out wrong. Capture the bead plate if you can.",
+    "zh-Hant": "這看起來是大路而非珠盤路。大路不顯示和局，且超過六列的連莊會向右轉折，順序可能出錯。請盡量截取珠盤路。",
+    "zh-Hans": "这看起来是大路而非珠盘路。大路不显示和局，且超过六行的连庄会向右转折，顺序可能出错。请尽量截取珠盘路。",
+  },
+  "paste.applyCurrent": { ko: "현재 슈에 반영", en: "Apply to this shoe", "zh-Hant": "套用到目前牌靴", "zh-Hans": "应用到当前牌靴" },
+  "paste.applyNew": { ko: "새 슈로 추가", en: "Add as a new shoe", "zh-Hant": "新增為新牌靴", "zh-Hans": "添加为新牌靴" },
+  "paste.otherRegion": { ko: "다른 영역 ({i}/{n})", en: "Another area ({i}/{n})", "zh-Hant": "其他區域（{i}/{n}）", "zh-Hans": "其他区域（{i}/{n}）" },
+  "paste.resetRegion": { ko: "전체 다시 인식", en: "Search the whole image", "zh-Hant": "重新辨識全圖", "zh-Hans": "重新识别全图" },
+  "paste.cancel": { ko: "취소", en: "Cancel", "zh-Hant": "取消", "zh-Hans": "取消" },
+  "paste.sameHint": {
+    ko: "현재 슈와 앞부분이 같습니다 — 같은 슈의 최신 상태로 보고 통째로 교체합니다. 몇 판마다 다시 붙여넣어도 중복되지 않습니다.",
+    en: "It starts the same as this shoe, so it is treated as the same shoe seen later and replaces it whole. Pasting again every few coups never double-counts.",
+    "zh-Hant": "開頭與目前牌靴相同 — 視為同一靴的最新狀態並整個替換。每隔幾局重新貼上也不會重複計算。",
+    "zh-Hans": "开头与当前牌靴相同 — 视为同一靴的最新状态并整个替换。每隔几局重新粘贴也不会重复计算。",
+  },
+  "paste.newHint": {
+    ko: "현재 슈와 앞부분이 다릅니다 — 새 슈가 시작된 것으로 보입니다.",
+    en: "It starts differently from this shoe, so a new shoe appears to have begun.",
+    "zh-Hant": "開頭與目前牌靴不同 — 看來已開新靴。",
+    "zh-Hans": "开头与当前牌靴不同 — 看来已开新靴。",
+  },
+
+  /* ---------------------------------------------------------- state tiles */
+  "state.h": { ko: "현재 상태", en: "Where this table stands", "zh-Hant": "目前狀態", "zh-Hans": "当前状态" },
+  "state.sub": {
+    ko: "모은 양과, 이 테이블이 실제로 어디에 서 있는지.",
+    en: "How much has been collected, and what it says about this table.",
+    "zh-Hant": "已收集的量，以及這張桌台實際的位置。",
+    "zh-Hans": "已收集的量，以及这张桌台实际的位置。",
+  },
+  "state.shoes": { ko: "수집한 슈", en: "Shoes collected", "zh-Hant": "已收集牌靴", "zh-Hans": "已收集牌靴" },
+  "state.coups": { ko: "{n}판", en: "{n} coups", "zh-Hant": "{n} 局", "zh-Hans": "{n} 局" },
+  "state.bankerShare": { ko: "뱅커 비율", en: "Banker share", "zh-Hant": "莊家比率", "zh-Hans": "庄家比率" },
+  "state.bankerShareSub": { ko: "±{ci}%p · {n}판 기준", en: "±{ci}pp · over {n} decided", "zh-Hant": "±{ci}%p · 以 {n} 局計", "zh-Hans": "±{ci}%p · 以 {n} 局计" },
+  "state.noCoups": { ko: "판이 없습니다", en: "no coups yet", "zh-Hant": "尚無局數", "zh-Hans": "尚无局数" },
+  "state.detectable": { ko: "탐지 가능한 최소 편향", en: "Smallest bias detectable", "zh-Hant": "可偵測的最小偏差", "zh-Hans": "可检测的最小偏差" },
+  "state.detectableTight": { ko: "수익 경계보다 촘촘함", en: "finer than the profit line", "zh-Hant": "比獲利界線更精細", "zh-Hans": "比盈利界线更精细" },
+  "state.detectableLoose": { ko: "수익 경계는 {gap}", en: "the profit line is {gap}", "zh-Hant": "獲利界線為 {gap}", "zh-Hans": "盈利界线为 {gap}" },
+  "state.pending": { ko: "슈를 모으면 계산됩니다", en: "collect shoes to measure it", "zh-Hant": "收集牌靴後計算", "zh-Hans": "收集牌靴后计算" },
+  "state.pendingCoups": { ko: "판을 모으면 계산됩니다", en: "collect coups to measure it", "zh-Hant": "收集局數後計算", "zh-Hans": "收集局数后计算" },
+  "state.toBreakeven": { ko: "뱅커 손익분기까지", en: "To the Banker break-even", "zh-Hant": "距莊家損益平衡", "zh-Hans": "距庄家盈亏平衡" },
+  "state.toBreakevenShort": { ko: "뱅커가 이익이 되려면 더 필요한 폭", en: "still needed for a Banker bet to pay", "zh-Hant": "莊家要獲利還需要的幅度", "zh-Hans": "庄家要盈利还需要的幅度" },
+  "state.toBreakevenPast": {
+    ko: "이미 손익분기선을 넘어섰습니다 — 무결성 검정으로 확인하세요",
+    en: "already past the line — check it with the integrity test",
+    "zh-Hant": "已越過損益平衡線 — 請以完整性檢定確認",
+    "zh-Hans": "已越过盈亏平衡线 — 请以完整性检验确认",
+  },
+
+  /* ---------------------------------------------------- break-even scale */
+  "scale.h": { ko: "손익분기 눈금 — 베팅할 가치가 있는가", en: "The break-even scale — is any bet worth making?", "zh-Hant": "損益平衡刻度 — 值不值得下注", "zh-Hans": "盈亏平衡刻度 — 值不值得下注" },
+  "scale.sub": {
+    ko: "뱅커 베팅은 P(뱅커 | 타이 제외)가 51.282%를 넘어야, 플레이어는 50.000% 아래여야 기댓값이 플러스가 됩니다. 신선한 8덱 슈는 50.68% — 두 선 사이 <b>죽은 구간</b>입니다. 이 테이블의 실측값이 어디 있는지 함께 표시합니다.",
+    en: "A Banker bet only pays when P(Banker | not tie) exceeds 51.282%, a Player bet when it falls below 50.000%. A fresh 8-deck shoe sits at 50.68% — inside the <b>dead band</b> between them. This table's own measurement is drawn alongside.",
+    "zh-Hant": "押莊須 P(莊 | 排除和局) 高於 51.282%，押閒須低於 50.000%，期望值才為正。全新八副牌靴為 50.68% — 正落在兩線之間的<b>死區</b>。圖上同時標出這張桌台的實測值。",
+    "zh-Hans": "押庄须 P(庄 | 排除和局) 高于 51.282%，押闲须低于 50.000%，期望值才为正。全新八副牌靴为 50.68% — 正落在两线之间的<b>死区</b>。图上同时标出这张桌台的实测值。",
+  },
+  "scale.playerProfit": { ko: "플레이어 이익", en: "Player pays", "zh-Hant": "押閒獲利", "zh-Hans": "押闲盈利" },
+  "scale.bankerProfit": { ko: "뱅커 이익", en: "Banker pays", "zh-Hant": "押莊獲利", "zh-Hans": "押庄盈利" },
+  "scale.deadBand": { ko: "두 베팅 모두 손실", en: "both bets lose", "zh-Hant": "兩邊皆虧損", "zh-Hans": "两边皆亏损" },
+  "scale.playerBreakeven": { ko: "플레이어 손익분기", en: "Player break-even", "zh-Hant": "閒家損益平衡", "zh-Hans": "闲家盈亏平衡" },
+  "scale.bankerBreakeven": { ko: "뱅커 손익분기", en: "Banker break-even", "zh-Hant": "莊家損益平衡", "zh-Hans": "庄家盈亏平衡" },
+  "scale.freshShoe": { ko: "신선한 슈 50.68%", en: "fresh shoe 50.68%", "zh-Hant": "全新牌靴 50.68%", "zh-Hans": "全新牌靴 50.68%" },
+  "scale.thisTable": { ko: "이 테이블 {q}", en: "this table {q}", "zh-Hant": "本桌 {q}", "zh-Hans": "本桌 {q}" },
+  "scale.offAxis": { ko: " (축 범위 밖)", en: " (off the axis)", "zh-Hant": "（超出座標範圍）", "zh-Hans": "（超出坐标范围）" },
+  "scale.waiting": { ko: "이 테이블의 값은 30판부터 표시됩니다", en: "this table's value appears from 30 coups", "zh-Hant": "本桌數值自 30 局起顯示", "zh-Hans": "本桌数值自 30 局起显示" },
+  "scale.axis": {
+    ko: "가로축: P(뱅커 | 타이 제외) · 가로 막대는 95% 신뢰구간",
+    en: "x-axis: P(Banker | not tie) · the bar is a 95% confidence interval",
+    "zh-Hant": "橫軸：P(莊 | 排除和局) · 橫線為 95% 信賴區間",
+    "zh-Hans": "横轴：P(庄 | 排除和局) · 横线为 95% 置信区间",
+  },
+  "scale.verdictWaiting": {
+    ko: "<b>베팅 안 함.</b> 신선한 슈의 P(뱅커 | 타이 제외)는 <b>50.68%</b>로 두 손익분기선 사이에 있습니다 — 뱅커 <b>{eb}</b>, 플레이어 <b>{ep}</b>, 둘 다 손실입니다. 이 테이블의 실제 값을 재려면 최소 30판이 필요합니다 (현재 {n}판).",
+    en: "<b>No bet.</b> A fresh shoe's P(Banker | not tie) is <b>50.68%</b>, between the two break-even lines — Banker <b>{eb}</b>, Player <b>{ep}</b>, both losing. Measuring this table takes at least 30 coups ({n} so far).",
+    "zh-Hant": "<b>不下注。</b>全新牌靴的 P(莊 | 排除和局) 為 <b>50.68%</b>，落在兩條損益平衡線之間 — 莊 <b>{eb}</b>、閒 <b>{ep}</b>，兩邊皆虧。要測出本桌實際數值至少需 30 局（目前 {n} 局）。",
+    "zh-Hans": "<b>不下注。</b>全新牌靴的 P(庄 | 排除和局) 为 <b>50.68%</b>，落在两条盈亏平衡线之间 — 庄 <b>{eb}</b>、闲 <b>{ep}</b>，两边皆亏。要测出本桌实际数值至少需 30 局（当前 {n} 局）。",
+  },
+  "scale.verdictDead": {
+    ko: "<b>베팅 안 함.</b> 이 테이블의 뱅커 비율은 <b>{q}</b>, 95% 신뢰구간 <b>{lo}–{hi}</b>로 죽은 구간 안에 있습니다. 구간이 손익분기선 하나를 통째로 넘어가기 전까지는 어느 쪽도 기댓값이 플러스가 아닙니다.",
+    en: "<b>No bet.</b> This table's Banker share is <b>{q}</b>, 95% interval <b>{lo}–{hi}</b>, inside the dead band. Until that interval clears one of the break-even lines entirely, neither side has positive expectation.",
+    "zh-Hant": "<b>不下注。</b>本桌莊家比率為 <b>{q}</b>，95% 信賴區間 <b>{lo}–{hi}</b>，落在死區之內。在區間整段越過任一條損益平衡線之前，兩邊的期望值都不為正。",
+    "zh-Hans": "<b>不下注。</b>本桌庄家比率为 <b>{q}</b>，95% 置信区间 <b>{lo}–{hi}</b>，落在死区之内。在区间整段越过任一条盈亏平衡线之前，两边的期望值都不为正。",
+  },
+  "scale.verdictBanker": {
+    ko: "<b>이례적입니다.</b> 이 테이블의 뱅커 비율 신뢰구간(<b>{lo}–{hi}</b>)이 뱅커 손익분기선 <b>51.282%</b>를 통째로 넘습니다. 아래 무결성 검정을 돌려 판독 오류·덱 수·규칙 차이부터 배제하세요.",
+    en: "<b>Unusual.</b> This table's Banker-share interval (<b>{lo}–{hi}</b>) sits entirely above the Banker break-even of <b>51.282%</b>. Run the integrity test below and rule out a reading error, a different deck count and non-standard rules first.",
+    "zh-Hant": "<b>異常。</b>本桌莊家比率的信賴區間（<b>{lo}–{hi}</b>）整段高於莊家損益平衡線 <b>51.282%</b>。請先執行下方的完整性檢定，排除判讀錯誤、副數不同與規則差異。",
+    "zh-Hans": "<b>异常。</b>本桌庄家比率的置信区间（<b>{lo}–{hi}</b>）整段高于庄家盈亏平衡线 <b>51.282%</b>。请先执行下方的完整性检验，排除判读错误、副数不同与规则差异。",
+  },
+  "scale.verdictPlayer": {
+    ko: "<b>이례적입니다.</b> 신뢰구간(<b>{lo}–{hi}</b>)이 플레이어 손익분기선 <b>50.000%</b> 아래에 통째로 있습니다. 아래 무결성 검정으로 확인하세요.",
+    en: "<b>Unusual.</b> The interval (<b>{lo}–{hi}</b>) sits entirely below the Player break-even of <b>50.000%</b>. Check it with the integrity test below.",
+    "zh-Hant": "<b>異常。</b>信賴區間（<b>{lo}–{hi}</b>）整段低於閒家損益平衡線 <b>50.000%</b>。請以下方的完整性檢定確認。",
+    "zh-Hans": "<b>异常。</b>置信区间（<b>{lo}–{hi}</b>）整段低于闲家盈亏平衡线 <b>50.000%</b>。请以下方的完整性检验确认。",
+  },
+
+  /* --------------------------------------------------------------- boards */
+  "board.h": { ko: "보드 — 현재 슈", en: "The board — this shoe", "zh-Hant": "路圖 — 目前牌靴", "zh-Hans": "路图 — 当前牌靴" },
+  "board.sub": {
+    ko: "구슬판과 빅로드, 그리고 빅로드에서 파생되는 세 로드. 파생 로드는 빅로드의 결정론적 함수라 새로운 정보를 담지 않습니다 — 사람이 읽는 형태로 함께 보여줄 뿐입니다.",
+    en: "The bead plate, the big road, and the three roads derived from it. The derived roads are a deterministic function of the big road, so they hold no information it does not — they are shown because people read them.",
+    "zh-Hant": "珠盤路、大路，以及由大路推導出的三條下路。下路是大路的確定性函數，並不包含額外資訊 — 呈現它們只是因為玩家習慣看。",
+    "zh-Hans": "珠盘路、大路，以及由大路推导出的三条下路。下路是大路的确定性函数，并不包含额外信息 — 呈现它们只是因为玩家习惯看。",
+  },
+  "board.bead": { ko: "구슬판", en: "Bead plate", "zh-Hant": "珠盤路", "zh-Hans": "珠盘路" },
+  "board.big": { ko: "빅로드", en: "Big road", "zh-Hant": "大路", "zh-Hans": "大路" },
+  "board.beb": { ko: "빅아이보이", en: "Big eye boy", "zh-Hant": "大眼仔", "zh-Hans": "大眼仔" },
+  "board.small": { ko: "스몰로드", en: "Small road", "zh-Hant": "小路", "zh-Hans": "小路" },
+  "board.roach": { ko: "코크로치", en: "Cockroach road", "zh-Hant": "曱甴路", "zh-Hans": "蟑螂路" },
+  "board.meta": {
+    ko: "{n}판 · 플레이어 {p} · 뱅커 {b} · 타이 {t} · 현재 연속 {streak}{side}",
+    en: "{n} coups · Player {p} · Banker {b} · Tie {t} · current run {streak}{side}",
+    "zh-Hant": "{n} 局 · 閒 {p} · 莊 {b} · 和 {t} · 目前連開 {streak}{side}",
+    "zh-Hans": "{n} 局 · 闲 {p} · 庄 {b} · 和 {t} · 当前连开 {streak}{side}",
+  },
+  "board.empty": { ko: "이 슈에는 아직 기록된 판이 없습니다.", en: "Nothing recorded in this shoe yet.", "zh-Hant": "本靴尚無紀錄。", "zh-Hans": "本靴尚无记录。" },
+
+  /* ----------------------------------------------------------- collection */
+  "collect.h": { ko: "수집 진행", en: "Collection progress", "zh-Hant": "收集進度", "zh-Hans": "收集进度" },
+  "collect.sub": {
+    ko: "표본이 클수록 작은 편향까지 잡아냅니다. 각 단계는 실제로 측정한 탐지력 기준입니다 — 80슈에서 3% 편향을 80% 확률로 잡아냅니다.",
+    en: "A larger sample catches a smaller bias. Each step is a measured detection threshold — 80 shoes catch a 3% bias 80% of the time.",
+    "zh-Hant": "樣本越大，能抓到的偏差越小。各階段皆為實測的偵測門檻 — 80 靴可在 80% 機率下抓出 3% 的偏差。",
+    "zh-Hans": "样本越大，能抓到的偏差越小。各阶段皆为实测的检测门槛 — 80 靴可在 80% 概率下抓出 3% 的偏差。",
+  },
+  "collect.ms1": { ko: "명백한 이상", en: "Grossly broken", "zh-Hant": "明顯異常", "zh-Hans": "明显异常" },
+  "collect.ms1note": { ko: "망가진 셔플이라면 여기서 드러납니다", en: "a badly broken shuffle shows up here", "zh-Hant": "洗牌若已損壞，在此就會顯現", "zh-Hans": "洗牌若已损坏，在此就会显现" },
+  "collect.ms2": { ko: "중간 편향", en: "Moderate bias", "zh-Hant": "中度偏差", "zh-Hans": "中度偏差" },
+  "collect.ms2note": { ko: "눈에 띄지 않는 치우침까지", en: "reaches a lean nobody would notice", "zh-Hant": "可及肉眼看不出的傾斜", "zh-Hans": "可及肉眼看不出的倾斜" },
+  "collect.ms3": { ko: "돈이 되는 편향", en: "Bias worth money", "zh-Hant": "有利可圖的偏差", "zh-Hans": "有利可图的偏差" },
+  "collect.ms3note": { ko: "편향이 수익이 되기 시작하는 지점", en: "where a bias starts to pay", "zh-Hant": "偏差開始能獲利的臨界點", "zh-Hans": "偏差开始能盈利的临界点" },
+  "collect.msLabel": { ko: "{label} — {bias} 편향까지 탐지", en: "{label} — detects a {bias} bias", "zh-Hant": "{label} — 可偵測 {bias} 偏差", "zh-Hans": "{label} — 可检测 {bias} 偏差" },
+  "collect.msCount": { ko: "{have} / {need}슈", en: "{have} / {need} shoes", "zh-Hant": "{have} / {need} 靴", "zh-Hans": "{have} / {need} 靴" },
+
+  /* ------------------------------------------------------------ integrity */
+  "int.h": { ko: "셔플 무결성 검정", en: "Shuffle integrity test", "zh-Hant": "洗牌完整性檢定", "zh-Hans": "洗牌完整性检验" },
+  "int.sub": {
+    ko: "결과만 있는 데이터가 답할 수 있는 가장 값진 질문입니다. 정직한 8덱 슈에는 이용할 수 있는 신호가 없으므로, 패턴이 통하려면 이 테이블의 셔플이 제대로 되지 않았어야 합니다. 17개 순서 통계를 <b>같은 크기의 시뮬레이션 슈</b>와 비교합니다 — \"50.68%의 독립시행\"이 아니라 진짜 슈와 비교해야 정직한 테이블을 오탐하지 않습니다.",
+    en: "The most valuable question a result-only corpus can answer. An honest 8-deck shoe carries no usable signal, so a pattern can only work if this table's shuffle is broken. Seventeen order statistics are compared against <b>simulated shoes of the same size</b> — comparing against \"independent draws at 50.68%\" would flag an honest table, because dealing without replacement is not independent.",
+    "zh-Hant": "只有結果的資料所能回答的最有價值問題。誠實的八副牌靴不存在可利用的訊號，因此路數要能成立，這張桌台的洗牌必須有問題。本檢定將 17 項順序統計量與<b>相同規模的模擬牌靴</b>比較 — 若拿「50.68% 的獨立試驗」當基準，連誠實的桌台也會被誤判，因為無放回發牌本就不獨立。",
+    "zh-Hans": "只有结果的数据所能回答的最有价值问题。诚实的八副牌靴不存在可利用的信号，因此路数要能成立，这张桌台的洗牌必须有问题。本检验将 17 项顺序统计量与<b>相同规模的模拟牌靴</b>比较 — 若拿“50.68% 的独立试验”当基准，连诚实的桌台也会被误判，因为无放回发牌本就不独立。",
+  },
+  "int.run": { ko: "검정 실행", en: "Run the test", "zh-Hant": "執行檢定", "zh-Hans": "执行检验" },
+  "int.cancel": { ko: "중단", en: "Cancel", "zh-Hant": "中止", "zh-Hans": "中止" },
+  "int.repsAria": { ko: "귀무분포 복제 횟수", en: "Null replicates", "zh-Hant": "虛無分布重複次數", "zh-Hans": "零分布重复次数" },
+  "int.reps100": { ko: "복제 100회 (빠름)", en: "100 replicates (fast)", "zh-Hant": "100 次重複（快速）", "zh-Hans": "100 次重复（快速）" },
+  "int.reps200": { ko: "복제 200회 (기본)", en: "200 replicates (default)", "zh-Hant": "200 次重複（預設）", "zh-Hans": "200 次重复（默认）" },
+  "int.reps400": { ko: "복제 400회 (정밀)", en: "400 replicates (precise)", "zh-Hant": "400 次重複（精確）", "zh-Hans": "400 次重复（精确）" },
+  "int.needShoes": { ko: "검정에는 최소 3슈가 필요합니다 (현재 {n}슈).", en: "The test needs at least 3 shoes ({n} so far).", "zh-Hant": "檢定至少需要 3 靴（目前 {n} 靴）。", "zh-Hans": "检验至少需要 3 靴（当前 {n} 靴）。" },
+  "int.ready": { ko: "{n}슈를 정직하게 섞인 8덱 슈 {reps}개 코퍼스와 비교합니다.", en: "Compares {n} shoes against {reps} corpora of honestly shuffled 8-deck shoes.", "zh-Hant": "將 {n} 靴與 {reps} 組誠實洗牌的八副牌靴語料比較。", "zh-Hans": "将 {n} 靴与 {reps} 组诚实洗牌的八副牌靴语料比较。" },
+  "int.building": { ko: "정직한 슈로 귀무분포를 만드는 중…", en: "Building the null from honest shoes…", "zh-Hant": "以誠實牌靴建立虛無分布中…", "zh-Hans": "以诚实牌靴建立零分布中…" },
+  "int.progress": {
+    ko: "귀무분포 {done}/{total} — 정직한 8덱 슈 {shoes}개를 돌렸습니다",
+    en: "Null {done}/{total} — {shoes} honest 8-deck shoes dealt",
+    "zh-Hant": "虛無分布 {done}/{total} — 已發出 {shoes} 副誠實八副牌靴",
+    "zh-Hans": "零分布 {done}/{total} — 已发出 {shoes} 副诚实八副牌靴",
+  },
+  "int.legendBand": { ko: "정직한 슈의 95% 범위 (z −1.96 ~ +1.96)", en: "95% range for honest shoes (z −1.96 to +1.96)", "zh-Hant": "誠實牌靴的 95% 範圍（z −1.96 ~ +1.96）", "zh-Hans": "诚实牌靴的 95% 范围（z −1.96 ~ +1.96）" },
+  "int.legendDot": { ko: "이 테이블의 값", en: "this table's value", "zh-Hant": "本桌數值", "zh-Hans": "本桌数值" },
+  "int.legendAxis": { ko: "축 범위 ±{z}", en: "axis ±{z}", "zh-Hant": "座標範圍 ±{z}", "zh-Hans": "坐标范围 ±{z}" },
+  "int.normal": { ko: "정상", en: "normal", "zh-Hant": "正常", "zh-Hans": "正常" },
+  "int.abnormal": { ko: "이상", en: "flagged", "zh-Hant": "異常", "zh-Hans": "异常" },
+  "int.offAxis": { ko: "z = {z} — 축 범위 밖", en: "z = {z} — off the axis", "zh-Hant": "z = {z} — 超出座標範圍", "zh-Hans": "z = {z} — 超出坐标范围" },
+  "int.meta": {
+    ko: "{shoes}슈 · {coups}판 · 통계 {stats}개 · 귀무 복제 {reps}회 · 다중검정 보정 Benjamini-Hochberg",
+    en: "{shoes} shoes · {coups} coups · {stats} statistics · {reps} null replicates · Benjamini-Hochberg correction",
+    "zh-Hant": "{shoes} 靴 · {coups} 局 · {stats} 項統計量 · {reps} 次虛無重複 · Benjamini-Hochberg 多重檢定校正",
+    "zh-Hans": "{shoes} 靴 · {coups} 局 · {stats} 项统计量 · {reps} 次零分布重复 · Benjamini-Hochberg 多重检验校正",
+  },
+  "int.headFlag": { ko: "이상 발견", en: "Deviation found", "zh-Hant": "發現異常", "zh-Hans": "发现异常" },
+  "int.headClean": { ko: "이상 없음 — 결론 가능", en: "No deviation — and conclusive", "zh-Hant": "無異常 — 可下結論", "zh-Hans": "无异常 — 可下结论" },
+  "int.headInsufficient": { ko: "이상 없음 — 표본 부족", en: "No deviation — but not yet conclusive", "zh-Hant": "無異常 — 樣本不足", "zh-Hans": "无异常 — 样本不足" },
+  "int.verdictFlag": {
+    ko: "{total}개 통계 중 {n}개가 다중검정 보정(BH) 후에도 정상 범위를 벗어났습니다: {names}. 이걸 발견으로 취급하기 전에, 평범한 원인부터 순서대로 배제하세요 — 판독 오류, 덱 수가 8덱이 아님, 컷카드 깊이가 다름, 비표준 규칙, 또는 여러 테이블 데이터가 섞임. 그 전부가 배제되어야만 셔플이 무작위가 아니라는 증거가 됩니다.",
+    en: "{n} of {total} statistics fall outside the normal range even after Benjamini-Hochberg correction: {names}. Before treating this as a finding, rule out the mundane explanations in order — a reading error, a deck count that is not eight, a different cut-card depth, non-standard rules, or a corpus mixed from several tables. Only once all of those are excluded is this evidence that the shuffle is not random.",
+    "zh-Hant": "{total} 項統計量中有 {n} 項在 Benjamini-Hochberg 校正後仍超出正常範圍：{names}。在視為發現之前，請依序排除平凡的原因 — 判讀錯誤、副數並非八副、切牌深度不同、非標準規則，或資料混合了多張桌台。全部排除之後，這才算是洗牌並非隨機的證據。",
+    "zh-Hans": "{total} 项统计量中有 {n} 项在 Benjamini-Hochberg 校正后仍超出正常范围：{names}。在视为发现之前，请依序排除平凡的原因 — 判读错误、副数并非八副、切牌深度不同、非标准规则，或数据混合了多张桌台。全部排除之后，这才算是洗牌并非随机的证据。",
+  },
+  "int.verdictInsufficient": {
+    ko: "{total}개 통계 전부 정상 범위 안입니다. 다만 {shoes}슈로는 {bias} 이상의 편향만 잡아낼 수 있고, 돈이 되기 시작하는 지점은 {gap}입니다. 즉 \"이상 없음\"이 아직 \"정상임을 확인했다\"는 뜻은 아닙니다. {need}슈까지 모아야 결론이 됩니다.",
+    en: "All {total} statistics are inside the normal range. But {shoes} shoes can only catch a bias of {bias} or larger, and {gap} is where a bias starts to be worth money — so \"nothing found\" does not yet mean \"confirmed honest\". About {need} shoes would settle it.",
+    "zh-Hant": "{total} 項統計量全部落在正常範圍內。但 {shoes} 靴只能抓出 {bias} 以上的偏差，而 {gap} 才是偏差開始有利可圖的臨界點 — 因此「未發現異常」尚不等於「已確認正常」。約需 {need} 靴才能下結論。",
+    "zh-Hans": "{total} 项统计量全部落在正常范围内。但 {shoes} 靴只能抓出 {bias} 以上的偏差，而 {gap} 才是偏差开始有利可图的临界点 — 因此“未发现异常”尚不等于“已确认正常”。约需 {need} 靴才能下结论。",
+  },
+  "int.verdictClean": {
+    ko: "{total}개 통계 전부, 정직하게 섞인 8덱 슈가 이 표본 크기에서 만들어내는 범위 안입니다. 그리고 {shoes}슈는 돈이 되는 편향({gap})을 잡아내기에 충분한 크기입니다. 이 테이블의 순서에는 카드 소진으로 설명되지 않는 구조가 없습니다.",
+    en: "All {total} statistics fall within what honestly shuffled 8-deck shoes produce at this sample size — and {shoes} shoes is enough to catch a bias worth money ({gap}). This table's sequence carries no structure beyond what card depletion explains.",
+    "zh-Hant": "{total} 項統計量全部落在誠實洗牌的八副牌靴在此樣本規模下會產生的範圍內，且 {shoes} 靴已足以抓出有利可圖的偏差（{gap}）。這張桌台的順序中，不存在牌張消耗以外無法解釋的結構。",
+    "zh-Hans": "{total} 项统计量全部落在诚实洗牌的八副牌靴在此样本规模下会产生的范围内，且 {shoes} 靴已足以抓出有利可图的偏差（{gap}）。这张桌台的顺序中，不存在牌张消耗以外无法解释的结构。",
+  },
+
+  /* ------------------------------------------------- statistic names */
+  "stat.banker_share": { ko: "뱅커 비율", en: "Banker share", "zh-Hant": "莊家比率", "zh-Hans": "庄家比率" },
+  "stat.tie_rate": { ko: "타이 비율", en: "Tie rate", "zh-Hant": "和局比率", "zh-Hans": "和局比率" },
+  "stat.runs_per_coup": { ko: "판당 전환 횟수", en: "Switches per coup", "zh-Hant": "每局轉換次數", "zh-Hans": "每局转换次数" },
+  "stat.shoe_share_dispersion": { ko: "슈별 편차 비율", en: "Per-shoe dispersion", "zh-Hant": "各靴離散比", "zh-Hans": "各靴离散比" },
+  "stat.mean_longest_streak": { ko: "평균 최장 연속", en: "Mean longest run", "zh-Hant": "平均最長連開", "zh-Hans": "平均最长连开" },
+  "stat.coups_per_shoe": { ko: "슈당 판수", en: "Coups per shoe", "zh-Hant": "每靴局數", "zh-Hans": "每靴局数" },
+  "stat.autocorr": { ko: "자기상관 {lag}판", en: "Autocorrelation, lag {lag}", "zh-Hant": "自相關 {lag} 局", "zh-Hans": "自相关 {lag} 局" },
+  "stat.chi2": { ko: "직전 {d}판 의존성", en: "Dependence on the last {d}", "zh-Hant": "對前 {d} 局的依賴", "zh-Hans": "对前 {d} 局的依赖" },
+
+  "why.banker_share": {
+    ko: "뱅커가 이기는 비율. 카드 소진만으로 설명되는 범위를 벗어나면 덱 구성이나 규칙이 다릅니다.",
+    en: "How often Banker wins. Outside what card depletion explains means a different deck make-up or different rules.",
+    "zh-Hant": "莊家獲勝的比率。超出牌張消耗所能解釋的範圍，代表牌組組成或規則不同。",
+    "zh-Hans": "庄家获胜的比率。超出牌张消耗所能解释的范围，代表牌组组成或规则不同。",
+  },
+  "why.tie_rate": {
+    ko: "타이 비율. 벗어나면 덱 수가 8덱이 아니거나 판독 오류입니다.",
+    en: "The tie rate. Off-range means the deck count is not eight, or a reading error.",
+    "zh-Hant": "和局比率。偏離範圍代表副數並非八副，或判讀有誤。",
+    "zh-Hans": "和局比率。偏离范围代表副数并非八副，或判读有误。",
+  },
+  "why.runs_per_coup": {
+    ko: "연속이 끊기는 빈도. 낮으면 정상보다 길게 늘어지고(용), 높으면 과하게 끊깁니다.",
+    en: "How often a run breaks. Low means it strings out into dragons; high means it chops more than it should.",
+    "zh-Hant": "連開中斷的頻率。偏低代表容易拉長成長龍，偏高代表比正常更常單跳。",
+    "zh-Hans": "连开中断的频率。偏低代表容易拉长成长龙，偏高代表比正常更常单跳。",
+  },
+  "why.shoe_share_dispersion": {
+    ko: "슈마다 한쪽으로 쏠리는 정도. 1보다 크면 셔플이 슈 단위로 편향돼 있다는 뜻입니다.",
+    en: "How much shoes lean one way. Above 1 means the shuffle is biased shoe by shoe.",
+    "zh-Hant": "各靴向單邊傾斜的程度。大於 1 代表洗牌以靴為單位存在偏差。",
+    "zh-Hans": "各靴向单边倾斜的程度。大于 1 代表洗牌以靴为单位存在偏差。",
+  },
+  "why.mean_longest_streak": {
+    ko: "슈마다 가장 긴 연속의 평균. 셔플이 부족하면 길어집니다.",
+    en: "The average longest run per shoe. Under-shuffling makes it longer.",
+    "zh-Hant": "每靴最長連開的平均。洗牌不足時會變長。",
+    "zh-Hans": "每靴最长连开的平均。洗牌不足时会变长。",
+  },
+  "why.coups_per_shoe": {
+    ko: "슈당 판수. 벗어나면 컷카드 깊이나 덱 수가 다릅니다.",
+    en: "Coups dealt per shoe. Off-range means a different cut-card depth or deck count.",
+    "zh-Hant": "每靴發出的局數。偏離代表切牌深度或副數不同。",
+    "zh-Hans": "每靴发出的局数。偏离代表切牌深度或副数不同。",
+  },
+  "why.autocorr": {
+    ko: "{lag}판 떨어진 결과끼리의 상관. 0에서 벗어나면 순서에 구조가 있다는 뜻입니다.",
+    en: "Correlation between outcomes {lag} apart. Away from zero means the order carries structure.",
+    "zh-Hant": "相隔 {lag} 局的結果之間的相關。偏離 0 代表順序中存在結構。",
+    "zh-Hans": "相隔 {lag} 局的结果之间的相关。偏离 0 代表顺序中存在结构。",
+  },
+  "why.chi2_1": {
+    ko: "직전 결과가 다음 판을 바꾸는지. 모든 패턴 시스템이 있다고 가정하는 바로 그 값입니다.",
+    en: "Whether the last outcome changes the next one — the very thing every pattern system assumes exists.",
+    "zh-Hant": "上一局是否會改變下一局。這正是所有路數系統所假設存在的東西。",
+    "zh-Hans": "上一局是否会改变下一局。这正是所有路数系统所假设存在的东西。",
+  },
+  "why.chi2_n": {
+    ko: "직전 {d}판의 조합이 다음 판을 바꾸는지.",
+    en: "Whether the last {d} outcomes together change the next one.",
+    "zh-Hant": "前 {d} 局的組合是否會改變下一局。",
+    "zh-Hans": "前 {d} 局的组合是否会改变下一局。",
+  },
+
+  /* ---------------------------------------------------------------- tools */
+  "tools.h": { ko: "직접 입력과 내보내기", en: "Manual entry and export", "zh-Hant": "手動輸入與匯出", "zh-Hans": "手动输入与导出" },
+  "tools.keysH": { ko: "한 판씩 입력", en: "One coup at a time", "zh-Hant": "逐局輸入", "zh-Hans": "逐局输入" },
+  "tools.undo": { ko: "실행취소", en: "Undo", "zh-Hant": "復原", "zh-Hans": "撤销" },
+  "tools.newShoe": { ko: "새 슈", en: "New shoe", "zh-Hant": "新牌靴", "zh-Hans": "新牌靴" },
+  "tools.keysNote": {
+    ko: "입력창 밖에서는 키보드 단축키가 그대로 동작합니다.",
+    en: "The keyboard shortcuts work anywhere outside a text field.",
+    "zh-Hant": "在輸入框以外的地方，鍵盤快速鍵皆可直接使用。",
+    "zh-Hans": "在输入框以外的地方，键盘快捷键皆可直接使用。",
+  },
+  "tools.textH": { ko: "결과를 글로 붙여넣기", en: "Paste results as text", "zh-Hant": "以文字貼上結果", "zh-Hans": "以文字粘贴结果" },
+  "tools.textPlaceholder": {
+    ko: "PBBTP… / 플레이어 뱅커 타이 / 莊閒和 — 어떤 형식이든",
+    en: "PBBTP… / Player Banker Tie / 莊閒和 — any format",
+    "zh-Hant": "PBBTP… / 莊閒和 / Player Banker Tie — 任何格式皆可",
+    "zh-Hans": "PBBTP… / 庄闲和 / Player Banker Tie — 任何格式皆可",
+  },
+  "tools.textAdd": { ko: "현재 슈에 추가", en: "Add to this shoe", "zh-Hant": "加入目前牌靴", "zh-Hans": "加入当前牌靴" },
+  "tools.textNew": { ko: "새 슈로", en: "As a new shoe", "zh-Hant": "作為新牌靴", "zh-Hans": "作为新牌靴" },
+  "tools.textNone": { ko: "인식할 수 있는 결과가 없습니다.", en: "No recognisable results in that text.", "zh-Hant": "文字中找不到可辨識的結果。", "zh-Hans": "文字中找不到可识别的结果。" },
+  "tools.textAdded": { ko: "{n}판을 현재 슈에 추가했습니다{skip}.", en: "Added {n} coups to this shoe{skip}.", "zh-Hant": "已將 {n} 局加入目前牌靴{skip}。", "zh-Hans": "已将 {n} 局加入当前牌靴{skip}。" },
+  "tools.textSkipped": { ko: " (알 수 없는 문자 {n}개는 건너뜀)", en: " ({n} unrecognised characters skipped)", "zh-Hant": "（略過 {n} 個無法辨識的字元）", "zh-Hans": "（跳过 {n} 个无法识别的字符）" },
+  "tools.textLoaded": { ko: "{n}판을 새 슈로 불러왔습니다.", en: "Loaded {n} coups as a new shoe.", "zh-Hant": "已將 {n} 局載入為新牌靴。", "zh-Hans": "已将 {n} 局载入为新牌靴。" },
+  "tools.exportH": { ko: "데이터 내보내기", en: "Export the data", "zh-Hant": "匯出資料", "zh-Hans": "导出数据" },
+  "tools.reset": { ko: "이 테이블 지우기", en: "Clear this table", "zh-Hant": "清除本桌", "zh-Hans": "清除本桌" },
+  "tools.resetConfirm": {
+    ko: "\"{table}\" 테이블의 수집 데이터를 모두 지웁니다. 계속할까요?",
+    en: "This erases everything collected for \"{table}\". Continue?",
+    "zh-Hant": "將刪除「{table}」桌台已收集的所有資料。要繼續嗎？",
+    "zh-Hans": "将删除“{table}”桌台已收集的所有数据。要继续吗？",
+  },
+  "tools.ingestNote": { ko: "데스크톱 패키지로 그대로 넘어갑니다:", en: "Goes straight into the desktop package:", "zh-Hant": "可直接匯入桌面套件：", "zh-Hans": "可直接导入桌面包：" },
+  "tools.exportEmpty": { ko: "내보낼 판이 없습니다.", en: "There is nothing to export.", "zh-Hant": "沒有可匯出的資料。", "zh-Hans": "没有可导出的数据。" },
+  "tools.exportRequested": { ko: "{file} 저장을 요청했습니다. 데스크톱에서: {cmd}", en: "Asked to save {file}. On the desktop: {cmd}", "zh-Hant": "已請求儲存 {file}。在桌面端執行：{cmd}", "zh-Hans": "已请求保存 {file}。在桌面端执行：{cmd}" },
+  "tools.exportSaved": { ko: "{file} 을 내려받았습니다. 데스크톱에서: {cmd}", en: "Downloaded {file}. On the desktop: {cmd}", "zh-Hant": "已下載 {file}。在桌面端執行：{cmd}", "zh-Hans": "已下载 {file}。在桌面端执行：{cmd}" },
+  "tools.exportDeclined": { ko: "저장을 취소했습니다.", en: "The save was cancelled.", "zh-Hant": "已取消儲存。", "zh-Hans": "已取消保存。" },
+  "tools.exportFailed": { ko: "저장하지 못했습니다 ({code}).", en: "Could not save ({code}).", "zh-Hant": "無法儲存（{code}）。", "zh-Hans": "无法保存（{code}）。" },
+  "tools.exportBlocked": {
+    ko: "이 화면에서는 파일 저장이 막혀 있습니다. 아래 내용을 복사해서 쓰세요.",
+    en: "Saving a file is blocked here. Copy the text below instead.",
+    "zh-Hant": "此畫面無法儲存檔案。請改為複製下方內容。",
+    "zh-Hans": "此画面无法保存文件。请改为复制下方内容。",
+  },
+  "tools.error": { ko: "오류", en: "error", "zh-Hant": "錯誤", "zh-Hans": "错误" },
+
+  "flash.recorded": { ko: "{side} 기록", en: "{side} recorded", "zh-Hant": "已記錄 {side}", "zh-Hans": "已记录 {side}" },
+  "flash.undo": { ko: "한 판 취소", en: "One coup undone", "zh-Hant": "已復原一局", "zh-Hans": "已撤销一局" },
+  "flash.newShoe": { ko: "새 슈 시작", en: "New shoe started", "zh-Hant": "已開新牌靴", "zh-Hans": "已开新牌靴" },
+
+  /* --------------------------------------------------------------- footer */
+  "footer": {
+    ko: "브라우저 안에서만 동작합니다 — 공유한 화면도, 붙여넣은 이미지도, 모은 결과도 어떤 카지노 사이트로도 전송되지 않습니다. 확률·로드·무결성 계산은 데스크톱 패키지와 같은 코드를 옮긴 것이며, 파이썬 원본과 동일한 값을 내도록 검증돼 있습니다.",
+    en: "Everything runs inside your browser — the shared screen, the pasted images and the collected results are never sent to any casino site. The probability, road and integrity calculations are a port of the desktop package's own code, checked to produce the same numbers as the Python original.",
+    "zh-Hant": "全部在瀏覽器內執行 — 分享的畫面、貼上的圖片與收集的結果都不會傳送到任何賭場網站。機率、路圖與完整性計算皆移植自桌面套件的相同程式碼，並經驗證與 Python 原始版本輸出相同數值。",
+    "zh-Hans": "全部在浏览器内运行 — 共享的画面、粘贴的图片与收集的结果都不会发送到任何赌场网站。概率、路图与完整性计算皆移植自桌面包的相同代码，并经验证与 Python 原始版本输出相同数值。",
+  },
+};
+
+/* ------------------------------------------------------------------ state */
+
+const DEFAULT_LANG = "ko";
+let lang = DEFAULT_LANG;
+let theme = "auto";
+const listeners = new Set();
+
+const read = (key) => { try { return localStorage.getItem(key); } catch { return null; } };
+const write = (key, value) => { try { localStorage.setItem(key, value); } catch { /* private mode */ } };
+
+/** The stored choice, else the closest match to the browser's own language. */
+function detectLang() {
+  const stored = read(LANG_KEY);
+  if (stored && LANGS.some((l) => l.code === stored)) return stored;
+
+  for (const tag of (typeof navigator !== "undefined" ? navigator.languages || [navigator.language] : [])) {
+    if (!tag) continue;
+    const lower = String(tag).toLowerCase();
+    if (lower.startsWith("ko")) return "ko";
+    if (lower.startsWith("zh")) {
+      // Script beats region, but region decides when no script is given:
+      // zh-TW, zh-HK and zh-MO are traditional, everything else simplified.
+      if (lower.includes("hant") || /-(tw|hk|mo)\b/.test(lower)) return "zh-Hant";
+      return "zh-Hans";
+    }
+    if (lower.startsWith("en")) return "en";
+  }
+  return DEFAULT_LANG;
+}
+
+function currentLang() { return lang; }
+function currentTheme() { return theme; }
+
+/**
+ * Look up `key` in the current language and fill in `{placeholders}`.
+ * A missing key returns the key itself, which shows up on screen rather than
+ * failing silently -- the point being that it is meant to be noticed.
+ */
+function t(key, vars) {
+  const entry = S[key];
+  let text = entry ? (entry[lang] ?? entry[DEFAULT_LANG] ?? key) : key;
+  if (vars) {
+    for (const [name, value] of Object.entries(vars)) {
+      text = text.split(`{${name}}`).join(String(value));
+    }
+  }
+  return text;
+}
+
+/** The label for one outcome code, e.g. "뱅커" / "Banker" / "莊". */
+const side = (code) => t("side." + code);
+/** The short glyph a board cell carries. */
+const mark = (code) => t("mark." + code);
+
+function onChange(fn) { listeners.add(fn); return () => listeners.delete(fn); }
+const notify = () => { for (const fn of listeners) fn(); };
+
+/* ------------------------------------------------------------------- DOM */
+
+/**
+ * Re-label the static markup.
+ *
+ * `data-i18n` sets text, `data-i18n-html` sets markup (the strings carrying
+ * `<b>` emphasis are authored here, never user input), and the rest set the
+ * attributes that also reach a reader.
+ */
+function applyDom(root = document) {
+  for (const node of root.querySelectorAll("[data-i18n]")) {
+    node.textContent = t(node.dataset.i18n);
+  }
+  for (const node of root.querySelectorAll("[data-i18n-html]")) {
+    node.innerHTML = t(node.dataset.i18nHtml);
+  }
+  for (const node of root.querySelectorAll("[data-i18n-ph]")) {
+    node.placeholder = t(node.dataset.i18nPh);
+  }
+  for (const node of root.querySelectorAll("[data-i18n-aria]")) {
+    node.setAttribute("aria-label", t(node.dataset.i18nAria));
+  }
+  for (const node of root.querySelectorAll("[data-i18n-title]")) {
+    node.title = t(node.dataset.i18nTitle);
+  }
+  document.documentElement.lang = lang;
+  document.title = t("app.title");
+}
+
+function setLang(code) {
+  if (!LANGS.some((l) => l.code === code)) return;
+  lang = code;
+  write(LANG_KEY, code);
+  applyDom();
+  notify();
+}
+
+/* ----------------------------------------------------------------- theme */
+
+/**
+ * `auto` leaves the root unstamped so `prefers-color-scheme` decides, which is
+ * also how an artifact viewer's own theme reaches the page; `light` and `dark`
+ * stamp an explicit choice that overrides it in both directions.
+ */
+function setTheme(next) {
+  if (!THEMES.includes(next)) return;
+  theme = next;
+  write(THEME_KEY, next);
+  const root = document.documentElement;
+  if (next === "auto") root.removeAttribute("data-theme");
+  else root.setAttribute("data-theme", next);
+  notify();
+}
+
+/** Restore both choices. Call once, before the first render. */
+function initPreferences() {
+  lang = detectLang();
+  const storedTheme = read(THEME_KEY);
+  // An artifact viewer stamps the root itself; honour that when nothing is stored.
+  const stamped = document.documentElement.getAttribute("data-theme");
+  theme = THEMES.includes(storedTheme) ? storedTheme : (stamped === "light" || stamped === "dark" ? stamped : "auto");
+  setTheme(theme);
+  applyDom();
+}
+
+/** Every key that is missing a translation, for the port test to assert on. */
+function missingTranslations() {
+  const gaps = [];
+  for (const [key, entry] of Object.entries(S)) {
+    for (const { code } of LANGS) {
+      if (typeof entry[code] !== "string" || !entry[code].length) gaps.push(`${key}:${code}`);
+    }
+  }
+  return gaps;
+}
+
+/** Placeholders that do not appear in every language of the same key. */
+function placeholderMismatches() {
+  const bad = [];
+  const names = (s) => [...s.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort().join(",");
+  for (const [key, entry] of Object.entries(S)) {
+    const want = names(entry[DEFAULT_LANG] || "");
+    for (const { code } of LANGS) {
+      if (typeof entry[code] === "string" && names(entry[code]) !== want) bad.push(`${key}:${code}`);
+    }
+  }
+  return bad;
+}
+
 /* ═══ core.js ═══ */
 /* Punto Banco core, ported from the Python package.
  *
@@ -1030,43 +1671,13 @@ function quantile(sorted, q) {
   return lo === hi ? sorted[lo] : sorted[lo] + (sorted[hi] - sorted[lo]) * (pos - lo);
 }
 
-/** Korean labels for the statistics, so the report reads as prose. */
-const STAT_KO = {
-  banker_share: "뱅커 비율",
-  tie_rate: "타이 비율",
-  runs_per_coup: "판당 전환 횟수",
-  shoe_share_dispersion: "슈별 편차 비율",
-  mean_longest_streak: "평균 최장 연속",
-  coups_per_shoe: "슈당 판수",
-  conditional_chi2_d1: "직전 1판 의존성",
-  conditional_chi2_d2: "직전 2판 의존성",
-  conditional_chi2_d3: "직전 3판 의존성",
-};
-for (const lag of LAGS) STAT_KO[`autocorr_lag${lag}`] = `자기상관 ${lag}판`;
-
-/** What each statistic would mean if it came back abnormal. */
-const STAT_WHY = {
-  banker_share: "뱅커가 이기는 비율. 카드 소진만으로 설명되는 범위를 벗어나면 덱 구성이나 규칙이 다릅니다.",
-  tie_rate: "타이 비율. 벗어나면 덱 수가 8덱이 아니거나 판독 오류입니다.",
-  runs_per_coup: "연속이 끊기는 빈도. 낮으면 정상보다 길게 늘어지고(용), 높으면 과하게 끊깁니다.",
-  shoe_share_dispersion: "슈마다 한쪽으로 쏠리는 정도. 1보다 크면 셔플이 슈 단위로 편향돼 있다는 뜻입니다.",
-  mean_longest_streak: "슈마다 가장 긴 연속의 평균. 셔플이 부족하면 길어집니다.",
-  coups_per_shoe: "슈당 판수. 벗어나면 컷카드 깊이나 덱 수가 다릅니다.",
-  conditional_chi2_d1: "직전 결과가 다음 판을 바꾸는지. 모든 패턴 시스템이 있다고 가정하는 바로 그 값입니다.",
-  conditional_chi2_d2: "직전 두 판의 조합이 다음 판을 바꾸는지.",
-  conditional_chi2_d3: "직전 세 판의 조합이 다음 판을 바꾸는지.",
-};
-for (const lag of LAGS) {
-  STAT_WHY[`autocorr_lag${lag}`] = `${lag}판 떨어진 결과끼리의 상관. 0에서 벗어나면 순서에 구조가 있다는 뜻입니다.`;
-}
-
 /**
  * Test a corpus against honestly simulated shoes of the same shape.
  * `shoes` is an array of "PBT" strings, one per shoe.
  */
 function integrityReport(shoes, nullSamples, { alpha = 0.05, nReplicates = 0 } = {}) {
   const nShoes = shoes.length;
-  if (nShoes < 3) throw new Error(`무결성 검정에는 최소 3슈가 필요합니다 (현재 ${nShoes}슈)`);
+  if (nShoes < 3) throw new Error(`the integrity battery needs at least 3 shoes, got ${nShoes}`);
 
   const observed = computeStatistics(shoes);
   const findings = [];
@@ -1101,35 +1712,21 @@ function integrityReport(shoes, nullSamples, { alpha = 0.05, nReplicates = 0 } =
   const bias = detectableBias(nShoes);
   const enough = bias <= BANKER_BREAKEVEN_GAP;
 
-  let verdict, verdictKind;
-  if (flagged.length) {
-    verdictKind = "flag";
-    verdict =
-      `${findings.length}개 통계 중 ${flagged.length}개가 다중검정 보정(BH) 후에도 정상 범위를 벗어났습니다: ` +
-      `${flagged.map((f) => STAT_KO[f.statistic] || f.statistic).join(", ")}. ` +
-      `이걸 발견으로 취급하기 전에, 평범한 원인부터 순서대로 배제하세요 — 판독 오류, 덱 수가 8덱이 아님, ` +
-      `컷카드 깊이가 다름, 비표준 규칙, 또는 여러 테이블 데이터가 섞임. ` +
-      `그 전부가 배제되어야만 셔플이 무작위가 아니라는 증거가 됩니다.`;
-  } else if (!enough) {
-    verdictKind = "insufficient";
-    verdict =
-      `${findings.length}개 통계 전부 정상 범위 안입니다. 다만 ${nShoes}슈로는 ` +
-      `${(bias * 100).toFixed(2)}% 이상의 편향만 잡아낼 수 있고, 돈이 되기 시작하는 지점은 ` +
-      `${(BANKER_BREAKEVEN_GAP * 100).toFixed(2)}%입니다. 즉 "이상 없음"이 아직 "정상임을 확인했다"는 뜻은 ` +
-      `아닙니다. ${shoesForBias(BANKER_BREAKEVEN_GAP).toLocaleString()}슈까지 모아야 결론이 됩니다.`;
-  } else {
-    verdictKind = "clean";
-    verdict =
-      `${findings.length}개 통계 전부, 정직하게 섞인 8덱 슈가 이 표본 크기에서 만들어내는 범위 안입니다. ` +
-      `그리고 ${nShoes}슈는 돈이 되는 편향(${(BANKER_BREAKEVEN_GAP * 100).toFixed(2)}%)을 잡아내기에 ` +
-      `충분한 크기입니다. 이 테이블의 순서에는 카드 소진으로 설명되지 않는 구조가 없습니다.`;
-  }
+  // The verdict is three facts, not a sentence: a deviation was found; or none
+  // was and the sample is large enough for that to mean something; or none was
+  // and it is not. Which words carry that belongs to the interface layer.
+  const kind = flagged.length ? "flag" : enough ? "clean" : "insufficient";
 
   return {
     n_games: nCoups, n_shoes: nShoes, n_replicates: nReplicates,
     findings: findings.sort((a, b) => Math.abs(b.z || 0) - Math.abs(a.z || 0)),
-    corrections, verdict, verdict_kind: verdictKind,
-    detectable_bias: bias, sufficient: enough,
+    corrections,
+    verdict_kind: kind,
+    flagged: flagged.map((f) => f.statistic),
+    detectable_bias: bias,
+    sufficient: enough,
+    breakeven_gap: BANKER_BREAKEVEN_GAP,
+    shoes_needed: shoesForBias(BANKER_BREAKEVEN_GAP),
   };
 }
 
@@ -1841,6 +2438,7 @@ class Store {
 
 
 
+
 const $ = (id) => document.getElementById(id);
 const el = (tag, cls, text) => {
   const n = document.createElement(tag);
@@ -1849,14 +2447,30 @@ const el = (tag, cls, text) => {
   return n;
 };
 const pct = (x, d = 1) => (x * 100).toFixed(d) + "%";
-const SIDE_KO = { P: "플레이어", B: "뱅커", T: "타이" };
 
 /* Sample sizes worth aiming at, from the measured detection power. */
 const MILESTONES = [
-  { bias: 0.03, label: "명백한 이상", note: "망가진 셔플이라면 여기서 드러납니다" },
-  { bias: 0.012, label: "중간 편향", note: "눈에 띄지 않는 치우침까지" },
-  { bias: BANKER_BREAKEVEN_GAP, label: "돈이 되는 편향", note: "편향이 수익이 되기 시작하는 지점" },
+  { bias: 0.03, key: "ms1" },
+  { bias: 0.012, key: "ms2" },
+  { bias: BANKER_BREAKEVEN_GAP, key: "ms3" },
 ].map((m) => ({ ...m, shoes: shoesForBias(m.bias) }));
+
+/** The label and the tooltip for one order statistic, in the current language. */
+function statLabel(key) {
+  const lag = key.match(/^autocorr_lag(\d+)$/);
+  if (lag) return t("stat.autocorr", { lag: lag[1] });
+  const d = key.match(/^conditional_chi2_d(\d+)$/);
+  if (d) return t("stat.chi2", { d: d[1] });
+  return t("stat." + key);
+}
+
+function statWhy(key) {
+  const lag = key.match(/^autocorr_lag(\d+)$/);
+  if (lag) return t("why.autocorr", { lag: lag[1] });
+  const d = key.match(/^conditional_chi2_d(\d+)$/);
+  if (d) return d[1] === "1" ? t("why.chi2_1") : t("why.chi2_n", { d: d[1] });
+  return t("why." + key);
+}
 
 /* ------------------------------------------------------------------ state */
 
@@ -1866,6 +2480,7 @@ let shot = null;            // {imageData, width, height, boards, pick, region}
 let nullCache = new Map();  // nShoes -> null samples
 let integrityRun = null;
 let live = null;            // LiveWatcher, created on first use
+let lastReport = null;      // kept so a language change can redraw the verdict
 let liveHolds = 0;          // consecutive readings shorter than the shoe in progress
 
 const newShoeId = () => "S" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
@@ -1874,7 +2489,7 @@ function exampleState() {
   const shoes = simulate(4, 20240101).map((o, i) => ({
     id: `EXAMPLE-${i + 1}`, o, closed: i < 3, t: Date.now() - (4 - i) * 3.6e6,
   }));
-  return { tables: { "예시-테이블": { shoes } }, active: "예시-테이블", isExample: true };
+  return { tables: { "Demo": { shoes } }, active: "Demo", isExample: true };
 }
 
 const table = () => state.tables[state.active] || (state.tables[state.active] = { shoes: [] });
@@ -1955,7 +2570,7 @@ function loadAsNewShoe(seq) {
  *  first real entry replaces it rather than mixing with it. */
 function clearExample() {
   if (!state.isExample) return;
-  state = { tables: { "테이블-1": { shoes: [] } }, active: "테이블-1", isExample: false };
+  state = { tables: { "Table 1": { shoes: [] } }, active: "Table 1", isExample: false };
 }
 
 /**
@@ -2027,7 +2642,7 @@ function renderShot() {
   const readout = $("readout");
   readout.innerHTML = "";
   if (!board) {
-    readout.appendChild(el("p", "warn", "이 이미지에서 구슬판을 찾지 못했습니다. 구슬판이 잘 보이도록 다시 캡처하거나, 이미지 위에서 구슬판 영역을 드래그해 지정해 보세요."));
+    readout.appendChild(el("p", "warn", t("paste.notFound")));
     return;
   }
 
@@ -2035,8 +2650,9 @@ function renderShot() {
   const mode = classifyPaste(currentShoe().o, seq);
   const head = el("div", "readhead");
   head.appendChild(el("span", "chip " + (board.kind === "bead" ? "ok" : "warn"),
-    board.kind === "bead" ? "구슬판" : "빅로드(추정)"));
-  head.appendChild(el("span", "readnum", `${seq.length}판 · ${board.nRows}행 × ${board.nCols}열`));
+    t(board.kind === "bead" ? "paste.kindBead" : "paste.kindBigRoad")));
+  head.appendChild(el("span", "readnum",
+    t("paste.readMeta", { n: seq.length, rows: board.nRows, cols: board.nCols })));
   const counts = { P: 0, B: 0, T: 0 };
   for (const c of seq) counts[c]++;
   const tally = el("span", "tally");
@@ -2048,17 +2664,16 @@ function renderShot() {
   readout.appendChild(head);
 
   const strip = el("div", "seqstrip");
-  for (const c of seq) strip.appendChild(el("i", "sq " + c, c === "P" ? "플" : c === "B" ? "뱅" : "타"));
+  for (const c of seq) strip.appendChild(el("i", "sq " + c, mark(c)));
   readout.appendChild(strip);
 
   if (board.kind !== "bead") {
-    readout.appendChild(el("p", "warn",
-      "구슬판이 아니라 빅로드로 보입니다. 빅로드는 타이가 표시되지 않고 6줄을 넘는 연속이 옆으로 꺾여 순서가 어긋날 수 있습니다. 가능하면 구슬판이 나오게 캡처하세요."));
+    readout.appendChild(el("p", "warn", t("paste.bigRoadWarn")));
   }
 
   const actions = el("div", "actions");
   const primary = el("button", "btn primary",
-    mode === "same" ? "현재 슈에 반영" : "새 슈로 추가");
+    t(mode === "same" ? "paste.applyCurrent" : "paste.applyNew"));
   primary.onclick = () => {
     if (mode === "same") replaceCurrentShoe(seq); else loadAsNewShoe(seq);
     shot = null; renderShot();
@@ -2066,7 +2681,7 @@ function renderShot() {
   actions.appendChild(primary);
 
   const other = el("button", "btn",
-    mode === "same" ? "새 슈로 추가" : "현재 슈에 반영");
+    t(mode === "same" ? "paste.applyNew" : "paste.applyCurrent"));
   other.onclick = () => {
     if (mode === "same") loadAsNewShoe(seq); else replaceCurrentShoe(seq);
     shot = null; renderShot();
@@ -2074,24 +2689,21 @@ function renderShot() {
   actions.appendChild(other);
 
   if (shot.boards.length > 1) {
-    const swap = el("button", "btn ghost", `다른 영역 (${shot.pick + 1}/${shot.boards.length})`);
+    const swap = el("button", "btn ghost", t("paste.otherRegion", { i: shot.pick + 1, n: shot.boards.length }));
     swap.onclick = () => { shot.pick = (shot.pick + 1) % shot.boards.length; renderShot(); };
     actions.appendChild(swap);
   }
   if (shot.region) {
-    const reset = el("button", "btn ghost", "전체 다시 인식");
+    const reset = el("button", "btn ghost", t("paste.resetRegion"));
     reset.onclick = () => rerunDetection(null);
     actions.appendChild(reset);
   }
-  const drop = el("button", "btn ghost", "취소");
+  const drop = el("button", "btn ghost", t("paste.cancel"));
   drop.onclick = () => { shot = null; renderShot(); };
   actions.appendChild(drop);
   readout.appendChild(actions);
 
-  readout.appendChild(el("p", "hint",
-    mode === "same"
-      ? "현재 슈와 앞부분이 같습니다 — 같은 슈의 최신 상태로 보고 통째로 교체합니다. 몇 판마다 다시 붙여넣어도 중복되지 않습니다."
-      : "현재 슈와 앞부분이 다릅니다 — 새 슈가 시작된 것으로 보입니다."));
+  readout.appendChild(el("p", "hint", t(mode === "same" ? "paste.sameHint" : "paste.newHint")));
 }
 
 /* ------------------------------------------------------------ live read */
@@ -2125,9 +2737,16 @@ function onLiveRead(seq, board, repeats) {
     liveHolds += 1;
     if (liveHolds >= 4) {
       setLiveWarn(
-        `읽은 값이 ${seq.length}판으로 현재 슈(${current.length}판)보다 짧습니다. ` +
-        `구슬판이 잘렸거나 옆으로 밀렸을 수 있습니다 — 화면에 구슬판 전체가 보이는지 확인하세요.`,
-        { label: `${seq.length}판으로 교체`, run: () => { replaceCurrentShoe(seq); liveHolds = 0; setLiveWarn(null); liveLog(`${seq.length}판으로 수동 교체`); } });
+        t("live.shortWarn", { read: seq.length, cur: current.length }),
+        {
+          label: t("live.shortSwap", { n: seq.length }),
+          run: () => {
+            replaceCurrentShoe(seq);
+            liveHolds = 0;
+            setLiveWarn(null);
+            liveLog(t("live.logManual", { n: seq.length }));
+          },
+        });
     }
     return;
   }
@@ -2138,10 +2757,13 @@ function onLiveRead(seq, board, repeats) {
   if (verdict === "grow" && repeats >= CONFIRM_GROWTH) {
     const added = seq.length - current.length;
     replaceCurrentShoe(seq);
-    liveLog(`+${added}판 → ${seq.length}판  ${[...seq.slice(current.length)].map((o) => SIDE_KO[o]).join(" ")}`);
+    liveLog(t("live.logGrow", {
+      n: added, total: seq.length,
+      sides: [...seq.slice(current.length)].map(side).join(" "),
+    }));
   } else if (verdict === "reset" && repeats >= CONFIRM_RESET) {
     loadAsNewShoe(seq);
-    liveLog(`새 슈 시작 — ${seq.length}판 읽음`, "new");
+    liveLog(t("live.logNewShoe", { n: seq.length }), "new");
   }
 }
 
@@ -2174,34 +2796,29 @@ function onLiveState(st) {
   dot.className = "livedot " + (found ? "on" : "searching");
   const ago = st.lastReadAt ? Math.round((Date.now() - st.lastReadAt) / 1000) : null;
   $("liveStatus").textContent = found
-    ? `${st.board.sequence.length}판 읽음 · ${st.locked ? "영역 고정" : "영역 찾는 중"} · ${ago}초 전`
-    : "구슬판을 찾는 중 — 테이블 화면이 보이는 창을 공유했는지 확인하세요";
+    ? t("live.reading", {
+        n: st.board.sequence.length,
+        lock: t(st.locked ? "live.locked" : "live.locking"),
+        ago,
+      })
+    : t("live.searching");
 }
 
 function renderLiveError(code) {
   const box = $("liveError");
   const own = location.href;
   const bodies = {
-    unsupported: `<h3>이 브라우저에서는 화면 공유를 쓸 수 없습니다</h3>
-      <p>모바일 브라우저 대부분과 일부 구형 브라우저는 화면 공유(<code>getDisplayMedia</code>)를
-        지원하지 않습니다. PC의 Chrome · Edge · Firefox에서 열거나,
-        <b>캡처 붙여넣기</b> 방식을 쓰세요.</p>`,
-    denied: `<h3>화면 공유가 차단되었습니다</h3>
-      <p>둘 중 하나입니다.</p>
-      <ol>
-        <li><b>공유 창에서 취소를 눌렀다면</b> — 다시 시작하고 아바타 스피드가 열린 탭을 고르세요.</li>
-        <li><b>창이 아예 뜨지 않았다면</b> — 이 페이지가 다른 페이지 안에 삽입돼 있어 화면 공유
-          권한을 받지 못한 경우입니다. 아래 링크로 이 페이지를 <b>새 탭에서 직접 열면</b> 됩니다.
-          (새 탭에서는 수집 데이터가 그 브라우저에만 저장됩니다.)</li>
-      </ol>
-      <p style="margin-top:11px"><a href="${own}" target="_blank" rel="noopener">이 페이지를 새 탭에서 열기 →</a></p>`,
-    nosource: `<h3>공유할 화면을 찾지 못했습니다</h3><p>다시 시도해 주세요.</p>`,
-    failed: `<h3>화면 공유를 시작하지 못했습니다</h3>
-      <p>브라우저를 새로고침한 뒤 다시 시도하거나, <b>캡처 붙여넣기</b> 방식을 쓰세요.</p>`,
+    unsupported: `<h3>${t("live.errUnsupportedH")}</h3><p>${t("live.errUnsupportedBody")}</p>`,
+    denied:
+      `<h3>${t("live.errDeniedH")}</h3><p>${t("live.errDeniedIntro")}</p>` +
+      `<ol><li>${t("live.errDenied1")}</li><li>${t("live.errDenied2")}</li></ol>` +
+      `<p style="margin-top:11px"><a href="${own}" target="_blank" rel="noopener">${t("live.errOpenTop")}</a></p>`,
+    nosource: `<h3>${t("live.errNoSourceH")}</h3><p>${t("live.errNoSourceBody")}</p>`,
+    failed: `<h3>${t("live.errFailedH")}</h3><p>${t("live.errFailedBody")}</p>`,
   };
   box.innerHTML = (bodies[code] || bodies.failed) +
-    `<div class="actions"><button class="btn" id="liveRetry">다시 시도</button>
-     <button class="btn ghost" id="liveToPaste">캡처 붙여넣기로 전환</button></div>`;
+    `<div class="actions"><button class="btn" id="liveRetry">${t("live.retry")}</button>
+     <button class="btn ghost" id="liveToPaste">${t("live.toPaste")}</button></div>`;
   $("liveRetry").onclick = () => { live.error = null; live._emit(); live.start(); };
   $("liveToPaste").onclick = () => setMode("paste");
 }
@@ -2252,6 +2869,23 @@ function edges(q, tieP) {
 
 /* ---------------------------------------------------------------- render */
 
+/** The interval options carry a number, so their labels are built not stored. */
+function renderLiveIntervals() {
+  for (const option of $("liveInterval").options) {
+    option.textContent = t("live.every", { n: Number(option.value) / 1000 });
+  }
+}
+
+/** Everything a language change has to redraw. `applyDom` handles the markup;
+ *  these are the views this file renders itself. */
+function renderAll() {
+  renderLiveIntervals();
+  render();
+  renderShot();
+  if (live) live._emit();
+  if (lastReport) renderIntegrityResult(lastReport);
+}
+
 function render() {
   renderHeader();
   renderKpis();
@@ -2271,7 +2905,9 @@ function renderHeader() {
     sel.appendChild(o);
   }
   const shoe = currentShoe();
-  $("shoeMeta").textContent = `${shoes().filter((s) => s.o.length).length}슈 수집 · 현재 슈 ${shoe.o.length}판`;
+  $("shoeMeta").textContent = t("header.shoeMeta", {
+    shoes: shoes().filter((s) => s.o.length).length, coups: shoe.o.length,
+  });
   $("exampleBadge").hidden = !state.isExample;
 }
 
@@ -2279,22 +2915,28 @@ function renderKpis() {
   const o = observed();
   const bias = detectableBias(o.shoes);
   const tiles = [
-    { k: "수집한 슈", v: o.shoes.toLocaleString(), s: `${o.coups.toLocaleString()}판` },
     {
-      k: "뱅커 비율", v: o.n ? pct(o.q, 2) : "—",
-      s: o.n ? `±${(1.96 * o.se * 100).toFixed(2)}%p · ${o.n.toLocaleString()}판 기준` : "판이 없습니다",
+      k: t("state.shoes"), v: o.shoes.toLocaleString(),
+      s: t("state.coups", { n: o.coups.toLocaleString() }),
     },
     {
-      k: "탐지 가능한 최소 편향", v: o.shoes ? pct(bias, 2) : "—",
-      s: o.shoes ? (bias <= BANKER_BREAKEVEN_GAP ? "수익 경계보다 촘촘함" : `수익 경계는 ${pct(BANKER_BREAKEVEN_GAP, 2)}`) : "슈를 모으면 계산됩니다",
+      k: t("state.bankerShare"), v: o.n ? pct(o.q, 2) : "—",
+      s: o.n ? t("state.bankerShareSub", {
+            ci: (1.96 * o.se * 100).toFixed(2), n: o.n.toLocaleString(),
+          }) : t("state.noCoups"),
+    },
+    {
+      k: t("state.detectable"), v: o.shoes ? pct(bias, 2) : "—",
+      s: !o.shoes ? t("state.pending")
+        : bias <= BANKER_BREAKEVEN_GAP ? t("state.detectableTight")
+        : t("state.detectableLoose", { gap: pct(BANKER_BREAKEVEN_GAP, 2) }),
     },
     (() => {
       const gap = (BANKER_BREAKEVEN - (o.q ?? 0)) * 100;
       return {
-        k: "뱅커 손익분기까지", v: o.n ? `${gap >= 0 ? "+" : ""}${gap.toFixed(2)}%p` : "—",
-        s: !o.n ? "판을 모으면 계산됩니다"
-                : gap >= 0 ? "뱅커가 이익이 되려면 더 필요한 폭"
-                           : "이미 손익분기선을 넘어섰습니다 — 무결성 검정으로 확인하세요",
+        k: t("state.toBreakeven"), v: o.n ? `${gap >= 0 ? "+" : ""}${gap.toFixed(2)}%p` : "—",
+        s: !o.n ? t("state.pendingCoups")
+          : gap >= 0 ? t("state.toBreakevenShort") : t("state.toBreakevenPast"),
       };
     })(),
   ];
@@ -2331,19 +2973,19 @@ function renderScale() {
   p.push(`<rect x="${x(LO)}" y="${yBand}" width="${x(PLAYER_BREAKEVEN) - x(LO)}" height="${hBand}" fill="${C("--zone")}" rx="2"/>`);
   p.push(`<rect x="${x(BANKER_BREAKEVEN)}" y="${yBand}" width="${x(HI) - x(BANKER_BREAKEVEN)}" height="${hBand}" fill="${C("--zone")}" rx="2"/>`);
   p.push(`<rect x="${x(PLAYER_BREAKEVEN)}" y="${yBand}" width="${x(BANKER_BREAKEVEN) - x(PLAYER_BREAKEVEN)}" height="${hBand}" fill="${C("--dead")}" stroke="${C("--line-2")}"/>`);
-  p.push(`<text x="${(x(PLAYER_BREAKEVEN) + x(BANKER_BREAKEVEN)) / 2}" y="${yBand + 17}" text-anchor="middle" font-size="11.5" fill="${C("--ink-2")}">두 베팅 모두 손실</text>`);
-  p.push(`<text x="${x(LO) + 4}" y="${yBand + 17}" font-size="11" fill="${C("--ink-3")}">플레이어 이익</text>`);
-  p.push(`<text x="${x(HI) - 4}" y="${yBand + 17}" font-size="11" text-anchor="end" fill="${C("--ink-3")}">뱅커 이익</text>`);
+  p.push(`<text x="${(x(PLAYER_BREAKEVEN) + x(BANKER_BREAKEVEN)) / 2}" y="${yBand + 17}" text-anchor="middle" font-size="11.5" fill="${C("--ink-2")}">${t("scale.deadBand")}</text>`);
+  p.push(`<text x="${x(LO) + 4}" y="${yBand + 17}" font-size="11" fill="${C("--ink-3")}">${t("scale.playerProfit")}</text>`);
+  p.push(`<text x="${x(HI) - 4}" y="${yBand + 17}" font-size="11" text-anchor="end" fill="${C("--ink-3")}">${t("scale.bankerProfit")}</text>`);
 
-  for (const [q, label, sub] of [[PLAYER_BREAKEVEN, "50.000%", "플레이어 손익분기"],
-                                 [BANKER_BREAKEVEN, "51.282%", "뱅커 손익분기"]]) {
+  for (const [q, label, sub] of [[PLAYER_BREAKEVEN, "50.000%", t("scale.playerBreakeven")],
+                                 [BANKER_BREAKEVEN, "51.282%", t("scale.bankerBreakeven")]]) {
     p.push(`<line x1="${x(q)}" y1="${yTickTop}" x2="${x(q)}" y2="${yTickBottom}" stroke="${C("--ink-2")}" stroke-width="1.2"/>`);
     p.push(`<text x="${x(q)}" y="${yTickLabel}" text-anchor="middle" font-size="11.5" class="m" fill="${C("--ink")}">${label}</text>`);
     p.push(`<text x="${x(q)}" y="${ySubLabel}" text-anchor="middle" font-size="10.5" fill="${C("--ink-3")}">${sub}</text>`);
   }
 
   p.push(`<line x1="${x(BASE_BANKER_SHARE)}" y1="${yBand - 3}" x2="${x(BASE_BANKER_SHARE)}" y2="${yBand + hBand + 3}" stroke="${C("--ink-3")}" stroke-width="1" stroke-dasharray="3 3"/>`);
-  p.push(`<text x="${x(BASE_BANKER_SHARE)}" y="${yFreshLabel}" text-anchor="middle" font-size="10.5" fill="${C("--ink-3")}">신선한 슈 50.68%</text>`);
+  p.push(`<text x="${x(BASE_BANKER_SHARE)}" y="${yFreshLabel}" text-anchor="middle" font-size="10.5" fill="${C("--ink-3")}">${t("scale.freshShoe")}</text>`);
 
   if (o.n >= 30) {
     const clears = o.lo > BANKER_BREAKEVEN || o.hi < PLAYER_BREAKEVEN;
@@ -2365,12 +3007,12 @@ function renderScale() {
     // Keep the label inside the drawing whichever end the value sits at.
     const lx = Math.min(W - 10, Math.max(10, cx));
     const anchor = lx > W - 110 ? "end" : lx < 110 ? "start" : "middle";
-    const text = `이 테이블 ${pct(o.q, 2)}${off ? " (축 범위 밖)" : ""}`;
+    const text = t("scale.thisTable", { q: pct(o.q, 2) }) + (off ? t("scale.offAxis") : "");
     p.push(`<text x="${lx}" y="${yObsLabel}" text-anchor="${anchor}" font-size="11.5" class="m" fill="${col}">${text}</text>`);
   } else {
-    p.push(`<text x="${W / 2}" y="${yObsLabel}" text-anchor="middle" font-size="11.5" fill="${C("--ink-3")}">이 테이블의 값은 30판부터 표시됩니다</text>`);
+    p.push(`<text x="${W / 2}" y="${yObsLabel}" text-anchor="middle" font-size="11.5" fill="${C("--ink-3")}">${t("scale.waiting")}</text>`);
   }
-  p.push(`<text x="${W / 2}" y="${H - 5}" text-anchor="middle" font-size="10.5" fill="${C("--ink-3")}">가로축: P(뱅커 | 타이 제외) · 가로 막대는 95% 신뢰구간</text>`);
+  p.push(`<text x="${W / 2}" y="${H - 5}" text-anchor="middle" font-size="10.5" fill="${C("--ink-3")}">${t("scale.axis")}</text>`);
 
   svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
   svg.innerHTML = p.join("");
@@ -2379,16 +3021,16 @@ function renderScale() {
   const note = $("scaleNote");
   if (o.n < 30) {
     note.className = "verdict neutral";
-    note.innerHTML = `<b>베팅 안 함.</b> 신선한 슈의 P(뱅커 | 타이 제외)는 <b>50.68%</b>로 두 손익분기선 사이에 있습니다 — 뱅커 <b>${pct(e.B, 3)}</b>, 플레이어 <b>${pct(e.P, 3)}</b>, 둘 다 손실입니다. 이 테이블의 실제 값을 재려면 최소 30판이 필요합니다 (현재 ${o.n}판).`;
+    note.innerHTML = t("scale.verdictWaiting", { eb: pct(e.B, 3), ep: pct(e.P, 3), n: o.n });
   } else if (o.lo > BANKER_BREAKEVEN) {
     note.className = "verdict flag";
-    note.innerHTML = `<b>이례적입니다.</b> 이 테이블의 뱅커 비율 신뢰구간(<b>${pct(o.lo, 2)}–${pct(o.hi, 2)}</b>)이 뱅커 손익분기선 <b>51.282%</b>를 통째로 넘습니다. 아래 무결성 검정을 돌려 판독 오류·덱 수·규칙 차이부터 배제하세요.`;
+    note.innerHTML = t("scale.verdictBanker", { lo: pct(o.lo, 2), hi: pct(o.hi, 2) });
   } else if (o.hi < PLAYER_BREAKEVEN) {
     note.className = "verdict flag";
-    note.innerHTML = `<b>이례적입니다.</b> 신뢰구간(<b>${pct(o.lo, 2)}–${pct(o.hi, 2)}</b>)이 플레이어 손익분기선 <b>50.000%</b> 아래에 통째로 있습니다. 아래 무결성 검정으로 확인하세요.`;
+    note.innerHTML = t("scale.verdictPlayer", { lo: pct(o.lo, 2), hi: pct(o.hi, 2) });
   } else {
     note.className = "verdict neutral";
-    note.innerHTML = `<b>베팅 안 함.</b> 이 테이블의 뱅커 비율은 <b>${pct(o.q, 2)}</b>, 95% 신뢰구간 <b>${pct(o.lo, 2)}–${pct(o.hi, 2)}</b>로 죽은 구간 안에 있습니다. 구간이 손익분기선 하나를 통째로 넘어가기 전까지는 어느 쪽도 기댓값이 플러스가 아닙니다.`;
+    note.innerHTML = t("scale.verdictDead", { q: pct(o.q, 2), lo: pct(o.lo, 2), hi: pct(o.hi, 2) });
   }
 }
 
@@ -2408,8 +3050,12 @@ function renderBoard() {
   const c = { P: 0, B: 0, T: 0 };
   for (const o of outcomes) c[o]++;
   $("boardMeta").textContent = outcomes.length
-    ? `${outcomes.length}판 · 플레이어 ${c.P} · 뱅커 ${c.B} · 타이 ${c.T} · 현재 연속 ${road.currentStreak}${road.currentSide ? ` (${SIDE_KO[road.currentSide]})` : ""}`
-    : "이 슈에는 아직 기록된 판이 없습니다.";
+    ? t("board.meta", {
+        n: outcomes.length, p: c.P, b: c.B, t: c.T,
+        streak: road.currentStreak,
+        side: road.currentSide ? ` (${side(road.currentSide)})` : "",
+      })
+    : t("board.empty");
 }
 
 function drawGrid(host, rows, kind) {
@@ -2418,7 +3064,7 @@ function drawGrid(host, rows, kind) {
     const line = el("div", "gridrow");
     for (const cell of row) {
       const c = el("span", "cell" + (cell ? " " + cell : " empty"));
-      if (cell) c.textContent = cell === "P" ? "플" : cell === "B" ? "뱅" : "타";
+      if (cell) c.textContent = mark(cell);
       line.appendChild(c);
     }
     host.appendChild(line);
@@ -2445,15 +3091,17 @@ function renderMilestones() {
     const done = n >= m.shoes;
     const row = el("div", "ms" + (done ? " done" : ""));
     const head = el("div", "msrow");
-    head.appendChild(el("span", "msname", `${m.label} — ${pct(m.bias, 2)} 편향까지 탐지`));
-    head.appendChild(el("span", "msnum", `${n.toLocaleString()} / ${m.shoes.toLocaleString()}슈`));
+    head.appendChild(el("span", "msname",
+      t("collect.msLabel", { label: t("collect." + m.key), bias: pct(m.bias, 2) })));
+    head.appendChild(el("span", "msnum",
+      t("collect.msCount", { have: n.toLocaleString(), need: m.shoes.toLocaleString() })));
     row.appendChild(head);
     const track = el("div", "track");
     const fill = el("i");
     fill.style.width = Math.min(100, (n / m.shoes) * 100) + "%";
     track.appendChild(fill);
     row.appendChild(track);
-    row.appendChild(el("div", "msnote", m.note));
+    row.appendChild(el("div", "msnote", t("collect." + m.key + "note")));
     box.appendChild(row);
   }
 }
@@ -2465,8 +3113,8 @@ function renderIntegrityAvailability() {
   const btn = $("runIntegrity");
   btn.disabled = n < 3 || !!integrityRun;
   $("intHint").textContent = n < 3
-    ? `검정에는 최소 3슈가 필요합니다 (현재 ${n}슈).`
-    : `${n}슈를 정직하게 섞인 8덱 슈 ${$("reps").value}개 코퍼스와 비교합니다.`;
+    ? t("int.needShoes", { n })
+    : t("int.ready", { n, reps: $("reps").value });
 }
 
 async function runIntegrity() {
@@ -2484,12 +3132,14 @@ async function runIntegrity() {
   let samples = nullCache.get(key);
 
   if (!samples) {
-    label.textContent = "정직한 슈로 귀무분포를 만드는 중…";
+    label.textContent = t("int.building");
     samples = await simulatedNull(list.length, {
       nReplicates: reps,
       onProgress: (done, total) => {
         bar.style.width = (done / total) * 100 + "%";
-        label.textContent = `귀무분포 ${done}/${total} — 정직한 8덱 슈 ${(done * list.length).toLocaleString()}개를 돌렸습니다`;
+        label.textContent = t("int.progress", {
+          done, total, shoes: (done * list.length).toLocaleString(),
+        });
       },
       shouldStop: () => integrityRun?.cancelled,
     });
@@ -2497,7 +3147,8 @@ async function runIntegrity() {
     nullCache.set(key, samples);
   }
 
-  const report = integrityReport(list, samples, { nReplicates: reps });
+  lastReport = integrityReport(list, samples, { nReplicates: reps });
+  const report = lastReport;
   integrityRun = null;
   $("intProgress").hidden = true;
   renderIntegrityResult(report);
@@ -2508,8 +3159,24 @@ function renderIntegrityResult(rep) {
   $("intResult").hidden = false;
   const v = $("intVerdict");
   v.className = "verdict " + (rep.verdict_kind === "flag" ? "flag" : rep.verdict_kind === "clean" ? "ok" : "neutral");
-  const headline = { flag: "이상 발견", clean: "이상 없음 — 결론 가능", insufficient: "이상 없음 — 표본 부족" }[rep.verdict_kind];
-  v.innerHTML = `<b>${headline}.</b> ${rep.verdict}`;
+  const kind = rep.verdict_kind;
+  const headline = t({ flag: "int.headFlag", clean: "int.headClean", insufficient: "int.headInsufficient" }[kind]);
+  const body = {
+    flag: () => t("int.verdictFlag", {
+      n: rep.flagged.length, total: rep.findings.length,
+      names: rep.flagged.map(statLabel).join(", "),
+    }),
+    clean: () => t("int.verdictClean", {
+      total: rep.findings.length, shoes: rep.n_shoes.toLocaleString(),
+      gap: pct(rep.breakeven_gap, 2),
+    }),
+    insufficient: () => t("int.verdictInsufficient", {
+      total: rep.findings.length, shoes: rep.n_shoes.toLocaleString(),
+      bias: pct(rep.detectable_bias, 2), gap: pct(rep.breakeven_gap, 2),
+      need: rep.shoes_needed.toLocaleString(),
+    }),
+  }[kind]();
+  v.innerHTML = `<b>${headline}.</b> ${body}`;
 
   const host = $("intFindings");
   host.innerHTML = "";
@@ -2518,9 +3185,9 @@ function renderIntegrityResult(rep) {
 
   const legend = el("div", "flegend");
   legend.innerHTML =
-    `<span><i class="swatch band"></i>정직한 슈의 95% 범위 (z −1.96 ~ +1.96)</span>` +
-    `<span><i class="swatch dot"></i>이 테이블의 값</span>` +
-    `<span class="m">축 범위 ±${Z}</span>`;
+    `<span><i class="swatch band"></i>${t("int.legendBand")}</span>` +
+    `<span><i class="swatch dot"></i>${t("int.legendDot")}</span>` +
+    `<span class="m">${t("int.legendAxis", { z: Z })}</span>`;
   host.appendChild(legend);
 
   for (const f of rep.findings) {
@@ -2529,8 +3196,8 @@ function renderIntegrityResult(rep) {
     const row = el("div", "find" + (flagged ? " flagged" : ""));
 
     const name = el("div", "fname");
-    name.appendChild(el("span", "t", STAT_KO[f.statistic] || f.statistic));
-    name.title = STAT_WHY[f.statistic] || "";
+    name.appendChild(el("span", "t", statLabel(f.statistic)));
+    name.title = statWhy(f.statistic);
     row.appendChild(name);
 
     const offScale = Math.abs(f.z) > Z;
@@ -2546,7 +3213,7 @@ function renderIntegrityResult(rep) {
          <line x1="${zx(0)}" y1="4" x2="${zx(0)}" y2="18" stroke="var(--line-2)" stroke-width="1"/>
          ${mark}
        </svg>`;
-    plot.title = offScale ? `z = ${f.z.toFixed(2)} — 축 범위 밖` : `z = ${f.z.toFixed(2)}`;
+    plot.title = offScale ? t("int.offAxis", { z: f.z.toFixed(2) }) : `z = ${f.z.toFixed(2)}`;
     row.appendChild(plot);
 
     const num = el("div", "fnum");
@@ -2554,13 +3221,14 @@ function renderIntegrityResult(rep) {
     num.appendChild(el("span", "p", "p " + adj.p_bh?.toFixed(3)));
     row.appendChild(num);
 
-    row.appendChild(el("div", "fstate", flagged ? "이상" : "정상"));
+    row.appendChild(el("div", "fstate", t(flagged ? "int.abnormal" : "int.normal")));
     host.appendChild(row);
   }
 
-  $("intMeta").textContent =
-    `${rep.n_shoes.toLocaleString()}슈 · ${rep.n_games.toLocaleString()}판 · 통계 ${rep.findings.length}개 · ` +
-    `귀무 복제 ${rep.n_replicates}회 · 다중검정 보정 Benjamini-Hochberg`;
+  $("intMeta").textContent = t("int.meta", {
+    shoes: rep.n_shoes.toLocaleString(), coups: rep.n_games.toLocaleString(),
+    stats: rep.findings.length, reps: rep.n_replicates,
+  });
 }
 
 /* ------------------------------------------------------------ import/out */
@@ -2597,19 +3265,19 @@ function toCsv(rows) {
  */
 async function download(filename, data) {
   const note = $("exportNote");
-  const ingest = `python -m baccarat ingest ${filename} --save 내데이터`;
+  const ingest = `python -m baccarat ingest ${filename} --save mydata`;
 
   try {
     const dl = await window.claude?.use?.("downloads");
     if (dl) {
       await dl.save({ filename, data });
-      note.textContent = `${filename} 저장을 요청했습니다. 데스크톱에서: ${ingest}`;
+      note.textContent = t("tools.exportRequested", { file: filename, cmd: ingest });
       return;
     }
   } catch (e) {
     note.textContent = e?.code === "declined"
-      ? "저장을 취소했습니다."
-      : `저장하지 못했습니다 (${e?.code || "오류"}).`;
+      ? t("tools.exportDeclined")
+      : t("tools.exportFailed", { code: e?.code || t("tools.error") });
     return;
   }
 
@@ -2623,9 +3291,9 @@ async function download(filename, data) {
     a.click();
     a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 2000);
-    note.textContent = `${filename} 을 내려받았습니다. 데스크톱에서: ${ingest}`;
+    note.textContent = t("tools.exportSaved", { file: filename, cmd: ingest });
   } catch {
-    note.textContent = "이 화면에서는 파일 저장이 막혀 있습니다. 아래 내용을 복사해서 쓰세요.";
+    note.textContent = t("tools.exportBlocked");
     $("exportDump").hidden = false;
     $("exportDump").value = data;
   }
@@ -2694,7 +3362,7 @@ function bindPaste() {
 function bindControls() {
   $("tableSel").onchange = (e) => { state.active = e.target.value; store.save(state, []); render(); };
   $("addTable").onclick = () => {
-    const name = prompt("테이블 이름 (예: HANN-Speed-03)");
+    const name = prompt(t("header.newTablePrompt"));
     if (!name) return;
     clearExample();
     state.tables[name] ||= { shoes: [] };
@@ -2709,18 +3377,40 @@ function bindControls() {
 
   $("textAdd").onclick = () => {
     const { sequence, skipped } = parseSequenceText($("textIn").value);
-    if (!sequence) { $("textNote").textContent = "인식할 수 있는 결과가 없습니다."; return; }
+    if (!sequence) { $("textNote").textContent = t("tools.textNone"); return; }
     addOutcomes(sequence);
-    $("textNote").textContent = `${sequence.length}판을 현재 슈에 추가했습니다${skipped ? ` (알 수 없는 문자 ${skipped}개는 건너뜀)` : ""}.`;
+    $("textNote").textContent = t("tools.textAdded", {
+      n: sequence.length, skip: skipped ? t("tools.textSkipped", { n: skipped }) : "",
+    });
     $("textIn").value = "";
   };
   $("textNew").onclick = () => {
     const { sequence } = parseSequenceText($("textIn").value);
-    if (!sequence) { $("textNote").textContent = "인식할 수 있는 결과가 없습니다."; return; }
+    if (!sequence) { $("textNote").textContent = t("tools.textNone"); return; }
     loadAsNewShoe(sequence);
-    $("textNote").textContent = `${sequence.length}판을 새 슈로 불러왔습니다.`;
+    $("textNote").textContent = t("tools.textLoaded", { n: sequence.length });
     $("textIn").value = "";
   };
+
+  const langSel = $("langSel");
+  for (const { code, label } of LANGS) {
+    const option = el("option", null, label);
+    option.value = code;
+    langSel.appendChild(option);
+  }
+  langSel.value = currentLang();
+  langSel.onchange = (e) => setLang(e.target.value);
+
+  const themeButtons = { auto: $("themeAuto"), light: $("themeLight"), dark: $("themeDark") };
+  for (const [name, button] of Object.entries(themeButtons)) button.onclick = () => setTheme(name);
+
+  onChange(() => {
+    for (const [name, button] of Object.entries(themeButtons)) {
+      button.classList.toggle("on", currentTheme() === name);
+    }
+    langSel.value = currentLang();
+    renderAll();
+  });
 
   $("modeLive").onclick = () => setMode("live");
   $("modePaste").onclick = () => setMode("paste");
@@ -2731,8 +3421,8 @@ function bindControls() {
     intervalMs: Number($("liveInterval").value),
   });
   $("liveStart").onclick = () => live.start();
-  $("liveStop").onclick = () => { live.stop(); liveLog("화면 공유 중단"); };
-  $("liveRelock").onclick = () => { live.relock(); liveHolds = 0; setLiveWarn(null); liveLog("영역을 다시 찾습니다"); };
+  $("liveStop").onclick = () => { live.stop(); liveLog(t("live.logStopped")); };
+  $("liveRelock").onclick = () => { live.relock(); liveHolds = 0; setLiveWarn(null); liveLog(t("live.logRelock")); };
   $("liveInterval").onchange = (e) => live.setInterval(Number(e.target.value));
   if (!LiveWatcher.supported) { live.error = "unsupported"; live._emit(); }
 
@@ -2742,20 +3432,20 @@ function bindControls() {
 
   $("exportCsv").onclick = () => {
     const rows = corpusRows();
-    if (!rows.length) { $("exportNote").textContent = "내보낼 판이 없습니다."; return; }
+    if (!rows.length) { $("exportNote").textContent = t("tools.exportEmpty"); return; }
     download(`baccarat-${new Date().toISOString().slice(0, 10)}.csv`, toCsv(rows));
   };
   $("exportJson").onclick = () => {
     const rows = corpusRows();
-    if (!rows.length) { $("exportNote").textContent = "내보낼 판이 없습니다."; return; }
+    if (!rows.length) { $("exportNote").textContent = t("tools.exportEmpty"); return; }
     download(`baccarat-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(rows, null, 1));
   };
 
   $("resetBtn").onclick = async () => {
-    if (!confirm(`"${state.active}" 테이블의 수집 데이터를 모두 지웁니다. 계속할까요?`)) return;
+    if (!confirm(t("tools.resetConfirm", { table: state.active }))) return;
     const ids = shoes().map((s) => s.id);
     delete state.tables[state.active];
-    if (!Object.keys(state.tables).length) state.tables["테이블-1"] = { shoes: [] };
+    if (!Object.keys(state.tables).length) state.tables["Table 1"] = { shoes: [] };
     state.active = Object.keys(state.tables)[0];
     state.isExample = false;
     await store.deleteShoes(ids);
@@ -2774,22 +3464,34 @@ function bindControls() {
 
 /* Fast entry needs to confirm the keystroke landed, and say what it did --
    "U 기록됨" would read as if an undo had been recorded as a coup. */
-const FLASH_KO = { p: "플레이어 기록", b: "뱅커 기록", t: "타이 기록", u: "한 판 취소", n: "새 슈 시작" };
+const flashText = (key) => ({
+  p: () => t("flash.recorded", { side: side("P") }),
+  b: () => t("flash.recorded", { side: side("B") }),
+  t: () => t("flash.recorded", { side: side("T") }),
+  u: () => t("flash.undo"),
+  n: () => t("flash.newShoe"),
+}[key] || (() => key))();
 
 function flash(key) {
-  const node = $("shoeMeta"), msg = "✓ " + (FLASH_KO[key] || key);
+  const node = $("shoeMeta"), msg = "✓ " + flashText(key);
   node.textContent = msg;
   setTimeout(() => { if (node.textContent === msg) renderHeader(); }, 400);
 }
 
 async function boot() {
   store.onStatus = (s) => {
-    const label = { local: "이 브라우저에만 저장", syncing: "저장 중…", synced: "저장됨", error: "저장 실패", full: "저장 공간 가득 참" }[s] || s;
-    $("storeLabel").textContent = label;
+    $("storeLabel").textContent = t("store." + s);
     $("storeDot").className = "sdot " + s;
   };
+  initPreferences();
   bindPaste();
   bindControls();
+  renderLiveIntervals();
+
+  // Reflect the restored theme on the control now that it exists.
+  for (const [name, id] of [["auto", "themeAuto"], ["light", "themeLight"], ["dark", "themeDark"]]) {
+    $(id).classList.toggle("on", currentTheme() === name);
+  }
 
   state = store.readLocal() || exampleState();
   render();
