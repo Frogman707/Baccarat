@@ -1,6 +1,6 @@
 # 바카라 슈 판독기
 
-**→ https://Frogman707.github.io/baccarat/**
+**→ https://frogman707.github.io/Baccarat/**
 
 테이블 화면을 읽어 구슬판을 데이터로 바꾸고, 그 테이블의 셔플이 정상인지 검정하는
 브라우저 도구입니다. 설치할 것이 없습니다.
