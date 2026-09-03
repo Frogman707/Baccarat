@@ -1,0 +1,2805 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style>*{box-sizing:border-box}body{margin:0;font:14px system-ui}img{max-width:100%}[hidden]{display:none!important}</style></head><body><title>바카라 슈 판독기</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+KR:wght@300;400;500;600&display=swap">
+<style>
+/* ── tokens ─────────────────────────────────────────────────────────────
+   Cool blue-biased neutrals, the shade of a dealer terminal. The data triad
+   is fixed by the domain (player blue / banker red / tie green) and re-stepped
+   per surface; the amber accent does exactly one job — "the page found
+   something, look here". */
+:root{
+  --bg:#eef1f5; --surface:#ffffff; --surface-2:#f5f7fa; --surface-3:#eaeef3;
+  --line:#dce2ea; --line-2:#c6cfda;
+  --ink:#0e1620; --ink-2:#53617a; --ink-3:#8391a6;
+  --player:#1e6fd9; --banker:#cf3b34; --tie:#0a8f70;
+  --accent:#a8641a; --accent-soft:#f4e7d4;
+  --zone:#e2eae4; --dead:#f0f2f5; --band:#dfe5ed; --mark-ring:#ffffff;
+  --shadow:0 1px 2px rgba(16,26,40,.06), 0 6px 18px -10px rgba(16,26,40,.18);
+  --mono:"IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --sans:"IBM Plex Sans KR", -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans KR", sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0b1017; --surface:#131b26; --surface-2:#18222f; --surface-3:#1e2937;
+    --line:#26323f; --line-2:#37475a;
+    --ink:#e3eaf3; --ink-2:#93a3b8; --ink-3:#64748b;
+    --player:#3d93f0; --banker:#ee5a55; --tie:#00ab93;
+    --accent:#e29a3c; --accent-soft:#33291a;
+    --zone:#1f3a33; --dead:#1c2634; --band:#2c3c50; --mark-ring:#0b1017;
+    --shadow:0 1px 2px rgba(0,0,0,.3), 0 8px 24px -12px rgba(0,0,0,.6);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0b1017; --surface:#131b26; --surface-2:#18222f; --surface-3:#1e2937;
+  --line:#26323f; --line-2:#37475a;
+  --ink:#e3eaf3; --ink-2:#93a3b8; --ink-3:#64748b;
+  --player:#3d93f0; --banker:#ee5a55; --tie:#00ab93;
+  --accent:#e29a3c; --accent-soft:#33291a;
+  --zone:#1b2c28; --dead:#161f2b; --band:#233040; --mark-ring:#0b1017;
+  --shadow:0 1px 2px rgba(0,0,0,.3), 0 8px 24px -12px rgba(0,0,0,.6);
+}
+
+*{box-sizing:border-box}
+body{margin:0; background:var(--bg); color:var(--ink); font-family:var(--sans);
+     font-size:14px; line-height:1.55; -webkit-font-smoothing:antialiased}
+.m,.mono{font-family:var(--mono); font-variant-numeric:tabular-nums}
+button{font:inherit; color:inherit}
+:focus-visible{outline:2px solid var(--accent); outline-offset:2px; border-radius:6px}
+@media (prefers-reduced-motion: reduce){ *{transition:none !important; animation:none !important} }
+
+/* ── header ─────────────────────────────────────────────────────────── */
+header{position:sticky; top:0; z-index:20; background:var(--surface);
+       border-bottom:1px solid var(--line)}
+.hin{max-width:1220px; margin:0 auto; padding:11px 20px;
+     display:flex; align-items:center; gap:16px; flex-wrap:wrap}
+.brand{display:flex; align-items:center; gap:9px; font-weight:600; letter-spacing:-.01em}
+.pips{display:flex; gap:4px}
+.pips i{width:9px; height:9px; border-radius:50%}
+.pips i:nth-child(1){background:var(--player)}
+.pips i:nth-child(2){background:var(--banker)}
+.pips i:nth-child(3){background:var(--tie)}
+.spacer{flex:1}
+select,input[type=text],textarea{
+  font:inherit; color:var(--ink); background:var(--surface-2);
+  border:1px solid var(--line-2); border-radius:7px; padding:5px 9px}
+#shoeMeta{font-family:var(--mono); font-size:12.5px; color:var(--ink-2); font-variant-numeric:tabular-nums}
+.badge{font-size:11px; padding:2px 8px; border-radius:20px; background:var(--accent-soft);
+       color:var(--accent); border:1px solid var(--accent); font-weight:500}
+.store{display:flex; align-items:center; gap:7px; font-size:12px; color:var(--ink-3)}
+.sdot{width:7px; height:7px; border-radius:50%; background:var(--ink-3)}
+.sdot.synced{background:var(--tie)} .sdot.syncing{background:var(--accent)}
+.sdot.error,.sdot.full{background:var(--banker)}
+
+/* ── grid ───────────────────────────────────────────────────────────── */
+main{max-width:1220px; margin:0 auto; padding:20px; display:grid;
+     grid-template-columns:repeat(12,1fr); gap:16px; align-items:start}
+.panel{background:var(--surface); border:1px solid var(--line); border-radius:12px;
+       padding:16px 18px; box-shadow:var(--shadow); min-width:0}
+.c12{grid-column:span 12} .c7{grid-column:span 7} .c5{grid-column:span 5}
+@media (max-width:940px){ .c7,.c5{grid-column:span 12} main{padding:14px; gap:13px} }
+h2{font-size:14px; font-weight:600; margin:0 0 3px; letter-spacing:-.005em}
+.sub{font-size:12px; color:var(--ink-3); margin:0 0 14px; line-height:1.5}
+.panel > .sub:last-child{margin-bottom:0}
+
+/* ── paste zone: the hero ───────────────────────────────────────────── */
+#drop{border:2px dashed var(--line-2); border-radius:10px; background:var(--surface-2);
+      transition:border-color .15s, background .15s}
+#drop.over{border-color:var(--accent); background:var(--accent-soft)}
+#dropIdle{padding:34px 22px; text-align:center}
+.kbd{display:inline-flex; gap:5px; margin:12px 0 6px}
+.kbd b{font-family:var(--mono); font-size:13px; font-weight:500; padding:5px 11px;
+       border-radius:7px; background:var(--surface); border:1px solid var(--line-2);
+       box-shadow:0 2px 0 var(--line-2)}
+#dropIdle .big{font-size:15.5px; font-weight:500}
+#dropIdle .small{font-size:12.5px; color:var(--ink-3); margin-top:6px}
+.linkish{background:none; border:none; padding:0; color:var(--accent);
+         text-decoration:underline; text-underline-offset:3px; cursor:pointer; font-size:12.5px}
+#shotWrap{padding:10px}
+#shotCanvas{width:100%; height:auto; display:block; border-radius:7px;
+            background:var(--surface-3); cursor:crosshair; touch-action:none}
+#readout{margin-top:12px}
+.readhead{display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:9px}
+.chip{font-size:11.5px; padding:2px 9px; border-radius:20px; font-weight:500;
+      border:1px solid var(--line-2); background:var(--surface-2); color:var(--ink-2)}
+.chip.ok{border-color:var(--tie); color:var(--tie)}
+.chip.warn{border-color:var(--accent); color:var(--accent)}
+.readnum{font-family:var(--mono); font-size:12.5px; color:var(--ink-2)}
+.tally{display:flex; align-items:center; gap:4px; margin-left:auto}
+.tally .dot{width:9px; height:9px; border-radius:50%; display:inline-block}
+.tally .dot.P{background:var(--player)} .tally .dot.B{background:var(--banker)} .tally .dot.T{background:var(--tie)}
+.tally .n{font-family:var(--mono); font-size:12px; color:var(--ink-2); margin-right:8px}
+.seqstrip{display:flex; flex-wrap:wrap; gap:3px; max-height:96px; overflow-y:auto; padding:2px 0}
+.sq{width:19px; height:19px; border-radius:4px; display:grid; place-items:center;
+    font-size:10px; font-style:normal; color:#fff; font-weight:500}
+.sq.P{background:var(--player)} .sq.B{background:var(--banker)} .sq.T{background:var(--tie)}
+.actions{display:flex; flex-wrap:wrap; gap:8px; margin-top:13px}
+.btn{padding:7px 14px; border-radius:8px; border:1px solid var(--line-2);
+     background:var(--surface); cursor:pointer; font-size:13px; font-weight:500}
+.btn:hover{background:var(--surface-3)}
+.btn.primary{background:var(--ink); color:var(--surface); border-color:var(--ink)}
+.btn.primary:hover{opacity:.88}
+.btn.ghost{border-color:transparent; background:none; color:var(--ink-2)}
+.btn.ghost:hover{background:var(--surface-2)}
+.btn:disabled{opacity:.4; cursor:not-allowed}
+.hint{font-size:12px; color:var(--ink-3); margin:10px 0 0; line-height:1.5}
+.warn{font-size:12.5px; color:var(--accent); margin:8px 0 0; line-height:1.5}
+
+/* ── mode switch + live surface ─────────────────────────────────────── */
+.seg{display:inline-flex; padding:3px; gap:3px; border-radius:9px;
+     background:var(--surface-3); margin-bottom:13px}
+.segbtn{padding:5px 14px; border-radius:7px; border:none; background:none;
+        color:var(--ink-2); cursor:pointer; font-size:13px; font-weight:500}
+.segbtn.on{background:var(--surface); color:var(--ink); box-shadow:var(--shadow)}
+.livebox{border:2px dashed var(--line-2); border-radius:10px; background:var(--surface-2);
+         padding:28px 24px; text-align:center}
+.livebox .big{font-size:15.5px; font-weight:500; margin-bottom:8px}
+.livebox .small,#liveIdle .small{font-size:12.5px; color:var(--ink-3); line-height:1.55;
+        max-width:46ch; margin:0 auto}
+#liveCanvas{width:100%; height:auto; display:block; border-radius:9px;
+            background:var(--surface-3); border:1px solid var(--line)}
+.livebar{display:flex; align-items:center; gap:9px; flex-wrap:wrap; margin-top:11px}
+.livebar select{font-size:12.5px; padding:4px 8px}
+.livebar .btn{padding:5px 12px; font-size:12.5px}
+#liveStatus{font-family:var(--mono); font-size:12px; color:var(--ink-2);
+            font-variant-numeric:tabular-nums}
+.livedot{width:8px; height:8px; border-radius:50%; background:var(--ink-3); flex:0 0 auto}
+.livedot.on{background:var(--tie); animation:pulse 2s ease-in-out infinite}
+.livedot.searching{background:var(--accent)}
+@keyframes pulse{0%,100%{opacity:1} 50%{opacity:.35}}
+.livelog{margin-top:11px; max-height:104px; overflow-y:auto; font-family:var(--mono);
+         font-size:11.5px; color:var(--ink-3); line-height:1.75}
+.livelog div{display:flex; gap:10px}
+.livelog time{color:var(--ink-3); opacity:.7; flex:0 0 auto}
+.livelog b{color:var(--ink-2); font-weight:500}
+#liveError{border:1px solid var(--accent); background:var(--accent-soft);
+           border-radius:10px; padding:15px 17px; font-size:13px; line-height:1.65}
+#liveError h3{margin:0 0 7px; font-size:13.5px; font-weight:600}
+#liveError ol{margin:9px 0 0; padding-left:19px}
+#liveError li{margin-bottom:5px}
+
+/* ── stat tiles ─────────────────────────────────────────────────────── */
+#kpis{display:grid; grid-template-columns:1fr 1fr; gap:10px}
+.tile{background:var(--surface-2); border:1px solid var(--line); border-radius:9px; padding:11px 12px}
+.tile .k{font-size:11px; color:var(--ink-3); letter-spacing:.02em}
+.tile .v{font-family:var(--mono); font-size:21px; font-weight:500; letter-spacing:-.02em;
+         margin:3px 0 2px; font-variant-numeric:tabular-nums}
+.tile .s{font-size:11px; color:var(--ink-3); line-height:1.4}
+
+/* ── break-even scale ───────────────────────────────────────────────── */
+#scale{width:100%; height:auto; display:block; max-width:760px; margin:0 auto}
+#scale .m{font-family:var(--mono)}
+.verdict{font-size:13px; line-height:1.6; padding:12px 14px; border-radius:9px;
+         border:1px solid var(--line); background:var(--surface-2); margin:12px 0 0}
+.verdict.flag{border-color:var(--accent); background:var(--accent-soft)}
+.verdict.ok{border-color:var(--tie)}
+
+/* ── boards ─────────────────────────────────────────────────────────── */
+.boards{display:flex; gap:22px; flex-wrap:wrap}
+.boardbox{min-width:0}
+.blabel{font-size:11px; color:var(--ink-3); margin-bottom:6px; letter-spacing:.02em}
+.roadscroll{overflow-x:auto; padding-bottom:4px}
+.gridrow{display:flex; gap:2px; margin-bottom:2px}
+.cell{width:21px; height:21px; border-radius:5px; flex:0 0 auto; display:grid;
+      place-items:center; font-size:10px; color:#fff; font-weight:500}
+.cell.empty{background:var(--surface-3)}
+.cell.P{background:var(--player)} .cell.B{background:var(--banker)} .cell.T{background:var(--tie)}
+.cell.sm{width:11px; height:11px; border-radius:50%}
+.cell.sm.dR{background:var(--banker)} .cell.sm.dB{background:var(--player)}
+#boardMeta{font-family:var(--mono); font-size:12px; color:var(--ink-2); margin-top:10px}
+
+/* ── milestones ─────────────────────────────────────────────────────── */
+.ms{margin-bottom:14px}
+.ms:last-child{margin-bottom:0}
+.msrow{display:flex; justify-content:space-between; gap:10px; font-size:12.5px; margin-bottom:5px}
+.msname{color:var(--ink-2)}
+.msnum{font-family:var(--mono); color:var(--ink-3); font-variant-numeric:tabular-nums}
+.track{height:5px; border-radius:3px; background:var(--surface-3); overflow:hidden}
+.track i{display:block; height:100%; background:var(--ink-2); border-radius:3px}
+.ms.done .track i{background:var(--tie)}
+.ms.done .msname{color:var(--ink)}
+.msnote{font-size:11.5px; color:var(--ink-3); margin-top:5px}
+
+/* ── integrity ──────────────────────────────────────────────────────── */
+.introw{display:flex; gap:9px; align-items:center; flex-wrap:wrap; margin-bottom:11px}
+#intProgress{margin:10px 0}
+#intProgressLabel{font-size:12px; color:var(--ink-3); margin-bottom:6px}
+#intBar{display:block; height:5px; background:var(--accent); border-radius:3px; width:0; transition:width .2s}
+.bartrack{height:5px; border-radius:3px; background:var(--surface-3); overflow:hidden}
+.flegend{display:flex; flex-wrap:wrap; gap:6px 18px; align-items:center; font-size:11px;
+         color:var(--ink-3); padding-bottom:9px; border-bottom:1px solid var(--line); margin-bottom:4px}
+.flegend span{display:flex; align-items:center; gap:6px}
+.swatch{display:inline-block; border-radius:20px}
+.swatch.band{width:22px; height:7px; background:var(--band)}
+.swatch.dot{width:9px; height:9px; background:var(--ink-2)}
+.find{display:grid; grid-template-columns:minmax(92px,1.1fr) minmax(150px,1.5fr) auto 34px;
+      gap:11px; align-items:center; padding:5px 0; border-bottom:1px solid var(--line)}
+.find:last-child{border-bottom:none}
+.fname .t{font-size:12.5px; color:var(--ink-2)}
+.fplot svg{width:100%; height:22px; display:block; overflow:visible}
+.fnum{display:flex; gap:9px; justify-content:flex-end; font-family:var(--mono); font-size:11.5px}
+.fnum .z{color:var(--ink); font-variant-numeric:tabular-nums}
+.fnum .p{color:var(--ink-3)}
+.fstate{font-size:11px; color:var(--ink-3); text-align:right}
+.find.flagged .fstate{color:var(--accent); font-weight:600}
+.find.flagged .fname .t{color:var(--ink); font-weight:500}
+#intMeta{font-family:var(--mono); font-size:11.5px; color:var(--ink-3); margin-top:11px}
+
+/* ── data tools ─────────────────────────────────────────────────────── */
+.tools{display:grid; grid-template-columns:repeat(3,1fr); gap:20px}
+@media (max-width:820px){ .tools{grid-template-columns:1fr} }
+.keys{display:flex; gap:7px; flex-wrap:wrap}
+.keys .btn{min-width:52px; justify-content:center}
+.keys .btn b{font-family:var(--mono); font-size:11px; color:var(--ink-3); margin-left:5px; font-weight:400}
+textarea{width:100%; min-height:64px; resize:vertical; font-family:var(--mono); font-size:12.5px}
+.note{font-size:11.5px; color:var(--ink-3); margin-top:8px; line-height:1.5}
+code{font-family:var(--mono); font-size:12px; background:var(--surface-3);
+     padding:1px 5px; border-radius:4px}
+footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
+       color:var(--ink-3); line-height:1.6}
+</style>
+
+<header>
+  <div class="hin">
+    <span class="brand"><span class="pips"><i></i><i></i><i></i></span>바카라 슈 판독기</span>
+    <select id="tableSel" aria-label="테이블 선택"></select>
+    <button class="btn ghost" id="addTable">+ 테이블</button>
+    <span id="exampleBadge" class="badge" hidden>예시 데이터</span>
+    <span class="spacer"></span>
+    <span id="shoeMeta"></span>
+    <span class="store"><i class="sdot" id="storeDot"></i><span id="storeLabel">이 브라우저에만 저장</span></span>
+  </div>
+</header>
+
+<main>
+  <section class="panel c7">
+    <h2>테이블 화면 읽기</h2>
+    <p class="sub">구슬판의 색 원을 화면에서 직접 읽습니다. 카지노 사이트에 접속하지 않고
+      화면에 이미 떠 있는 그림만 분석하므로, 어느 운영사 화면이든 동작합니다.</p>
+
+    <div class="seg" role="tablist">
+      <button class="segbtn on" id="modeLive" role="tab" aria-selected="true">실시간 읽기</button>
+      <button class="segbtn" id="modePaste" role="tab" aria-selected="false">캡처 붙여넣기</button>
+    </div>
+
+    <!-- ── live ────────────────────────────────────────────────────── -->
+    <div id="livePane">
+      <div id="liveIdle">
+        <div class="livebox">
+          <div class="big">브라우저 화면을 실시간으로 읽습니다</div>
+          <p class="small">화면 공유를 시작하면 아바타 스피드 탭을 고르는 창이 뜹니다.
+            고른 뒤에는 캡처도 붙여넣기도 필요 없습니다 — 몇 초마다 구슬판을 다시 읽어
+            새 판이 나오는 대로 알아서 들어옵니다.</p>
+          <div class="actions" style="justify-content:center">
+            <button class="btn primary" id="liveStart">화면 공유 시작</button>
+          </div>
+          <p class="small" style="margin-top:12px">브라우저가 어느 화면을 공유할지 직접 묻습니다.
+            영상은 이 페이지 밖으로 나가지 않고, 녹화되지도 않습니다.</p>
+        </div>
+      </div>
+
+      <div id="liveActive" hidden>
+        <canvas id="liveCanvas"></canvas>
+        <div class="livebar">
+          <span class="livedot" id="liveDot"></span>
+          <span id="liveStatus">시작하는 중…</span>
+          <span class="spacer"></span>
+          <select id="liveInterval" aria-label="읽는 간격">
+            <option value="1000">1초마다</option>
+            <option value="1500" selected>1.5초마다</option>
+            <option value="3000">3초마다</option>
+            <option value="6000">6초마다</option>
+          </select>
+          <button class="btn ghost" id="liveRelock">영역 다시 찾기</button>
+          <button class="btn" id="liveStop">멈춤</button>
+        </div>
+        <div id="liveWarn" class="warn" hidden></div>
+        <div id="liveLog" class="livelog"></div>
+      </div>
+
+      <div id="liveError" hidden></div>
+    </div>
+
+    <!-- ── paste ───────────────────────────────────────────────────── -->
+    <div id="pastePane" hidden>
+      <div id="drop">
+        <div id="dropIdle">
+          <div class="big">화면을 캡처해서 여기에 붙여넣으세요</div>
+          <div class="kbd"><b>Ctrl</b><b>V</b></div>
+          <div class="small">Windows는 <b>Win + Shift + S</b>, Mac은 <b>⌘ + Shift + 4</b>로 캡처 ·
+            이미지를 끌어다 놓아도 됩니다</div>
+          <div class="small" style="margin-top:10px">
+            <button class="linkish" id="pickFile">파일에서 고르기</button>
+            <input type="file" id="filePick" accept="image/*" hidden>
+          </div>
+        </div>
+        <div id="shotWrap" hidden>
+          <canvas id="shotCanvas"></canvas>
+        </div>
+      </div>
+      <div id="readout" hidden></div>
+    </div>
+  </section>
+
+  <section class="panel c5">
+    <h2>현재 상태</h2>
+    <p class="sub">모은 양과, 이 테이블이 실제로 어디에 서 있는지.</p>
+    <div id="kpis"></div>
+  </section>
+
+  <section class="panel c12">
+    <h2>손익분기 눈금 — 베팅할 가치가 있는가</h2>
+    <p class="sub">뱅커 베팅은 P(뱅커 | 타이 제외)가 51.282%를 넘어야, 플레이어는 50.000% 아래여야
+      기댓값이 플러스가 됩니다. 신선한 8덱 슈는 50.68% — 두 선 사이 <b>죽은 구간</b>입니다.
+      이 테이블의 실측값이 어디 있는지 함께 표시합니다.</p>
+    <svg id="scale" viewBox="0 0 720 150" role="img"
+         aria-label="P(뱅커 | 타이 제외) 눈금. 50.000% 미만은 플레이어 이익, 51.282% 초과는 뱅커 이익, 그 사이는 두 베팅 모두 손실인 죽은 구간."></svg>
+    <div id="scaleNote" class="verdict neutral"></div>
+  </section>
+
+  <section class="panel c12">
+    <h2>보드 — 현재 슈</h2>
+    <p class="sub">구슬판과 빅로드, 그리고 빅로드에서 파생되는 세 로드. 파생 로드는 빅로드의
+      결정론적 함수라 새로운 정보를 담지 않습니다 — 사람이 읽는 형태로 함께 보여줄 뿐입니다.</p>
+    <div class="boards">
+      <div class="boardbox"><div class="blabel">구슬판</div><div class="roadscroll"><div id="bead"></div></div></div>
+      <div class="boardbox"><div class="blabel">빅로드</div><div class="roadscroll"><div id="big"></div></div></div>
+      <div class="boardbox"><div class="blabel">빅아이보이</div><div class="roadscroll"><div id="beb"></div></div></div>
+      <div class="boardbox"><div class="blabel">스몰로드</div><div class="roadscroll"><div id="small"></div></div></div>
+      <div class="boardbox"><div class="blabel">코크로치</div><div class="roadscroll"><div id="roach"></div></div></div>
+    </div>
+    <div id="boardMeta"></div>
+  </section>
+
+  <section class="panel c5">
+    <h2>수집 진행</h2>
+    <p class="sub">표본이 클수록 작은 편향까지 잡아냅니다. 각 단계는 실제로 측정한
+      탐지력 기준입니다 — 80슈에서 3% 편향을 80% 확률로 잡아냅니다.</p>
+    <div id="milestones"></div>
+  </section>
+
+  <section class="panel c7">
+    <h2>셔플 무결성 검정</h2>
+    <p class="sub">결과만 있는 데이터가 답할 수 있는 가장 값진 질문입니다.
+      정직한 8덱 슈에는 이용할 수 있는 신호가 없으므로, 패턴이 통하려면 이 테이블의 셔플이
+      제대로 되지 않았어야 합니다. 17개 순서 통계를 <b>같은 크기의 시뮬레이션 슈</b>와 비교합니다 —
+      "50.68%의 독립시행"이 아니라 진짜 슈와 비교해야 정직한 테이블을 오탐하지 않습니다.</p>
+    <div class="introw">
+      <button class="btn primary" id="runIntegrity">검정 실행</button>
+      <button class="btn ghost" id="cancelIntegrity">중단</button>
+      <select id="reps" aria-label="귀무분포 복제 횟수">
+        <option value="100">복제 100회 (빠름)</option>
+        <option value="200" selected>복제 200회 (기본)</option>
+        <option value="400">복제 400회 (정밀)</option>
+      </select>
+      <span class="note" id="intHint" style="margin:0"></span>
+    </div>
+    <div id="intProgress" hidden>
+      <div id="intProgressLabel"></div>
+      <div class="bartrack"><i id="intBar"></i></div>
+    </div>
+    <div id="intResult" hidden>
+      <div id="intVerdict" class="verdict"></div>
+      <div id="intFindings" style="margin-top:14px"></div>
+      <div id="intMeta"></div>
+    </div>
+  </section>
+
+  <section class="panel c12">
+    <h2>직접 입력과 내보내기</h2>
+    <div class="tools">
+      <div>
+        <div class="blabel">한 판씩 입력</div>
+        <div class="keys">
+          <button class="btn" id="keyP">플레이어<b>P</b></button>
+          <button class="btn" id="keyB">뱅커<b>B</b></button>
+          <button class="btn" id="keyT">타이<b>T</b></button>
+          <button class="btn ghost" id="keyUndo">실행취소<b>U</b></button>
+          <button class="btn ghost" id="keyNew">새 슈<b>N</b></button>
+        </div>
+        <p class="note">입력창 밖에서는 키보드 단축키가 그대로 동작합니다.</p>
+      </div>
+      <div>
+        <div class="blabel">결과를 글로 붙여넣기</div>
+        <textarea id="textIn" placeholder="PBBTP… / 플레이어 뱅커 타이 / 莊閒和 — 어떤 형식이든"></textarea>
+        <div class="actions" style="margin-top:8px">
+          <button class="btn" id="textAdd">현재 슈에 추가</button>
+          <button class="btn ghost" id="textNew">새 슈로</button>
+        </div>
+        <p class="note" id="textNote"></p>
+      </div>
+      <div>
+        <div class="blabel">데이터 내보내기</div>
+        <div class="actions" style="margin-top:0">
+          <button class="btn" id="exportCsv">CSV</button>
+          <button class="btn" id="exportJson">JSON</button>
+          <button class="btn ghost" id="resetBtn">이 테이블 지우기</button>
+        </div>
+        <p class="note">데스크톱 패키지로 그대로 넘어갑니다:
+          <code>python -m baccarat ingest 파일.csv --save 내데이터</code></p>
+        <p class="note" id="exportNote"></p>
+        <textarea id="exportDump" hidden readonly></textarea>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  브라우저 안에서만 동작합니다 — 붙여넣은 이미지도, 모은 결과도 어떤 카지노 사이트로도 전송되지 않습니다.
+  확률·로드·무결성 계산은 데스크톱 패키지와 같은 코드를 옮긴 것이며, 파이썬 원본과 동일한 값을 내도록 검증돼 있습니다.
+</footer>
+
+<script type="module">
+/* ═══ core.js ═══ */
+/* Punto Banco core, ported from the Python package.
+ *
+ * This is a faithful transcription of baccarat/core/{rules,shoe,simulator}.py
+ * and baccarat/features/roads.py. It exists so the browser build can compute
+ * the same numbers as the desktop pipeline without a Python install, and
+ * tests/test_js_port.py pins the two against each other on fixed sequences.
+ *
+ * The simulator's shuffle uses a different PRNG from numpy's, so simulated
+ * corpora are not coup-for-coup identical to Python's. Nothing depends on
+ * that: the null is a distribution, and every deterministic function of a
+ * given outcome sequence -- roads, order statistics, corrections -- is
+ * identical, which is what the cross-check asserts.
+ */
+
+/* ------------------------------------------------------------------ rules */
+
+const PAYOUT_BANKER = 1.0;
+const PAYOUT_PLAYER = 1.0;
+const PAYOUT_TIE = 8.0;
+const BANKER_COMMISSION = 0.05;
+
+/** P(Banker | not tie) a Banker bet must exceed to break even at 5% commission. */
+const BANKER_BREAKEVEN = 1.0 / 1.95;          // 0.5128205128
+/** P(Banker | not tie) a Player bet must fall below to break even. */
+const PLAYER_BREAKEVEN = 0.5;
+/** Banker's share of decided coups in a fresh 8-deck shoe. */
+const BASE_BANKER_SHARE = 0.5068248295;
+/** Tie probability for a fresh 8-deck shoe. */
+const BASE_TIE = 0.095156;
+/** Distance from a fresh shoe to the Banker break-even: the yardstick for
+ *  "a bias big enough to be worth money". */
+const BANKER_BREAKEVEN_GAP = BANKER_BREAKEVEN - BASE_BANKER_SHARE;
+
+/** Point values per rank: 10/J/Q/K are four ranks worth 0, A-9 one each. */
+const RANKS_PER_VALUE = [4, 1, 1, 1, 1, 1, 1, 1, 1, 1];
+const N_VALUES = 10;
+
+/** Composition of a fresh n-deck shoe as counts per point value. */
+function valueVector(nDecks = 8) {
+  return RANKS_PER_VALUE.map((ranks) => 4 * nDecks * ranks);
+}
+
+/** Player draws a third card on 0-5 and stands on 6-7. Naturals resolve first. */
+function playerDraws(total) {
+  return total <= 5;
+}
+
+/** Banker third-card chart, consulted only when the player drew. */
+function bankerDraws(bankerTotal, playerThird) {
+  if (playerThird === null || playerThird === undefined) return bankerTotal <= 5;
+  switch (bankerTotal) {
+    case 0: case 1: case 2: return true;
+    case 3: return playerThird !== 8;
+    case 4: return playerThird >= 2 && playerThird <= 7;
+    case 5: return playerThird >= 4 && playerThird <= 7;
+    case 6: return playerThird >= 6 && playerThird <= 7;
+    default: return false;                      // 7, 8, 9 stand
+  }
+}
+
+function isNatural(total) {
+  return total >= 8;
+}
+
+function settle(playerTotal, bankerTotal) {
+  if (playerTotal > bankerTotal) return "P";
+  if (bankerTotal > playerTotal) return "B";
+  return "T";
+}
+
+/** Net profit on a `stake` wagered on `side` given `result`. Ties push. */
+function profit(side, result, stake = 1.0, commission = BANKER_COMMISSION) {
+  if (result === "T") return side === "T" ? stake * PAYOUT_TIE : 0.0;
+  if (side === "T") return -stake;
+  if (side !== result) return -stake;
+  if (side === "B") return stake * PAYOUT_BANKER * (1.0 - commission);
+  return stake * PAYOUT_PLAYER;
+}
+
+/**
+ * Deal a coup from the front of `values` (point values, dealt in order).
+ * Returns {player, banker, outcome, used}. Throws if fewer than four cards.
+ */
+function playOut(values) {
+  if (values.length < 4) throw new Error("a coup needs at least four cards");
+
+  const player = [values[0], values[2]];
+  const banker = [values[1], values[3]];
+  let idx = 4;
+
+  let pTotal = (player[0] + player[1]) % 10;
+  let bTotal = (banker[0] + banker[1]) % 10;
+
+  if (isNatural(pTotal) || isNatural(bTotal)) {
+    return { player, banker, outcome: settle(pTotal, bTotal), used: 4 };
+  }
+
+  let playerThird = null;
+  if (playerDraws(pTotal)) {
+    if (values.length <= idx) throw new Error("shoe exhausted before the player's third card");
+    playerThird = values[idx++];
+    player.push(playerThird);
+    pTotal = (pTotal + playerThird) % 10;
+  }
+
+  if (bankerDraws(bTotal, playerThird)) {
+    if (values.length <= idx) throw new Error("shoe exhausted before the banker's third card");
+    const third = values[idx++];
+    banker.push(third);
+    bTotal = (bTotal + third) % 10;
+  }
+
+  return { player, banker, outcome: settle(pTotal, bTotal), used: player.length + banker.length };
+}
+
+/* -------------------------------------------------------------------- rng */
+
+/** sfc32: small, fast, and statistically adequate for shuffling a shoe. */
+function makeRng(seed) {
+  let a = 0x9e3779b9, b = seed >>> 0, c = 0x243f6a88, d = 0x0b7285ff;
+  for (let i = 0; i < 12; i++) {
+    const t = (a + b | 0) + d | 0;
+    d = d + 1 | 0; a = b ^ b >>> 9; b = c + (c << 3) | 0;
+    c = (c << 21 | c >>> 11); c = c + t | 0;
+  }
+  return function rng() {
+    const t = (a + b | 0) + d | 0;
+    d = d + 1 | 0; a = b ^ b >>> 9; b = c + (c << 3) | 0;
+    c = (c << 21 | c >>> 11); c = c + t | 0;
+    return (t >>> 0) / 4294967296;
+  };
+}
+
+/* ------------------------------------------------------------------- shoe */
+
+/**
+ * One shuffled 8-deck shoe, dealt from the front.
+ *
+ * Tracks the same two vectors the Python `Shoe` does. `composition` is what is
+ * actually left (oracle); `unseen` is the pack minus what anyone at the table
+ * has seen, so the burned-but-unexposed cards stay in it. Only `unseen` is
+ * legal information.
+ */
+class Shoe {
+  constructor({ nDecks = 8, cutCardDepth = 14, burn = true, seed = 1 } = {}) {
+    this.nDecks = nDecks;
+    this.cutCardDepth = cutCardDepth;
+    const rng = makeRng(seed);
+
+    const pack = [];
+    for (let v = 0; v < N_VALUES; v++) {
+      const n = 4 * nDecks * RANKS_PER_VALUE[v];
+      for (let i = 0; i < n; i++) pack.push(v);
+    }
+    for (let i = pack.length - 1; i > 0; i--) {          // Fisher-Yates
+      const j = Math.floor(rng() * (i + 1));
+      const t = pack[i]; pack[i] = pack[j]; pack[j] = t;
+    }
+
+    this.cards = pack;
+    this.pos = 0;
+    this.true_ = valueVector(nDecks);
+    this.unseen = valueVector(nDecks);
+    this.cutReached = false;
+    if (burn) this._burn();
+  }
+
+  get totalCards() { return this.cards.length; }
+  get remaining() { return this.totalCards - this.pos; }
+  get unseenTotal() { return this.unseen.reduce((a, b) => a + b, 0); }
+  get cutCardReached() { return this.pos >= this.totalCards - this.cutCardDepth; }
+  get finished() { return this.cutReached || this.remaining < 6; }
+
+  _take(n, observed) {
+    if (n > this.remaining) throw new Error(`cannot take ${n} cards, only ${this.remaining} remain`);
+    for (let i = 0; i < n; i++) {
+      const v = this.cards[this.pos + i];
+      this.true_[v] -= 1;
+      if (observed) this.unseen[v] -= 1;
+    }
+    this.pos += n;
+  }
+
+  /** Expose one card, then discard that many more face-down (a 0 burns ten). */
+  _burn() {
+    const exposed = this.cards[this.pos];
+    this._take(1, true);
+    const count = Math.min(exposed === 0 ? 10 : exposed, this.remaining);
+    this._take(count, false);
+  }
+
+  /** Deal one coup. The unseen vector is snapshotted before a card moves. */
+  dealCoup() {
+    if (this.finished) throw new Error("shoe is finished");
+    const unseenBefore = this.unseen.slice();
+    const window = this.cards.slice(this.pos, this.pos + 6);
+    const { player, banker, outcome } = playOut(window);
+    this._take(player.length + banker.length, true);
+    if (this.cutCardReached) this.cutReached = true;
+    return { player, banker, outcome, unseenBefore };
+  }
+}
+
+/** Deal one complete shoe and return its outcomes as a "PBT" string. */
+function simulateShoe(seed, { nDecks = 8, cutCardDepth = 14, burn = true } = {}) {
+  const shoe = new Shoe({ nDecks, cutCardDepth, burn, seed });
+  const out = [];
+  while (!shoe.finished) {
+    let coup;
+    try { coup = shoe.dealCoup(); } catch { break; }
+    out.push(coup.outcome);
+  }
+  return out.join("");
+}
+
+/** `nShoes` independent shoes as an array of "PBT" strings. */
+function simulate(nShoes, seed = 20240101, opts = {}) {
+  const shoes = new Array(nShoes);
+  for (let i = 0; i < nShoes; i++) shoes[i] = simulateShoe((seed + 2654435761 * (i + 1)) | 0, opts);
+  return shoes;
+}
+
+/* ------------------------------------------------------------------ roads */
+
+const RED = "R", BLUE = "B";
+
+/**
+ * Incremental Big Road. Columns are kept logically -- a run of nine Bankers is
+ * one column of nine, not a six-cell column plus a tail -- because that is the
+ * form the derived-road rules are defined on. `grid()` renders the wrapped
+ * display board with dragon tails.
+ */
+class BigRoad {
+  constructor() {
+    this.columns = [];
+    this.tieCounts = new Map();
+    this.nEntries = 0;
+  }
+
+  /** Record one coup. Returns [column, row], or null for a tie. */
+  add(outcome) {
+    if (outcome === "T") {
+      if (this.columns.length) {
+        const key = `${this.columns.length - 1},${this.columns[this.columns.length - 1].length - 1}`;
+        this.tieCounts.set(key, (this.tieCounts.get(key) || 0) + 1);
+      }
+      return null;
+    }
+    const last = this.columns[this.columns.length - 1];
+    if (last && last[last.length - 1] === outcome) last.push(outcome);
+    else this.columns.push([outcome]);
+    this.nEntries += 1;
+    const col = this.columns[this.columns.length - 1];
+    return [this.columns.length - 1, col.length - 1];
+  }
+
+  get columnLengths() { return this.columns.map((c) => c.length); }
+  get currentStreak() { return this.columns.length ? this.columns[this.columns.length - 1].length : 0; }
+  get currentSide() { return this.columns.length ? this.columns[this.columns.length - 1][0] : null; }
+
+  /** The wrapped display board: a column deeper than `rows` turns right. */
+  grid(rows = 6) {
+    const cells = new Map();
+    const has = (r, c) => cells.has(`${r},${c}`);
+    for (let colIdx = 0; colIdx < this.columns.length; colIdx++) {
+      let r = 0, c = colIdx;
+      const column = this.columns[colIdx];
+      for (let depth = 0; depth < column.length; depth++) {
+        if (depth === 0) {
+          while (has(r, c)) c += 1;
+        } else {
+          let nr = r + 1, nc = c;
+          if (nr >= rows || has(nr, nc)) {
+            nr = r; nc = c + 1;
+            while (has(nr, nc)) nc += 1;
+          }
+          r = nr; c = nc;
+        }
+        cells.set(`${r},${c}`, column[depth]);
+      }
+    }
+    if (!cells.size) return Array.from({ length: rows }, () => [null]);
+    let width = 0;
+    for (const key of cells.keys()) width = Math.max(width, Number(key.split(",")[1]) + 1);
+    return Array.from({ length: rows }, (_, r) =>
+      Array.from({ length: width }, (_, c) => cells.get(`${r},${c}`) ?? null));
+  }
+}
+
+/**
+ * Derive one road from the Big Road's logical columns.
+ *
+ * An entry opening column `c` compares the lengths of columns `c-offset` and
+ * `c-offset-1`: equal means the board is repeating itself (Red), unequal Blue.
+ * An entry extending a column at row `r` asks whether column `c-offset` also
+ * reached `r`: yes or never reached `r-1` is Red, stopped exactly one short is
+ * Blue. Entries too near the left edge produce nothing.
+ */
+function derivedRoad(columns, offset) {
+  if (offset < 1) throw new Error("offset must be at least 1");
+  const out = [];
+  for (let c = 0; c < columns.length; c++) {
+    for (let r = 0; r < columns[c].length; r++) {
+      if (r === 0) {
+        const a = c - offset, b = c - offset - 1;
+        if (b < 0) continue;
+        out.push(columns[a].length === columns[b].length ? RED : BLUE);
+      } else {
+        const a = c - offset;
+        if (a < 0) continue;
+        out.push(columns[a].length === r ? BLUE : RED);
+      }
+    }
+  }
+  return out;
+}
+
+function allDerivedRoads(columns) {
+  return {
+    big_eye_boy: derivedRoad(columns, 1),
+    small_road: derivedRoad(columns, 2),
+    cockroach_road: derivedRoad(columns, 3),
+  };
+}
+
+/** The bead plate: every coup in order, ties included, filled top-to-bottom. */
+function beadPlate(outcomes, rows = 6) {
+  const width = Math.max(1, Math.ceil(outcomes.length / rows));
+  const grid = Array.from({ length: rows }, () => new Array(width).fill(null));
+  for (let i = 0; i < outcomes.length; i++) grid[i % rows][Math.floor(i / rows)] = outcomes[i];
+  return grid;
+}
+
+/* ═══ integrity.js ═══ */
+/* Shuffle-integrity battery, ported from baccarat/backtest/integrity.py.
+ *
+ * The highest-value question a result-only corpus can answer, and the reason
+ * it is worth collecting one by hand. Under honest 8-deck rules there is no
+ * exploitable signal -- the ceiling on perfect card knowledge is +0.0008% per
+ * coup -- so a pattern system can only work if the shoes at a particular table
+ * are not properly randomised. That is a testable claim, and this is the test.
+ *
+ * The null matters more than the statistics. A real baccarat sequence is not
+ * i.i.d.: dealing without replacement induces a small genuine dependence
+ * within a shoe, so testing against "independent draws at 50.68%" would flag
+ * an honest table. The null used here is the simulator itself -- corpora of
+ * the same shape, same rules -- so anything the simulator reproduces is what
+ * an honest shoe does, and only a deviation from that is evidence.
+ */
+
+
+/** Lags at which serial correlation is measured. */
+const LAGS = [1, 2, 3, 4, 5, 6, 8, 10];
+/** History depths for the conditional-frequency test. */
+const CONDITION_DEPTHS = [1, 2, 3];
+
+/** Streak bias detectable at 80% power with 80 shoes, measured in Python. */
+const MEASURED_ANCHOR = [80, 0.03];
+
+/** Smallest streak bias `nShoes` can detect at 80% power. */
+function detectableBias(nShoes) {
+  if (nShoes <= 0) return Infinity;
+  const [n0, b0] = MEASURED_ANCHOR;
+  return b0 * Math.sqrt(n0 / nShoes);
+}
+
+/** Shoes needed to detect `bias` at 80% power. Inverse of the above. */
+function shoesForBias(bias) {
+  if (bias <= 0) return -1;
+  const [n0, b0] = MEASURED_ANCHOR;
+  return Math.ceil(n0 * (b0 / bias) ** 2);
+}
+
+/* ------------------------------------------------------------- statistics */
+
+/**
+ * Non-tie outcomes as +1 (Banker) / -1 (Player) with their shoe indices.
+ * Ties are dropped rather than encoded: they push, carry no directional
+ * information, and would blur every order statistic below.
+ */
+function pbSequence(shoes) {
+  const signs = [], idx = [];
+  for (let s = 0; s < shoes.length; s++) {
+    for (const ch of shoes[s]) {
+      if (ch === "T") continue;
+      signs.push(ch === "B" ? 1 : -1);
+      idx.push(s);
+    }
+  }
+  return { signs, idx };
+}
+
+const mean = (a) => a.reduce((x, y) => x + y, 0) / a.length;
+
+/** Lag-`lag` correlation, computed only within shoes. */
+function autocorrelation(signs, idx, lag) {
+  if (signs.length <= lag) return NaN;
+  const a = [], b = [];
+  for (let i = 0; i + lag < signs.length; i++) {
+    if (idx[i] !== idx[i + lag]) continue;      // pairs straddling a shuffle
+    a.push(signs[i]); b.push(signs[i + lag]);
+  }
+  if (a.length < 2) return NaN;
+  const prod = a.map((x, i) => x * b[i]);
+  return mean(prod) - mean(a) * mean(b);
+}
+
+/** Runs per decided coup: Wald-Wolfowitz, normalised. */
+function runCount(signs, idx) {
+  if (signs.length < 2) return NaN;
+  let changes = 0, within = 0;
+  for (let i = 1; i < signs.length; i++) {
+    if (idx[i] !== idx[i - 1]) continue;
+    within += 1;
+    if (signs[i] !== signs[i - 1]) changes += 1;
+  }
+  return within ? changes / within : NaN;
+}
+
+/** Chi-square of P(next) against the 2**depth preceding histories. */
+function conditionalChi2(signs, idx, depth) {
+  const n = signs.length;
+  if (n <= depth + 1) return NaN;
+
+  const nStates = 2 ** depth;
+  const table = new Float64Array(nStates * 2);
+  let used = 0;
+
+  for (let i = depth; i < n; i++) {
+    let ok = true, key = 0;
+    for (let k = 1; k <= depth; k++) {
+      if (idx[i - k] !== idx[i]) { ok = false; break; }
+      key = key * 2 + (signs[i - k] > 0 ? 1 : 0);
+    }
+    if (!ok) continue;
+    table[key * 2 + (signs[i] > 0 ? 1 : 0)] += 1;
+    used += 1;
+  }
+  if (used < 50) return NaN;
+
+  const row = new Float64Array(nStates);
+  const col = new Float64Array(2);
+  let total = 0;
+  for (let s = 0; s < nStates; s++) {
+    for (let t = 0; t < 2; t++) {
+      const v = table[s * 2 + t];
+      row[s] += v; col[t] += v; total += v;
+    }
+  }
+  let chi2 = 0;
+  for (let s = 0; s < nStates; s++) {
+    for (let t = 0; t < 2; t++) {
+      const expected = (row[s] * col[t]) / total;
+      if (expected > 0) chi2 += (table[s * 2 + t] - expected) ** 2 / expected;
+    }
+  }
+  return chi2;
+}
+
+/**
+ * Variance of the per-shoe Banker share, relative to the binomial value.
+ * A ratio near 1 is what independent-within-shoe sampling produces; above 1
+ * means shoes cluster, which is what a poorly shuffled pack looks like from
+ * the outside.
+ */
+function shoeShareDispersion(shoes) {
+  const shares = [], weights = [];
+  for (const shoe of shoes) {
+    let n = 0, b = 0;
+    for (const ch of shoe) {
+      if (ch === "T") continue;
+      n += 1; if (ch === "B") b += 1;
+    }
+    if (n < 20) continue;
+    shares.push(b / n); weights.push(n);
+  }
+  if (shares.length < 5) return NaN;
+
+  const wTotal = weights.reduce((a, b) => a + b, 0);
+  const m = shares.reduce((acc, s, i) => acc + s * weights[i], 0) / wTotal;
+  const observed = shares.reduce((acc, s, i) => acc + (s - m) ** 2 * weights[i], 0) / wTotal;
+  const expected = (m * (1 - m)) / (wTotal / weights.length);
+  return expected > 0 ? observed / expected : NaN;
+}
+
+/** Mean longest Big Road column per shoe -- the 'dragon' statistic. */
+function maxColumnLength(shoes) {
+  const longest = [];
+  for (const shoe of shoes) {
+    const road = new BigRoad();
+    for (const ch of shoe) road.add(ch);
+    const lengths = road.columnLengths;
+    if (lengths.length) longest.push(Math.max(...lengths));
+  }
+  return longest.length ? mean(longest) : NaN;
+}
+
+/** Every order statistic the battery tests, from result-only data. */
+function computeStatistics(shoes) {
+  const { signs, idx } = pbSequence(shoes);
+  const nCoups = shoes.reduce((a, s) => a + s.length, 0);
+  let ties = 0;
+  for (const s of shoes) for (const ch of s) if (ch === "T") ties += 1;
+
+  const stats = {
+    banker_share: signs.length ? signs.filter((x) => x > 0).length / signs.length : NaN,
+    tie_rate: nCoups ? ties / nCoups : NaN,
+    runs_per_coup: runCount(signs, idx),
+    shoe_share_dispersion: shoeShareDispersion(shoes),
+    mean_longest_streak: maxColumnLength(shoes),
+    coups_per_shoe: shoes.length ? nCoups / shoes.length : NaN,
+  };
+  for (const lag of LAGS) stats[`autocorr_lag${lag}`] = autocorrelation(signs, idx, lag);
+  for (const d of CONDITION_DEPTHS) stats[`conditional_chi2_d${d}`] = conditionalChi2(signs, idx, d);
+  return stats;
+}
+
+/* ------------------------------------------------------------------- null */
+
+/**
+ * Null distribution of every statistic, from honest simulated shoes.
+ *
+ * Each replicate is an independent corpus of `nShoes` shoes, so the spread
+ * reflects the sample size actually being tested rather than an asymptotic
+ * approximation. That is what makes the battery valid on 20 hand-entered
+ * shoes as well as on 20,000 collected ones.
+ *
+ * Yields to the caller every `chunk` replicates so a browser can run this
+ * without freezing; `onProgress` receives (done, total).
+ */
+async function simulatedNull(nShoes, {
+  nReplicates = 200, seed = 20240101, onProgress = null, chunk = 5, shouldStop = null,
+} = {}) {
+  const samples = {};
+  for (let i = 0; i < nReplicates; i++) {
+    const corpus = simulate(nShoes, (seed + 1000 * i + 1) | 0);
+    const stats = computeStatistics(corpus);
+    for (const [k, v] of Object.entries(stats)) (samples[k] ||= []).push(v);
+    if ((i + 1) % chunk === 0 || i === nReplicates - 1) {
+      if (onProgress) onProgress(i + 1, nReplicates);
+      await new Promise((r) => setTimeout(r, 0));
+      if (shouldStop && shouldStop()) return null;
+    }
+  }
+  return samples;
+}
+
+/* ------------------------------------------------------------ corrections */
+
+/**
+ * Holm-Bonferroni (FWER) and Benjamini-Hochberg (FDR) corrections.
+ *
+ * With seventeen statistics in the battery, an uncorrected 5% threshold is
+ * expected to produce roughly one "significant" result from noise alone.
+ * Reporting only the uncorrected figure would be the easiest way to
+ * manufacture a false finding.
+ */
+function adjustPvalues(pvalues, alpha = 0.05) {
+  const names = Object.keys(pvalues).filter((k) => Number.isFinite(pvalues[k]));
+  const out = {};
+  if (!names.length) return out;
+
+  const raw = names.map((k) => pvalues[k]);
+  const m = raw.length;
+  const order = raw.map((_, i) => i).sort((a, b) => raw[a] - raw[b]);
+
+  const holm = new Array(m);
+  let running = 0;
+  order.forEach((idx, rank) => {
+    running = Math.max(running, (m - rank) * raw[idx]);
+    holm[idx] = Math.min(running, 1);
+  });
+
+  const bh = new Array(m);
+  running = 1;
+  for (let rank = m - 1; rank >= 0; rank--) {
+    const idx = order[rank];
+    running = Math.min(running, (m * raw[idx]) / (rank + 1));
+    bh[idx] = Math.min(running, 1);
+  }
+
+  names.forEach((name, i) => {
+    out[name] = {
+      p_raw: raw[i], p_holm: holm[i], p_bh: bh[i],
+      significant_holm: holm[i] < alpha, significant_bh: bh[i] < alpha,
+    };
+  });
+  return out;
+}
+
+/* ----------------------------------------------------------------- report */
+
+function quantile(sorted, q) {
+  if (!sorted.length) return NaN;
+  const pos = (sorted.length - 1) * q;
+  const lo = Math.floor(pos), hi = Math.ceil(pos);
+  return lo === hi ? sorted[lo] : sorted[lo] + (sorted[hi] - sorted[lo]) * (pos - lo);
+}
+
+/** Korean labels for the statistics, so the report reads as prose. */
+const STAT_KO = {
+  banker_share: "뱅커 비율",
+  tie_rate: "타이 비율",
+  runs_per_coup: "판당 전환 횟수",
+  shoe_share_dispersion: "슈별 편차 비율",
+  mean_longest_streak: "평균 최장 연속",
+  coups_per_shoe: "슈당 판수",
+  conditional_chi2_d1: "직전 1판 의존성",
+  conditional_chi2_d2: "직전 2판 의존성",
+  conditional_chi2_d3: "직전 3판 의존성",
+};
+for (const lag of LAGS) STAT_KO[`autocorr_lag${lag}`] = `자기상관 ${lag}판`;
+
+/** What each statistic would mean if it came back abnormal. */
+const STAT_WHY = {
+  banker_share: "뱅커가 이기는 비율. 카드 소진만으로 설명되는 범위를 벗어나면 덱 구성이나 규칙이 다릅니다.",
+  tie_rate: "타이 비율. 벗어나면 덱 수가 8덱이 아니거나 판독 오류입니다.",
+  runs_per_coup: "연속이 끊기는 빈도. 낮으면 정상보다 길게 늘어지고(용), 높으면 과하게 끊깁니다.",
+  shoe_share_dispersion: "슈마다 한쪽으로 쏠리는 정도. 1보다 크면 셔플이 슈 단위로 편향돼 있다는 뜻입니다.",
+  mean_longest_streak: "슈마다 가장 긴 연속의 평균. 셔플이 부족하면 길어집니다.",
+  coups_per_shoe: "슈당 판수. 벗어나면 컷카드 깊이나 덱 수가 다릅니다.",
+  conditional_chi2_d1: "직전 결과가 다음 판을 바꾸는지. 모든 패턴 시스템이 있다고 가정하는 바로 그 값입니다.",
+  conditional_chi2_d2: "직전 두 판의 조합이 다음 판을 바꾸는지.",
+  conditional_chi2_d3: "직전 세 판의 조합이 다음 판을 바꾸는지.",
+};
+for (const lag of LAGS) {
+  STAT_WHY[`autocorr_lag${lag}`] = `${lag}판 떨어진 결과끼리의 상관. 0에서 벗어나면 순서에 구조가 있다는 뜻입니다.`;
+}
+
+/**
+ * Test a corpus against honestly simulated shoes of the same shape.
+ * `shoes` is an array of "PBT" strings, one per shoe.
+ */
+function integrityReport(shoes, nullSamples, { alpha = 0.05, nReplicates = 0 } = {}) {
+  const nShoes = shoes.length;
+  if (nShoes < 3) throw new Error(`무결성 검정에는 최소 3슈가 필요합니다 (현재 ${nShoes}슈)`);
+
+  const observed = computeStatistics(shoes);
+  const findings = [];
+
+  for (const [key, value] of Object.entries(observed)) {
+    let samples = nullSamples[key];
+    if (!samples || !Number.isFinite(value)) continue;
+    samples = samples.filter(Number.isFinite);
+    if (samples.length < 10) continue;
+
+    const m = mean(samples);
+    const variance = samples.reduce((a, x) => a + (x - m) ** 2, 0) / (samples.length - 1);
+    const sd = Math.sqrt(variance);
+    const z = sd > 0 ? (value - m) / sd : NaN;
+    // Empirical two-sided p: how often the null is at least this extreme.
+    const extreme = samples.filter((x) => Math.abs(x - m) >= Math.abs(value - m)).length;
+    const p = (1 + extreme) / (samples.length + 1);
+    const sorted = samples.slice().sort((a, b) => a - b);
+
+    findings.push({
+      statistic: key, observed: value, null_mean: m, null_sd: sd, z, p_two_sided: p,
+      null_q025: quantile(sorted, 0.025), null_q975: quantile(sorted, 0.975),
+    });
+  }
+
+  const pmap = {};
+  for (const f of findings) pmap[f.statistic] = f.p_two_sided;
+  const corrections = adjustPvalues(pmap, alpha);
+  const flagged = findings.filter((f) => corrections[f.statistic]?.significant_bh);
+
+  const nCoups = shoes.reduce((a, s) => a + s.length, 0);
+  const bias = detectableBias(nShoes);
+  const enough = bias <= BANKER_BREAKEVEN_GAP;
+
+  let verdict, verdictKind;
+  if (flagged.length) {
+    verdictKind = "flag";
+    verdict =
+      `${findings.length}개 통계 중 ${flagged.length}개가 다중검정 보정(BH) 후에도 정상 범위를 벗어났습니다: ` +
+      `${flagged.map((f) => STAT_KO[f.statistic] || f.statistic).join(", ")}. ` +
+      `이걸 발견으로 취급하기 전에, 평범한 원인부터 순서대로 배제하세요 — 판독 오류, 덱 수가 8덱이 아님, ` +
+      `컷카드 깊이가 다름, 비표준 규칙, 또는 여러 테이블 데이터가 섞임. ` +
+      `그 전부가 배제되어야만 셔플이 무작위가 아니라는 증거가 됩니다.`;
+  } else if (!enough) {
+    verdictKind = "insufficient";
+    verdict =
+      `${findings.length}개 통계 전부 정상 범위 안입니다. 다만 ${nShoes}슈로는 ` +
+      `${(bias * 100).toFixed(2)}% 이상의 편향만 잡아낼 수 있고, 돈이 되기 시작하는 지점은 ` +
+      `${(BANKER_BREAKEVEN_GAP * 100).toFixed(2)}%입니다. 즉 "이상 없음"이 아직 "정상임을 확인했다"는 뜻은 ` +
+      `아닙니다. ${shoesForBias(BANKER_BREAKEVEN_GAP).toLocaleString()}슈까지 모아야 결론이 됩니다.`;
+  } else {
+    verdictKind = "clean";
+    verdict =
+      `${findings.length}개 통계 전부, 정직하게 섞인 8덱 슈가 이 표본 크기에서 만들어내는 범위 안입니다. ` +
+      `그리고 ${nShoes}슈는 돈이 되는 편향(${(BANKER_BREAKEVEN_GAP * 100).toFixed(2)}%)을 잡아내기에 ` +
+      `충분한 크기입니다. 이 테이블의 순서에는 카드 소진으로 설명되지 않는 구조가 없습니다.`;
+  }
+
+  return {
+    n_games: nCoups, n_shoes: nShoes, n_replicates: nReplicates,
+    findings: findings.sort((a, b) => Math.abs(b.z || 0) - Math.abs(a.z || 0)),
+    corrections, verdict, verdict_kind: verdictKind,
+    detectable_bias: bias, sufficient: enough,
+  };
+}
+
+/* ═══ detect.js ═══ */
+/* Read a baccarat board off a screenshot.
+ *
+ * The bead plate is the easiest thing on a baccarat screen to read mechanically
+ * and the most valuable: it is a dense grid of solid coloured circles carrying
+ * every coup in order, ties included. Nothing here touches a network or a
+ * casino's markup -- it is image analysis of a picture the user already has, so
+ * it works on any operator's layout, and on a photo of a screen as readily as
+ * on a screen capture.
+ *
+ * The pipeline is deliberately conventional: classify pixels by hue, label
+ * connected components, keep the round ones, fit them to a grid, then pick the
+ * densest six-row group. Every stage is exposed on the result so the UI can
+ * draw what it found and let a person correct it -- the detector proposes, the
+ * operator confirms.
+ */
+
+/** Mark codes. 0 is "not a mark". */
+const NONE = 0, BANKER = 1, PLAYER = 2, TIE = 3;
+const CODE_TO_OUTCOME = { 1: "B", 2: "P", 3: "T" };
+
+/** Longest edge the detector works at. Bigger inputs are scaled down first. */
+const WORK_MAX = 1400;
+
+/**
+ * Classify one pixel by hue, after rejecting anything too dark or too grey to
+ * be a board mark. The three hue windows are wide because operators differ --
+ * banker red runs #c62828 to #ff4444, player blue #0d47a1 to #4a9eff -- but
+ * they leave orange, purple and yellow unclassified, which keeps chrome,
+ * badges and dealer photos out of the grid.
+ */
+function classifyPixel(r, g, b) {
+  const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
+  if (max < 55 || d < 38 || d / max < 0.32) return NONE;
+
+  let h;
+  if (max === r) h = ((g - b) / d) % 6;
+  else if (max === g) h = (b - r) / d + 2;
+  else h = (r - g) / d + 4;
+  h = (h * 60 + 360) % 360;
+
+  if (h < 22 || h >= 336) return BANKER;
+  if (h >= 80 && h < 186) return TIE;
+  if (h >= 186 && h < 266) return PLAYER;
+  return NONE;
+}
+
+/** Connected components over the classified mask, 4-connectivity. */
+function labelBlobs(codes, w, h) {
+  const seen = new Uint8Array(w * h);
+  const stack = new Int32Array(w * h);
+  const blobs = [];
+
+  for (let start = 0; start < codes.length; start++) {
+    if (seen[start] || codes[start] === NONE) continue;
+    const code = codes[start];
+    let sp = 0;
+    stack[sp++] = start;
+    seen[start] = 1;
+
+    let n = 0, sx = 0, sy = 0;
+    let minX = w, maxX = -1, minY = h, maxY = -1;
+
+    while (sp > 0) {
+      const p = stack[--sp];
+      const x = p % w, y = (p / w) | 0;
+      n++; sx += x; sy += y;
+      if (x < minX) minX = x;
+      if (x > maxX) maxX = x;
+      if (y < minY) minY = y;
+      if (y > maxY) maxY = y;
+
+      if (x > 0     && !seen[p - 1] && codes[p - 1] === code) { seen[p - 1] = 1; stack[sp++] = p - 1; }
+      if (x < w - 1 && !seen[p + 1] && codes[p + 1] === code) { seen[p + 1] = 1; stack[sp++] = p + 1; }
+      if (y > 0     && !seen[p - w] && codes[p - w] === code) { seen[p - w] = 1; stack[sp++] = p - w; }
+      if (y < h - 1 && !seen[p + w] && codes[p + w] === code) { seen[p + w] = 1; stack[sp++] = p + w; }
+    }
+
+    blobs.push({
+      code, n, cx: sx / n, cy: sy / n,
+      w: maxX - minX + 1, h: maxY - minY + 1, minX, minY, maxX, maxY,
+    });
+  }
+  return blobs;
+}
+
+const median = (xs) => {
+  if (!xs.length) return 0;
+  const s = xs.slice().sort((a, b) => a - b);
+  const m = s.length >> 1;
+  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+};
+
+/**
+ * Keep blobs that look like board marks: roughly square bounding box, big
+ * enough to be a cell and small enough not to be a panel, and filling enough
+ * of that box to be a disc or a ring rather than a stroke of text.
+ */
+function keepMarks(blobs, w, h) {
+  const area = w * h;
+  return blobs.filter((b) => {
+    if (b.w < 7 || b.h < 7) return false;
+    if (b.w > w * 0.25 || b.h > h * 0.45) return false;
+    if (b.n > area * 0.04) return false;
+    const aspect = b.w / b.h;
+    if (aspect < 0.62 || aspect > 1.62) return false;
+    return b.n / (b.w * b.h) >= 0.30;
+  });
+}
+
+/** Single-linkage 1-D clustering; returns a bin index per input value. */
+function binAxis(values, gap) {
+  const order = values.map((v, i) => i).sort((a, b) => values[a] - values[b]);
+  const bin = new Array(values.length);
+  let current = 0;
+  bin[order[0]] = 0;
+  for (let i = 1; i < order.length; i++) {
+    if (values[order[i]] - values[order[i - 1]] > gap) current++;
+    bin[order[i]] = current;
+  }
+  return { bin, count: current + 1 };
+}
+
+/** Union-find grouping of blobs into separate boards on the same screenshot. */
+function groupBlobs(marks, reach) {
+  const parent = marks.map((_, i) => i);
+  const find = (x) => { while (parent[x] !== x) { parent[x] = parent[parent[x]]; x = parent[x]; } return x; };
+  const union = (a, b) => { const ra = find(a), rb = find(b); if (ra !== rb) parent[ra] = rb; };
+
+  for (let i = 0; i < marks.length; i++) {
+    for (let j = i + 1; j < marks.length; j++) {
+      const dx = Math.abs(marks[i].cx - marks[j].cx);
+      const dy = Math.abs(marks[i].cy - marks[j].cy);
+      if (dx <= reach && dy <= reach) union(i, j);
+    }
+  }
+  const groups = new Map();
+  marks.forEach((m, i) => {
+    const root = find(i);
+    if (!groups.has(root)) groups.set(root, []);
+    groups.get(root).push(m);
+  });
+  return [...groups.values()];
+}
+
+/** Fit one group of marks to a grid and read it in column-major order. */
+function buildBoard(marks, diameter) {
+  const gap = diameter * 0.55;
+  const cols = binAxis(marks.map((m) => m.cx), gap);
+  const rows = binAxis(marks.map((m) => m.cy), gap);
+
+  const cells = marks.map((m, i) => ({
+    col: cols.bin[i], row: rows.bin[i],
+    outcome: CODE_TO_OUTCOME[m.code],
+    cx: m.cx, cy: m.cy, r: Math.max(m.w, m.h) / 2,
+  }));
+
+  // One mark per grid slot: if two landed in the same slot, keep the larger.
+  const slots = new Map();
+  for (const c of cells) {
+    const key = `${c.col},${c.row}`;
+    const prev = slots.get(key);
+    if (!prev || c.r > prev.r) slots.set(key, c);
+  }
+  const unique = [...slots.values()].sort((a, b) => (a.col - b.col) || (a.row - b.row));
+
+  const nRows = rows.count, nCols = cols.count;
+  const occupancy = unique.length / Math.max(1, nRows * nCols);
+  const hasTie = unique.some((c) => c.outcome === "T");
+
+  // A bead plate is a dense six-row grid that spells ties as their own cells;
+  // a big road is sparser, and marks ties as a slash across a P/B cell.
+  const kind = nRows >= 5 && occupancy >= 0.82 ? "bead" : "bigroad";
+
+  return {
+    kind, cells: unique, nRows, nCols, occupancy, hasTie,
+    sequence: unique.map((c) => c.outcome).join(""),
+    box: {
+      x: Math.min(...marks.map((m) => m.minX)), y: Math.min(...marks.map((m) => m.minY)),
+      x2: Math.max(...marks.map((m) => m.maxX)), y2: Math.max(...marks.map((m) => m.maxY)),
+    },
+    score: unique.length * (0.4 + occupancy) * (nRows === 6 ? 1.6 : 1) * (hasTie ? 1.15 : 1),
+  };
+}
+
+/**
+ * Find every board-shaped grid of coloured marks in an ImageData.
+ *
+ * Returns `{boards, diameter, scale}` with boards ordered best-first. A caller
+ * that wants only part of the picture passes `region` in ImageData pixels.
+ */
+function detectBoards(imageData, { region = null, minCells = 8 } = {}) {
+  const { width: W, height: H, data } = imageData;
+  const x0 = region ? Math.max(0, Math.round(region.x)) : 0;
+  const y0 = region ? Math.max(0, Math.round(region.y)) : 0;
+  const x1 = region ? Math.min(W, Math.round(region.x + region.w)) : W;
+  const y1 = region ? Math.min(H, Math.round(region.y + region.h)) : H;
+  const w = x1 - x0, h = y1 - y0;
+  if (w < 20 || h < 20) return { boards: [], diameter: 0 };
+
+  const codes = new Uint8Array(w * h);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const p = ((y + y0) * W + (x + x0)) * 4;
+      if (data[p + 3] < 128) continue;
+      codes[y * w + x] = classifyPixel(data[p], data[p + 1], data[p + 2]);
+    }
+  }
+
+  const all = labelBlobs(codes, w, h);
+  let marks = keepMarks(all, w, h);
+  if (marks.length < minCells) return { boards: [], diameter: 0 };
+
+  // Cells on one board share a size; drop anything far off the modal diameter.
+  const diameter = median(marks.map((m) => Math.max(m.w, m.h)));
+  marks = marks.filter((m) => {
+    const s = Math.max(m.w, m.h);
+    return s >= diameter * 0.55 && s <= diameter * 1.85;
+  });
+  if (marks.length < minCells) return { boards: [], diameter };
+
+  for (const m of marks) { m.cx += x0; m.cy += y0; m.minX += x0; m.maxX += x0; m.minY += y0; m.maxY += y0; }
+
+  const boards = groupBlobs(marks, diameter * 1.95)
+    .filter((g) => g.length >= minCells)
+    .map((g) => buildBoard(g, diameter))
+    .sort((a, b) => b.score - a.score);
+
+  return { boards, diameter };
+}
+
+/**
+ * Draw an image into a canvas at working resolution and return its ImageData
+ * plus the scale that maps working pixels back to the original.
+ */
+function toWorkingImage(source, canvas) {
+  const sw = source.naturalWidth || source.width;
+  const sh = source.naturalHeight || source.height;
+  const scale = Math.min(1, WORK_MAX / Math.max(sw, sh));
+  const w = Math.max(1, Math.round(sw * scale));
+  const h = Math.max(1, Math.round(sh * scale));
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+  ctx.clearRect(0, 0, w, h);
+  ctx.drawImage(source, 0, 0, w, h);
+  return { imageData: ctx.getImageData(0, 0, w, h), width: w, height: h, scale };
+}
+
+/* ------------------------------------------------------------ text input */
+
+/** Every spelling of an outcome this parser accepts, longest match first. */
+const TEXT_TOKENS = [
+  ["플레이어", "P"], ["뱅커", "B"], ["타이", "T"], ["무승부", "T"],
+  ["player", "P"], ["banker", "B"], ["tie", "T"], ["draw", "T"],
+  ["閒", "P"], ["莊", "B"], ["和", "T"], ["闲", "P"], ["庄", "B"],
+  ["플", "P"], ["뱅", "B"], ["타", "T"],
+  ["p", "P"], ["b", "B"], ["t", "T"], ["d", "T"],
+];
+
+/**
+ * Parse a pasted sequence in whatever shape it arrives: "PBBTP", "P B B T",
+ * "플레이어, 뱅커, 타이", one per line, or 莊閒和. Anything unrecognised is
+ * skipped rather than guessed at, and reported so a bad paste is visible.
+ */
+function parseSequenceText(text) {
+  const src = String(text || "").toLowerCase();
+  const out = [];
+  let skipped = 0, i = 0;
+
+  while (i < src.length) {
+    const ch = src[i];
+    if (/[\s,;|/\-_.\[\](){}"'`\n\r\t0-9#]/.test(ch)) { i++; continue; }
+    let matched = null;
+    for (const [token, code] of TEXT_TOKENS) {
+      if (src.startsWith(token, i)) { matched = [token, code]; break; }
+    }
+    if (matched) { out.push(matched[1]); i += matched[0].length; }
+    else { skipped++; i++; }
+  }
+  return { sequence: out.join(""), skipped };
+}
+
+/* ═══ live.js ═══ */
+/* Watch the table's screen live.
+ *
+ * `getDisplayMedia` asks the browser for a video stream of a window or tab the
+ * viewer picks themselves. That stream is the same pixels they are already
+ * looking at, so running the bead-plate detector over its frames reads the
+ * board continuously with no capture step -- and still without touching the
+ * operator's site, its markup or its credentials.
+ *
+ * Two things keep a live feed from writing nonsense into the corpus:
+ *
+ * 1. A frame caught mid-deal can show a half-drawn board, so a reading is only
+ *    emitted once consecutive frames agree on it. Growth is confirmed quickly;
+ *    a shoe change, which discards the shoe in progress, is held to a stricter
+ *    count.
+ * 2. Once the board is found its position is locked, and later frames are only
+ *    searched there. That is faster, and it stops the detector wandering onto a
+ *    different grid on the same screen between frames.
+ */
+
+
+
+/** Consecutive identical readings required before a change is accepted. */
+const CONFIRM_GROWTH = 2;
+const CONFIRM_RESET = 3;
+/** Failed reads inside the locked region before falling back to a full search. */
+const LOCK_PATIENCE = 3;
+
+class LiveWatcher {
+  /**
+   * @param {object} opts
+   * @param {(seq: string, board: object) => void} opts.onRead   confirmed reading
+   * @param {(state: object) => void} opts.onState               status for the UI
+   * @param {number} opts.intervalMs                             sampling period
+   */
+  constructor({ onRead, onState, intervalMs = 2000 } = {}) {
+    this.onRead = onRead || (() => {});
+    this.onState = onState || (() => {});
+    this.intervalMs = intervalMs;
+
+    this.stream = null;
+    this.video = null;
+    this.canvas = null;
+    this.timer = null;
+    this.region = null;
+    this.misses = 0;
+    this.candidate = null;
+    this.repeats = 0;
+    this.lastBoard = null;
+    this.lastReadAt = 0;
+    this.reads = 0;
+    this.error = null;
+  }
+
+  get active() { return !!this.stream; }
+
+  /** Is a live screen read even possible in this browsing context? */
+  static get supported() {
+    return typeof navigator !== "undefined"
+      && !!navigator.mediaDevices?.getDisplayMedia;
+  }
+
+  /**
+   * Ask for the stream and start sampling. Rejects nothing: the failure is
+   * reported through `onState` with a code the UI can explain, because the
+   * interesting failures here are environmental rather than exceptional.
+   */
+  async start() {
+    if (this.stream) return true;
+    if (!LiveWatcher.supported) {
+      this.error = "unsupported";
+      this._emit();
+      return false;
+    }
+    try {
+      this.stream = await navigator.mediaDevices.getDisplayMedia({
+        video: { frameRate: 4 },
+        audio: false,
+        // Nudges Chrome's picker toward the tab list, which is what a viewer
+        // watching a browser-based table almost always wants.
+        preferCurrentTab: false,
+        selfBrowserSurface: "exclude",
+        surfaceSwitching: "include",
+      });
+    } catch (e) {
+      // A permissions-policy block inside an iframe and an outright refusal
+      // both arrive as NotAllowedError; they need different advice, and the
+      // page cannot tell them apart, so the UI offers both.
+      this.error = e?.name === "NotAllowedError" ? "denied"
+        : e?.name === "NotFoundError" ? "nosource"
+        : "failed";
+      this.stream = null;
+      this._emit();
+      return false;
+    }
+
+    this.error = null;
+    this.video = document.createElement("video");
+    this.video.srcObject = this.stream;
+    this.video.muted = true;
+    this.video.playsInline = true;
+    await this.video.play().catch(() => {});
+    this.canvas = document.createElement("canvas");
+
+    for (const track of this.stream.getVideoTracks()) {
+      track.addEventListener("ended", () => this.stop());
+    }
+
+    this._reset();
+    this.timer = setInterval(() => this._sample(), this.intervalMs);
+    this._sample();
+    this._emit();
+    return true;
+  }
+
+  stop() {
+    if (this.timer) clearInterval(this.timer);
+    this.timer = null;
+    if (this.stream) for (const t of this.stream.getTracks()) t.stop();
+    this.stream = null;
+    if (this.video) { this.video.srcObject = null; this.video = null; }
+    this._reset();
+    this._emit();
+  }
+
+  /** Forget the locked position, e.g. after switching tables. */
+  relock() {
+    this.region = null;
+    this.misses = 0;
+    this.candidate = null;
+    this.repeats = 0;
+  }
+
+  setInterval(ms) {
+    this.intervalMs = ms;
+    if (this.timer) {
+      clearInterval(this.timer);
+      this.timer = setInterval(() => this._sample(), this.intervalMs);
+    }
+  }
+
+  _reset() {
+    this.region = null;
+    this.misses = 0;
+    this.candidate = null;
+    this.repeats = 0;
+    this.lastBoard = null;
+    this.reads = 0;
+  }
+
+  _emit() {
+    this.onState({
+      active: this.active,
+      error: this.error,
+      board: this.lastBoard,
+      locked: !!this.region,
+      lastReadAt: this.lastReadAt,
+      reads: this.reads,
+      candidate: this.candidate,
+      repeats: this.repeats,
+    });
+  }
+
+  /** Grab one frame, read it, and emit only once frames agree. */
+  _sample() {
+    const v = this.video;
+    if (!v || !v.videoWidth) return;
+
+    const scale = Math.min(1, WORK_MAX / Math.max(v.videoWidth, v.videoHeight));
+    const w = Math.round(v.videoWidth * scale), h = Math.round(v.videoHeight * scale);
+    if (this.canvas.width !== w || this.canvas.height !== h) {
+      this.canvas.width = w; this.canvas.height = h;
+    }
+    const ctx = this.canvas.getContext("2d", { willReadFrequently: true });
+    ctx.drawImage(v, 0, 0, w, h);
+    const frame = ctx.getImageData(0, 0, w, h);
+
+    let { boards } = detectBoards(frame, { region: this.region });
+    if (!boards.length && this.region) {
+      this.misses += 1;
+      if (this.misses >= LOCK_PATIENCE) { this.region = null; this.misses = 0; }
+      this._emit();
+      return;
+    }
+    if (!boards.length) { this.lastBoard = null; this._emit(); return; }
+
+    const board = boards[0];
+    this.misses = 0;
+    this.lastBoard = { ...board, frameWidth: w, frameHeight: h };
+    this.lastReadAt = Date.now();
+    this.reads += 1;
+
+    if (board.sequence === this.candidate) this.repeats += 1;
+    else { this.candidate = board.sequence; this.repeats = 1; }
+
+    // Lock on once a reading has held still, so later frames search a small box.
+    if (!this.region && this.repeats >= CONFIRM_GROWTH) {
+      const pad = Math.max(24, (board.box.x2 - board.box.x) * 0.06);
+      this.region = {
+        x: board.box.x - pad, y: board.box.y - pad,
+        w: board.box.x2 - board.box.x + pad * 2, h: board.box.y2 - board.box.y + pad * 2,
+      };
+    }
+
+    this.onRead(board.sequence, this.lastBoard, this.repeats);
+    this._emit();
+  }
+
+  /** Paint the most recent frame, dimmed outside the board, into `target`. */
+  drawPreview(target) {
+    const v = this.video, board = this.lastBoard;
+    if (!v || !v.videoWidth || !this.canvas) return false;
+    const w = this.canvas.width, h = this.canvas.height;
+    target.width = w; target.height = h;
+    const ctx = target.getContext("2d");
+    ctx.drawImage(this.canvas, 0, 0);
+    if (!board) return true;
+
+    const css = getComputedStyle(document.documentElement);
+    const pad = 10;
+    ctx.save();
+    ctx.fillStyle = "rgba(0,0,0,0.58)";
+    ctx.fillRect(0, 0, w, h);
+    const bx = board.box.x - pad, by = board.box.y - pad;
+    const bw = board.box.x2 - board.box.x + pad * 2, bh = board.box.y2 - board.box.y + pad * 2;
+    ctx.drawImage(this.canvas, bx, by, bw, bh, bx, by, bw, bh);
+    ctx.strokeStyle = css.getPropertyValue("--accent").trim();
+    ctx.lineWidth = 2;
+    ctx.strokeRect(bx, by, bw, bh);
+    ctx.strokeStyle = css.getPropertyValue("--mark-ring").trim() || "#fff";
+    ctx.lineWidth = 1.6;
+    for (const c of board.cells) {
+      ctx.beginPath();
+      ctx.arc(c.cx, c.cy, c.r * 1.12, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    ctx.restore();
+    return true;
+  }
+}
+
+/**
+ * Decide what a fresh reading means for the shoe in progress.
+ *
+ * Returns one of `same` (nothing changed), `grow` (the board gained coups),
+ * `reset` (the board restarted -- a new shoe) or `hold` (a shorter reading
+ * that shares a prefix, which is far more likely to be a half-drawn frame than
+ * a real event, so it is ignored).
+ */
+function diagnose(current, incoming) {
+  if (incoming === current) return "same";
+  if (!current.length) return "grow";
+  if (incoming.startsWith(current)) return "grow";
+  if (current.startsWith(incoming)) return "hold";
+  return "reset";
+}
+
+/* ═══ store.js ═══ */
+/* Where the collected shoes live.
+ *
+ * Two backends behind one interface. The artifact `db` capability is the real
+ * store: it survives the browser, and the desktop pipeline can read it back
+ * out. `localStorage` mirrors it so the page still works when the capability
+ * is not granted, and so a reload is instant rather than waiting on a round
+ * trip. Writes go to both; reads prefer db and fall back.
+ */
+
+const LS_KEY = "baccarat.corpus.v2";
+const SHOE_COLLECTION = "shoes";
+const META_DOC = "meta/state";
+
+/** Debounce window for writes. Live entry produces a coup every few seconds;
+ *  one write per coup would burn the call budget for nothing. */
+const FLUSH_MS = 1800;
+
+class Store {
+  constructor() {
+    this.db = null;
+    this.status = "local";            // local | syncing | synced | error
+    this.onStatus = () => {};
+    this._pending = new Map();        // shoeId -> record
+    this._metaDirty = false;
+    this._timer = null;
+  }
+
+  /** Resolve the db capability if this view has it. Never throws. */
+  async connect() {
+    try {
+      if (typeof window === "undefined" || !window.claude?.use) return;
+      const db = await window.claude.use("db");
+      if (!db) return;
+      this.db = db;
+      this._setStatus("synced");
+    } catch {
+      /* absence is normal: keep the local mirror */
+    }
+  }
+
+  _setStatus(s) {
+    if (this.status === s) return;
+    this.status = s;
+    this.onStatus(s);
+  }
+
+  /* ------------------------------------------------------------- reading */
+
+  readLocal() {
+    try {
+      const raw = localStorage.getItem(LS_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Load the corpus, preferring the shared store. Returns
+   * `{tables, active, isExample}` or null when nothing has been collected.
+   */
+  async load() {
+    const local = this.readLocal();
+    if (!this.db) return local;
+
+    try {
+      const [snap, meta] = await Promise.all([
+        this.db.collection(SHOE_COLLECTION).limit(1000).get(),
+        this.db.doc(META_DOC).get(),
+      ]);
+      const tables = {};
+      snap.docs.forEach((d) => {
+        const v = d.data();
+        if (!v || typeof v.outcomes !== "string") return;
+        const t = String(v.table || "live");
+        (tables[t] ||= { shoes: [] }).shoes.push({
+          id: d.id, o: v.outcomes, closed: !!v.closed, t: Number(v.started) || 0,
+        });
+      });
+      for (const t of Object.values(tables)) t.shoes.sort((a, b) => a.t - b.t || a.id.localeCompare(b.id));
+
+      if (!Object.keys(tables).length) return local;
+      const m = meta.exists ? meta.data() : {};
+      this._setStatus("synced");
+      return { tables, active: String(m.active || Object.keys(tables)[0]), isExample: false };
+    } catch {
+      this._setStatus("error");
+      return local;
+    }
+  }
+
+  /* ------------------------------------------------------------- writing */
+
+  /** Mirror the whole state locally and queue the changed shoes for the db. */
+  save(state, changedShoeIds = []) {
+    try {
+      localStorage.setItem(LS_KEY, JSON.stringify(state));
+    } catch {
+      /* private mode, quota, or a browser blocking site data: db still runs */
+    }
+    if (!this.db) return;
+
+    for (const id of changedShoeIds) {
+      for (const [table, entry] of Object.entries(state.tables)) {
+        const shoe = entry.shoes.find((s) => s.id === id);
+        if (shoe) {
+          this._pending.set(id, { table, outcomes: shoe.o, closed: shoe.closed, started: shoe.t });
+          break;
+        }
+      }
+    }
+    this._metaDirty = true;
+    this._schedule(state);
+  }
+
+  _schedule(state) {
+    if (this._timer) clearTimeout(this._timer);
+    this._timer = setTimeout(() => this._flush(state), FLUSH_MS);
+  }
+
+  async _flush(state) {
+    if (!this.db) return;
+    const writes = [...this._pending.entries()];
+    this._pending.clear();
+    const metaDirty = this._metaDirty;
+    this._metaDirty = false;
+    if (!writes.length && !metaDirty) return;
+
+    this._setStatus("syncing");
+    try {
+      for (const [id, body] of writes) {
+        await this.db.collection(SHOE_COLLECTION).doc(id).set(body);
+      }
+      if (metaDirty) await this.db.doc(META_DOC).set({ active: state.active, updated: Date.now() });
+      this._setStatus("synced");
+    } catch (e) {
+      // quota_exceeded is not transient: surface it rather than retrying.
+      this._setStatus(e?.code === "quota_exceeded" ? "full" : "error");
+    }
+  }
+
+  /** Remove a table's shoes from the shared store. */
+  async deleteShoes(ids) {
+    if (!this.db) return;
+    try {
+      for (const id of ids) await this.db.collection(SHOE_COLLECTION).doc(id).delete();
+    } catch {
+      this._setStatus("error");
+    }
+  }
+}
+
+/* ═══ app.js ═══ */
+/* The install-free console.
+ *
+ * One loop drives this page: capture the table's screen, paste it, and the
+ * bead plate becomes data. Everything else -- the roads, the break-even
+ * scale, the integrity battery -- is computed from that data in the browser,
+ * with the same code the desktop package runs, so no install is needed and
+ * nothing about the operator's site is touched.
+ */
+
+
+
+
+
+
+const $ = (id) => document.getElementById(id);
+const el = (tag, cls, text) => {
+  const n = document.createElement(tag);
+  if (cls) n.className = cls;
+  if (text !== undefined) n.textContent = text;
+  return n;
+};
+const pct = (x, d = 1) => (x * 100).toFixed(d) + "%";
+const SIDE_KO = { P: "플레이어", B: "뱅커", T: "타이" };
+
+/* Sample sizes worth aiming at, from the measured detection power. */
+const MILESTONES = [
+  { bias: 0.03, label: "명백한 이상", note: "망가진 셔플이라면 여기서 드러납니다" },
+  { bias: 0.012, label: "중간 편향", note: "눈에 띄지 않는 치우침까지" },
+  { bias: BANKER_BREAKEVEN_GAP, label: "돈이 되는 편향", note: "편향이 수익이 되기 시작하는 지점" },
+].map((m) => ({ ...m, shoes: shoesForBias(m.bias) }));
+
+/* ------------------------------------------------------------------ state */
+
+const store = new Store();
+let state = null;
+let shot = null;            // {imageData, width, height, boards, pick, region}
+let nullCache = new Map();  // nShoes -> null samples
+let integrityRun = null;
+let live = null;            // LiveWatcher, created on first use
+let liveHolds = 0;          // consecutive readings shorter than the shoe in progress
+
+const newShoeId = () => "S" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+
+function exampleState() {
+  const shoes = simulate(4, 20240101).map((o, i) => ({
+    id: `EXAMPLE-${i + 1}`, o, closed: i < 3, t: Date.now() - (4 - i) * 3.6e6,
+  }));
+  return { tables: { "예시-테이블": { shoes } }, active: "예시-테이블", isExample: true };
+}
+
+const table = () => state.tables[state.active] || (state.tables[state.active] = { shoes: [] });
+const shoes = () => table().shoes;
+
+function currentShoe() {
+  const list = shoes();
+  let last = list[list.length - 1];
+  if (!last || last.closed) {
+    last = { id: newShoeId(), o: "", closed: false, t: Date.now() };
+    list.push(last);
+  }
+  return last;
+}
+
+function commit(changedIds) {
+  store.save(state, changedIds);
+  render();
+}
+
+/* ---------------------------------------------------------------- editing */
+
+function addOutcomes(seq) {
+  if (!seq) return;
+  clearExample();
+  const shoe = currentShoe();
+  shoe.o += seq;
+  commit([shoe.id]);
+}
+
+function undo() {
+  clearExample();
+  const list = shoes();
+  for (let i = list.length - 1; i >= 0; i--) {
+    if (list[i].o.length) {
+      list[i].o = list[i].o.slice(0, -1);
+      list[i].closed = false;
+      commit([list[i].id]);
+      return;
+    }
+    if (i > 0) list.pop();          // drop an empty trailing shoe and try again
+  }
+  render();
+}
+
+function newShoe() {
+  clearExample();
+  const shoe = currentShoe();
+  if (!shoe.o.length) return;       // already on a fresh one
+  shoe.closed = true;
+  const fresh = { id: newShoeId(), o: "", closed: false, t: Date.now() };
+  shoes().push(fresh);
+  commit([shoe.id, fresh.id]);
+}
+
+/** Replace the shoe in progress with what a screenshot says it contains. */
+function replaceCurrentShoe(seq) {
+  clearExample();
+  const shoe = currentShoe();
+  shoe.o = seq;
+  commit([shoe.id]);
+}
+
+function loadAsNewShoe(seq) {
+  clearExample();
+  const list = shoes();
+  const last = list[list.length - 1];
+  const changed = [];
+  if (last && !last.o.length) list.pop();
+  else if (last && !last.closed) { last.closed = true; changed.push(last.id); }
+  const fresh = { id: newShoeId(), o: seq, closed: false, t: Date.now() };
+  list.push(fresh);
+  changed.push(fresh.id);
+  commit(changed);
+}
+
+/** The seeded example exists so the page opens showing what it does. The
+ *  first real entry replaces it rather than mixing with it. */
+function clearExample() {
+  if (!state.isExample) return;
+  state = { tables: { "테이블-1": { shoes: [] } }, active: "테이블-1", isExample: false };
+}
+
+/**
+ * Is a pasted board the shoe already in progress, or a new one?
+ * A live bead plate grows from the left, so the shorter of the two being a
+ * prefix of the longer means it is the same shoe seen at a different moment.
+ */
+function classifyPaste(current, pasted) {
+  if (!current.length) return "same";
+  const [a, b] = current.length <= pasted.length ? [current, pasted] : [pasted, current];
+  return b.startsWith(a) ? "same" : "new";
+}
+
+/* ------------------------------------------------------------ screenshots */
+
+async function handleImage(source) {
+  const canvas = document.createElement("canvas");
+  const work = toWorkingImage(source, canvas);
+  const { boards, diameter } = detectBoards(work.imageData);
+  shot = { ...work, canvas, boards, pick: 0, diameter, region: null };
+  renderShot();
+}
+
+function rerunDetection(region) {
+  if (!shot) return;
+  const { boards } = detectBoards(shot.imageData, { region });
+  shot.boards = boards;
+  shot.pick = 0;
+  shot.region = region;
+  renderShot();
+}
+
+function renderShot() {
+  const wrap = $("shotWrap"), idle = $("dropIdle");
+  if (!shot) { wrap.hidden = true; idle.hidden = false; $("readout").hidden = true; return; }
+  idle.hidden = true; wrap.hidden = false; $("readout").hidden = false;
+
+  const view = $("shotCanvas");
+  view.width = shot.width; view.height = shot.height;
+  const ctx = view.getContext("2d");
+  ctx.drawImage(shot.canvas, 0, 0);
+
+  const board = shot.boards[shot.pick];
+  if (board) {
+    ctx.save();
+    ctx.fillStyle = "rgba(0,0,0,0.55)";
+    ctx.fillRect(0, 0, shot.width, shot.height);
+    const b = board.box, pad = shot.diameter * 0.45;
+    ctx.clearRect(b.x - pad, b.y - pad, b.x2 - b.x + pad * 2, b.y2 - b.y + pad * 2);
+    ctx.drawImage(shot.canvas, b.x - pad, b.y - pad, b.x2 - b.x + pad * 2, b.y2 - b.y + pad * 2,
+      b.x - pad, b.y - pad, b.x2 - b.x + pad * 2, b.y2 - b.y + pad * 2);
+
+    const css = getComputedStyle(document.documentElement);
+    const ink = css.getPropertyValue("--mark-ring").trim() || "#fff";
+    board.cells.forEach((c, i) => {
+      ctx.beginPath();
+      ctx.arc(c.cx, c.cy, c.r * 1.12, 0, Math.PI * 2);
+      ctx.lineWidth = 2; ctx.strokeStyle = ink; ctx.stroke();
+      if (i === board.cells.length - 1) {
+        ctx.beginPath();
+        ctx.arc(c.cx, c.cy, c.r * 1.5, 0, Math.PI * 2);
+        ctx.lineWidth = 1.5; ctx.strokeStyle = css.getPropertyValue("--accent").trim();
+        ctx.stroke();
+      }
+    });
+    ctx.restore();
+  }
+
+  const readout = $("readout");
+  readout.innerHTML = "";
+  if (!board) {
+    readout.appendChild(el("p", "warn", "이 이미지에서 구슬판을 찾지 못했습니다. 구슬판이 잘 보이도록 다시 캡처하거나, 이미지 위에서 구슬판 영역을 드래그해 지정해 보세요."));
+    return;
+  }
+
+  const seq = board.sequence;
+  const mode = classifyPaste(currentShoe().o, seq);
+  const head = el("div", "readhead");
+  head.appendChild(el("span", "chip " + (board.kind === "bead" ? "ok" : "warn"),
+    board.kind === "bead" ? "구슬판" : "빅로드(추정)"));
+  head.appendChild(el("span", "readnum", `${seq.length}판 · ${board.nRows}행 × ${board.nCols}열`));
+  const counts = { P: 0, B: 0, T: 0 };
+  for (const c of seq) counts[c]++;
+  const tally = el("span", "tally");
+  for (const k of ["P", "B", "T"]) {
+    tally.appendChild(el("i", "dot " + k));
+    tally.appendChild(el("span", "n", String(counts[k])));
+  }
+  head.appendChild(tally);
+  readout.appendChild(head);
+
+  const strip = el("div", "seqstrip");
+  for (const c of seq) strip.appendChild(el("i", "sq " + c, c === "P" ? "플" : c === "B" ? "뱅" : "타"));
+  readout.appendChild(strip);
+
+  if (board.kind !== "bead") {
+    readout.appendChild(el("p", "warn",
+      "구슬판이 아니라 빅로드로 보입니다. 빅로드는 타이가 표시되지 않고 6줄을 넘는 연속이 옆으로 꺾여 순서가 어긋날 수 있습니다. 가능하면 구슬판이 나오게 캡처하세요."));
+  }
+
+  const actions = el("div", "actions");
+  const primary = el("button", "btn primary",
+    mode === "same" ? "현재 슈에 반영" : "새 슈로 추가");
+  primary.onclick = () => {
+    if (mode === "same") replaceCurrentShoe(seq); else loadAsNewShoe(seq);
+    shot = null; renderShot();
+  };
+  actions.appendChild(primary);
+
+  const other = el("button", "btn",
+    mode === "same" ? "새 슈로 추가" : "현재 슈에 반영");
+  other.onclick = () => {
+    if (mode === "same") loadAsNewShoe(seq); else replaceCurrentShoe(seq);
+    shot = null; renderShot();
+  };
+  actions.appendChild(other);
+
+  if (shot.boards.length > 1) {
+    const swap = el("button", "btn ghost", `다른 영역 (${shot.pick + 1}/${shot.boards.length})`);
+    swap.onclick = () => { shot.pick = (shot.pick + 1) % shot.boards.length; renderShot(); };
+    actions.appendChild(swap);
+  }
+  if (shot.region) {
+    const reset = el("button", "btn ghost", "전체 다시 인식");
+    reset.onclick = () => rerunDetection(null);
+    actions.appendChild(reset);
+  }
+  const drop = el("button", "btn ghost", "취소");
+  drop.onclick = () => { shot = null; renderShot(); };
+  actions.appendChild(drop);
+  readout.appendChild(actions);
+
+  readout.appendChild(el("p", "hint",
+    mode === "same"
+      ? "현재 슈와 앞부분이 같습니다 — 같은 슈의 최신 상태로 보고 통째로 교체합니다. 몇 판마다 다시 붙여넣어도 중복되지 않습니다."
+      : "현재 슈와 앞부분이 다릅니다 — 새 슈가 시작된 것으로 보입니다."));
+}
+
+/* ------------------------------------------------------------ live read */
+
+/* Reading the screen continuously means committing without a human confirming
+   each change, so the rules for what a reading is allowed to do are strict:
+   growth is applied once frames agree, a board reset needs more agreement
+   because it discards the shoe in progress, and a reading shorter than the
+   shoe in progress is never applied silently -- that is what a cropped or
+   scrolled bead plate looks like, and it would truncate real data. */
+
+function liveLog(text, kind) {
+  const box = $("liveLog");
+  const row = el("div");
+  const now = new Date();
+  const stamp = el("time", null,
+    `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}:${String(now.getSeconds()).padStart(2, "0")}`);
+  row.appendChild(stamp);
+  row.appendChild(el("b", kind || null, text));
+  box.prepend(row);
+  while (box.children.length > 40) box.lastChild.remove();
+}
+
+function onLiveRead(seq, board, repeats) {
+  const current = currentShoe().o;
+  const verdict = diagnose(current, seq);
+
+  if (verdict === "same") { liveHolds = 0; setLiveWarn(null); return; }
+
+  if (verdict === "hold") {
+    liveHolds += 1;
+    if (liveHolds >= 4) {
+      setLiveWarn(
+        `읽은 값이 ${seq.length}판으로 현재 슈(${current.length}판)보다 짧습니다. ` +
+        `구슬판이 잘렸거나 옆으로 밀렸을 수 있습니다 — 화면에 구슬판 전체가 보이는지 확인하세요.`,
+        { label: `${seq.length}판으로 교체`, run: () => { replaceCurrentShoe(seq); liveHolds = 0; setLiveWarn(null); liveLog(`${seq.length}판으로 수동 교체`); } });
+    }
+    return;
+  }
+
+  liveHolds = 0;
+  setLiveWarn(null);
+
+  if (verdict === "grow" && repeats >= CONFIRM_GROWTH) {
+    const added = seq.length - current.length;
+    replaceCurrentShoe(seq);
+    liveLog(`+${added}판 → ${seq.length}판  ${[...seq.slice(current.length)].map((o) => SIDE_KO[o]).join(" ")}`);
+  } else if (verdict === "reset" && repeats >= CONFIRM_RESET) {
+    loadAsNewShoe(seq);
+    liveLog(`새 슈 시작 — ${seq.length}판 읽음`, "new");
+  }
+}
+
+function setLiveWarn(text, action) {
+  const box = $("liveWarn");
+  if (!text) { box.hidden = true; box.innerHTML = ""; return; }
+  box.hidden = false;
+  box.innerHTML = "";
+  box.appendChild(el("span", null, text));
+  if (action) {
+    const b = el("button", "btn ghost", action.label);
+    b.style.marginLeft = "8px";
+    b.onclick = action.run;
+    box.appendChild(b);
+  }
+}
+
+function onLiveState(st) {
+  $("liveIdle").hidden = st.active || !!st.error;
+  $("liveActive").hidden = !st.active;
+  $("liveError").hidden = !st.error;
+
+  if (st.error) { renderLiveError(st.error); return; }
+  if (!st.active) return;
+
+  live.drawPreview($("liveCanvas"));
+
+  const dot = $("liveDot");
+  const found = !!st.board;
+  dot.className = "livedot " + (found ? "on" : "searching");
+  const ago = st.lastReadAt ? Math.round((Date.now() - st.lastReadAt) / 1000) : null;
+  $("liveStatus").textContent = found
+    ? `${st.board.sequence.length}판 읽음 · ${st.locked ? "영역 고정" : "영역 찾는 중"} · ${ago}초 전`
+    : "구슬판을 찾는 중 — 테이블 화면이 보이는 창을 공유했는지 확인하세요";
+}
+
+function renderLiveError(code) {
+  const box = $("liveError");
+  const own = location.href;
+  const bodies = {
+    unsupported: `<h3>이 브라우저에서는 화면 공유를 쓸 수 없습니다</h3>
+      <p>모바일 브라우저 대부분과 일부 구형 브라우저는 화면 공유(<code>getDisplayMedia</code>)를
+        지원하지 않습니다. PC의 Chrome · Edge · Firefox에서 열거나,
+        <b>캡처 붙여넣기</b> 방식을 쓰세요.</p>`,
+    denied: `<h3>화면 공유가 차단되었습니다</h3>
+      <p>둘 중 하나입니다.</p>
+      <ol>
+        <li><b>공유 창에서 취소를 눌렀다면</b> — 다시 시작하고 아바타 스피드가 열린 탭을 고르세요.</li>
+        <li><b>창이 아예 뜨지 않았다면</b> — 이 페이지가 다른 페이지 안에 삽입돼 있어 화면 공유
+          권한을 받지 못한 경우입니다. 아래 링크로 이 페이지를 <b>새 탭에서 직접 열면</b> 됩니다.
+          (새 탭에서는 수집 데이터가 그 브라우저에만 저장됩니다.)</li>
+      </ol>
+      <p style="margin-top:11px"><a href="${own}" target="_blank" rel="noopener">이 페이지를 새 탭에서 열기 →</a></p>`,
+    nosource: `<h3>공유할 화면을 찾지 못했습니다</h3><p>다시 시도해 주세요.</p>`,
+    failed: `<h3>화면 공유를 시작하지 못했습니다</h3>
+      <p>브라우저를 새로고침한 뒤 다시 시도하거나, <b>캡처 붙여넣기</b> 방식을 쓰세요.</p>`,
+  };
+  box.innerHTML = (bodies[code] || bodies.failed) +
+    `<div class="actions"><button class="btn" id="liveRetry">다시 시도</button>
+     <button class="btn ghost" id="liveToPaste">캡처 붙여넣기로 전환</button></div>`;
+  $("liveRetry").onclick = () => { live.error = null; live._emit(); live.start(); };
+  $("liveToPaste").onclick = () => setMode("paste");
+}
+
+function setMode(mode) {
+  const isLive = mode === "live";
+  $("modeLive").classList.toggle("on", isLive);
+  $("modePaste").classList.toggle("on", !isLive);
+  $("modeLive").setAttribute("aria-selected", String(isLive));
+  $("modePaste").setAttribute("aria-selected", String(!isLive));
+  $("livePane").hidden = !isLive;
+  $("pastePane").hidden = isLive;
+  if (!isLive && live?.active) live.stop();
+}
+
+/* --------------------------------------------------------------- analysis */
+
+/** Banker's share of decided coups at this table, with an honest interval. */
+function observed() {
+  const list = shoes().filter((s) => s.o.length);
+  let b = 0, n = 0, ties = 0, coups = 0;
+  for (const s of list) {
+    for (const ch of s.o) {
+      coups++;
+      if (ch === "T") { ties++; continue; }
+      n++; if (ch === "B") b++;
+    }
+  }
+  if (!n) return { n: 0, coups, ties, shoes: list.length };
+
+  const q = b / n;
+  // Within-shoe clustering inflates the true standard error above the
+  // binomial one; the dispersion statistic measures exactly that ratio.
+  const disp = list.length >= 5 ? computeStatistics(list.map((s) => s.o)).shoe_share_dispersion : NaN;
+  const inflate = Number.isFinite(disp) ? Math.sqrt(Math.max(1, disp)) : 1;
+  const se = Math.sqrt((q * (1 - q)) / n) * inflate;
+  return {
+    n, coups, ties, shoes: list.length, q, se, inflate,
+    lo: Math.max(0, q - 1.96 * se), hi: Math.min(1, q + 1.96 * se),
+  };
+}
+
+/** Expected value per coup of a flat unit on each side, ties pushing. */
+function edges(q, tieP) {
+  const decided = 1 - tieP;
+  return { B: decided * (q * 0.95 - (1 - q)), P: decided * (1 - 2 * q) };
+}
+
+/* ---------------------------------------------------------------- render */
+
+function render() {
+  renderHeader();
+  renderKpis();
+  renderScale();
+  renderBoard();
+  renderMilestones();
+  renderIntegrityAvailability();
+}
+
+function renderHeader() {
+  const sel = $("tableSel");
+  sel.innerHTML = "";
+  for (const name of Object.keys(state.tables)) {
+    const o = el("option", null, name);
+    o.value = name;
+    if (name === state.active) o.selected = true;
+    sel.appendChild(o);
+  }
+  const shoe = currentShoe();
+  $("shoeMeta").textContent = `${shoes().filter((s) => s.o.length).length}슈 수집 · 현재 슈 ${shoe.o.length}판`;
+  $("exampleBadge").hidden = !state.isExample;
+}
+
+function renderKpis() {
+  const o = observed();
+  const bias = detectableBias(o.shoes);
+  const tiles = [
+    { k: "수집한 슈", v: o.shoes.toLocaleString(), s: `${o.coups.toLocaleString()}판` },
+    {
+      k: "뱅커 비율", v: o.n ? pct(o.q, 2) : "—",
+      s: o.n ? `±${(1.96 * o.se * 100).toFixed(2)}%p · ${o.n.toLocaleString()}판 기준` : "판이 없습니다",
+    },
+    {
+      k: "탐지 가능한 최소 편향", v: o.shoes ? pct(bias, 2) : "—",
+      s: o.shoes ? (bias <= BANKER_BREAKEVEN_GAP ? "수익 경계보다 촘촘함" : `수익 경계는 ${pct(BANKER_BREAKEVEN_GAP, 2)}`) : "슈를 모으면 계산됩니다",
+    },
+    (() => {
+      const gap = (BANKER_BREAKEVEN - (o.q ?? 0)) * 100;
+      return {
+        k: "뱅커 손익분기까지", v: o.n ? `${gap >= 0 ? "+" : ""}${gap.toFixed(2)}%p` : "—",
+        s: !o.n ? "판을 모으면 계산됩니다"
+                : gap >= 0 ? "뱅커가 이익이 되려면 더 필요한 폭"
+                           : "이미 손익분기선을 넘어섰습니다 — 무결성 검정으로 확인하세요",
+      };
+    })(),
+  ];
+  const box = $("kpis");
+  box.innerHTML = "";
+  for (const t of tiles) {
+    const d = el("div", "tile");
+    d.appendChild(el("div", "k", t.k));
+    d.appendChild(el("div", "v", t.v));
+    d.appendChild(el("div", "s", t.s));
+    box.appendChild(d);
+  }
+}
+
+/**
+ * The break-even scale: two lines a wager has to clear, the dead band between
+ * them, where a fresh shoe sits, and where this table's own measurement sits
+ * with its interval. Everything this project measured is legible here at once.
+ */
+function renderScale() {
+  const LO = 0.488, HI = 0.532, W = 720, H = 168;
+  const x = (q) => ((q - LO) / (HI - LO)) * (W - 90) + 45;
+  const o = observed();
+  const svg = $("scale");
+  const css = getComputedStyle(document.documentElement);
+  const C = (n) => css.getPropertyValue(n).trim();
+
+  // One row of the drawing per thing being said, top to bottom: this table,
+  // the fresh-shoe reference, the zones, then the two break-even lines.
+  const yObsLabel = 15, yObs = 30, yFreshLabel = 53, yBand = 64, hBand = 26;
+  const yTickTop = 60, yTickBottom = 108, yTickLabel = 123, ySubLabel = 137;
+
+  const p = [];
+  p.push(`<rect x="${x(LO)}" y="${yBand}" width="${x(PLAYER_BREAKEVEN) - x(LO)}" height="${hBand}" fill="${C("--zone")}" rx="2"/>`);
+  p.push(`<rect x="${x(BANKER_BREAKEVEN)}" y="${yBand}" width="${x(HI) - x(BANKER_BREAKEVEN)}" height="${hBand}" fill="${C("--zone")}" rx="2"/>`);
+  p.push(`<rect x="${x(PLAYER_BREAKEVEN)}" y="${yBand}" width="${x(BANKER_BREAKEVEN) - x(PLAYER_BREAKEVEN)}" height="${hBand}" fill="${C("--dead")}" stroke="${C("--line-2")}"/>`);
+  p.push(`<text x="${(x(PLAYER_BREAKEVEN) + x(BANKER_BREAKEVEN)) / 2}" y="${yBand + 17}" text-anchor="middle" font-size="11.5" fill="${C("--ink-2")}">두 베팅 모두 손실</text>`);
+  p.push(`<text x="${x(LO) + 4}" y="${yBand + 17}" font-size="11" fill="${C("--ink-3")}">플레이어 이익</text>`);
+  p.push(`<text x="${x(HI) - 4}" y="${yBand + 17}" font-size="11" text-anchor="end" fill="${C("--ink-3")}">뱅커 이익</text>`);
+
+  for (const [q, label, sub] of [[PLAYER_BREAKEVEN, "50.000%", "플레이어 손익분기"],
+                                 [BANKER_BREAKEVEN, "51.282%", "뱅커 손익분기"]]) {
+    p.push(`<line x1="${x(q)}" y1="${yTickTop}" x2="${x(q)}" y2="${yTickBottom}" stroke="${C("--ink-2")}" stroke-width="1.2"/>`);
+    p.push(`<text x="${x(q)}" y="${yTickLabel}" text-anchor="middle" font-size="11.5" class="m" fill="${C("--ink")}">${label}</text>`);
+    p.push(`<text x="${x(q)}" y="${ySubLabel}" text-anchor="middle" font-size="10.5" fill="${C("--ink-3")}">${sub}</text>`);
+  }
+
+  p.push(`<line x1="${x(BASE_BANKER_SHARE)}" y1="${yBand - 3}" x2="${x(BASE_BANKER_SHARE)}" y2="${yBand + hBand + 3}" stroke="${C("--ink-3")}" stroke-width="1" stroke-dasharray="3 3"/>`);
+  p.push(`<text x="${x(BASE_BANKER_SHARE)}" y="${yFreshLabel}" text-anchor="middle" font-size="10.5" fill="${C("--ink-3")}">신선한 슈 50.68%</text>`);
+
+  if (o.n >= 30) {
+    const clears = o.lo > BANKER_BREAKEVEN || o.hi < PLAYER_BREAKEVEN;
+    const col = clears ? C("--accent") : C("--ink");
+    const clamp = (q) => Math.min(HI, Math.max(LO, q));
+    const off = o.q > HI || o.q < LO;
+
+    p.push(`<line x1="${x(clamp(o.lo))}" y1="${yObs}" x2="${x(clamp(o.hi))}" y2="${yObs}" stroke="${col}" stroke-width="2.5" stroke-linecap="round" opacity="0.4"/>`);
+    for (const q of [o.lo, o.hi]) {
+      if (q < LO || q > HI) continue;                      // a whisker end past the axis has no tick
+      p.push(`<line x1="${x(q)}" y1="${yObs - 5}" x2="${x(q)}" y2="${yObs + 5}" stroke="${col}" stroke-width="2"/>`);
+    }
+    const cx = x(clamp(o.q));
+    p.push(off
+      ? `<path d="${o.q > HI ? `M${cx - 6} ${yObs - 5.5} L${cx + 2} ${yObs} L${cx - 6} ${yObs + 5.5} Z`
+                             : `M${cx + 6} ${yObs - 5.5} L${cx - 2} ${yObs} L${cx + 6} ${yObs + 5.5} Z`}" fill="${col}"/>`
+      : `<circle cx="${cx}" cy="${yObs}" r="5.5" fill="${col}" stroke="${C("--surface")}" stroke-width="2"/>`);
+
+    // Keep the label inside the drawing whichever end the value sits at.
+    const lx = Math.min(W - 10, Math.max(10, cx));
+    const anchor = lx > W - 110 ? "end" : lx < 110 ? "start" : "middle";
+    const text = `이 테이블 ${pct(o.q, 2)}${off ? " (축 범위 밖)" : ""}`;
+    p.push(`<text x="${lx}" y="${yObsLabel}" text-anchor="${anchor}" font-size="11.5" class="m" fill="${col}">${text}</text>`);
+  } else {
+    p.push(`<text x="${W / 2}" y="${yObsLabel}" text-anchor="middle" font-size="11.5" fill="${C("--ink-3")}">이 테이블의 값은 30판부터 표시됩니다</text>`);
+  }
+  p.push(`<text x="${W / 2}" y="${H - 5}" text-anchor="middle" font-size="10.5" fill="${C("--ink-3")}">가로축: P(뱅커 | 타이 제외) · 가로 막대는 95% 신뢰구간</text>`);
+
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  svg.innerHTML = p.join("");
+
+  const e = edges(BASE_BANKER_SHARE, BASE_TIE);
+  const note = $("scaleNote");
+  if (o.n < 30) {
+    note.className = "verdict neutral";
+    note.innerHTML = `<b>베팅 안 함.</b> 신선한 슈의 P(뱅커 | 타이 제외)는 <b>50.68%</b>로 두 손익분기선 사이에 있습니다 — 뱅커 <b>${pct(e.B, 3)}</b>, 플레이어 <b>${pct(e.P, 3)}</b>, 둘 다 손실입니다. 이 테이블의 실제 값을 재려면 최소 30판이 필요합니다 (현재 ${o.n}판).`;
+  } else if (o.lo > BANKER_BREAKEVEN) {
+    note.className = "verdict flag";
+    note.innerHTML = `<b>이례적입니다.</b> 이 테이블의 뱅커 비율 신뢰구간(<b>${pct(o.lo, 2)}–${pct(o.hi, 2)}</b>)이 뱅커 손익분기선 <b>51.282%</b>를 통째로 넘습니다. 아래 무결성 검정을 돌려 판독 오류·덱 수·규칙 차이부터 배제하세요.`;
+  } else if (o.hi < PLAYER_BREAKEVEN) {
+    note.className = "verdict flag";
+    note.innerHTML = `<b>이례적입니다.</b> 신뢰구간(<b>${pct(o.lo, 2)}–${pct(o.hi, 2)}</b>)이 플레이어 손익분기선 <b>50.000%</b> 아래에 통째로 있습니다. 아래 무결성 검정으로 확인하세요.`;
+  } else {
+    note.className = "verdict neutral";
+    note.innerHTML = `<b>베팅 안 함.</b> 이 테이블의 뱅커 비율은 <b>${pct(o.q, 2)}</b>, 95% 신뢰구간 <b>${pct(o.lo, 2)}–${pct(o.hi, 2)}</b>로 죽은 구간 안에 있습니다. 구간이 손익분기선 하나를 통째로 넘어가기 전까지는 어느 쪽도 기댓값이 플러스가 아닙니다.`;
+  }
+}
+
+function renderBoard() {
+  const shoe = currentShoe();
+  const outcomes = [...shoe.o];
+  const road = new BigRoad();
+  for (const o of outcomes) road.add(o);
+
+  drawGrid($("bead"), beadPlate(outcomes), "outcome");
+  drawGrid($("big"), road.grid(6), "outcome");
+  const derived = allDerivedRoads(road.columns);
+  drawFlat($("beb"), derived.big_eye_boy);
+  drawFlat($("small"), derived.small_road);
+  drawFlat($("roach"), derived.cockroach_road);
+
+  const c = { P: 0, B: 0, T: 0 };
+  for (const o of outcomes) c[o]++;
+  $("boardMeta").textContent = outcomes.length
+    ? `${outcomes.length}판 · 플레이어 ${c.P} · 뱅커 ${c.B} · 타이 ${c.T} · 현재 연속 ${road.currentStreak}${road.currentSide ? ` (${SIDE_KO[road.currentSide]})` : ""}`
+    : "이 슈에는 아직 기록된 판이 없습니다.";
+}
+
+function drawGrid(host, rows, kind) {
+  host.innerHTML = "";
+  for (const row of rows) {
+    const line = el("div", "gridrow");
+    for (const cell of row) {
+      const c = el("span", "cell" + (cell ? " " + cell : " empty"));
+      if (cell) c.textContent = cell === "P" ? "플" : cell === "B" ? "뱅" : "타";
+      line.appendChild(c);
+    }
+    host.appendChild(line);
+  }
+}
+
+function drawFlat(host, marks) {
+  const rows = 6, width = Math.max(1, Math.ceil(marks.length / rows));
+  const grid = Array.from({ length: rows }, () => new Array(width).fill(null));
+  marks.forEach((m, i) => { grid[i % rows][Math.floor(i / rows)] = m; });
+  host.innerHTML = "";
+  for (const row of grid) {
+    const line = el("div", "gridrow");
+    for (const cell of row) line.appendChild(el("span", "cell sm" + (cell ? " d" + cell : " empty")));
+    host.appendChild(line);
+  }
+}
+
+function renderMilestones() {
+  const n = shoes().filter((s) => s.o.length).length;
+  const box = $("milestones");
+  box.innerHTML = "";
+  for (const m of MILESTONES) {
+    const done = n >= m.shoes;
+    const row = el("div", "ms" + (done ? " done" : ""));
+    const head = el("div", "msrow");
+    head.appendChild(el("span", "msname", `${m.label} — ${pct(m.bias, 2)} 편향까지 탐지`));
+    head.appendChild(el("span", "msnum", `${n.toLocaleString()} / ${m.shoes.toLocaleString()}슈`));
+    row.appendChild(head);
+    const track = el("div", "track");
+    const fill = el("i");
+    fill.style.width = Math.min(100, (n / m.shoes) * 100) + "%";
+    track.appendChild(fill);
+    row.appendChild(track);
+    row.appendChild(el("div", "msnote", m.note));
+    box.appendChild(row);
+  }
+}
+
+/* ------------------------------------------------------------- integrity */
+
+function renderIntegrityAvailability() {
+  const n = shoes().filter((s) => s.o.length).length;
+  const btn = $("runIntegrity");
+  btn.disabled = n < 3 || !!integrityRun;
+  $("intHint").textContent = n < 3
+    ? `검정에는 최소 3슈가 필요합니다 (현재 ${n}슈).`
+    : `${n}슈를 정직하게 섞인 8덱 슈 ${$("reps").value}개 코퍼스와 비교합니다.`;
+}
+
+async function runIntegrity() {
+  const list = shoes().filter((s) => s.o.length).map((s) => s.o);
+  if (list.length < 3) return;
+
+  const reps = Number($("reps").value);
+  integrityRun = { cancelled: false };
+  renderIntegrityAvailability();
+  $("intProgress").hidden = false;
+  $("intResult").hidden = true;
+
+  const bar = $("intBar"), label = $("intProgressLabel");
+  const key = `${list.length}:${reps}`;
+  let samples = nullCache.get(key);
+
+  if (!samples) {
+    label.textContent = "정직한 슈로 귀무분포를 만드는 중…";
+    samples = await simulatedNull(list.length, {
+      nReplicates: reps,
+      onProgress: (done, total) => {
+        bar.style.width = (done / total) * 100 + "%";
+        label.textContent = `귀무분포 ${done}/${total} — 정직한 8덱 슈 ${(done * list.length).toLocaleString()}개를 돌렸습니다`;
+      },
+      shouldStop: () => integrityRun?.cancelled,
+    });
+    if (!samples) { integrityRun = null; $("intProgress").hidden = true; renderIntegrityAvailability(); return; }
+    nullCache.set(key, samples);
+  }
+
+  const report = integrityReport(list, samples, { nReplicates: reps });
+  integrityRun = null;
+  $("intProgress").hidden = true;
+  renderIntegrityResult(report);
+  renderIntegrityAvailability();
+}
+
+function renderIntegrityResult(rep) {
+  $("intResult").hidden = false;
+  const v = $("intVerdict");
+  v.className = "verdict " + (rep.verdict_kind === "flag" ? "flag" : rep.verdict_kind === "clean" ? "ok" : "neutral");
+  const headline = { flag: "이상 발견", clean: "이상 없음 — 결론 가능", insufficient: "이상 없음 — 표본 부족" }[rep.verdict_kind];
+  v.innerHTML = `<b>${headline}.</b> ${rep.verdict}`;
+
+  const host = $("intFindings");
+  host.innerHTML = "";
+  const Z = 4.2, W = 200, MID = 11;
+  const zx = (z) => ((Math.max(-Z, Math.min(Z, z)) + Z) / (2 * Z)) * W;
+
+  const legend = el("div", "flegend");
+  legend.innerHTML =
+    `<span><i class="swatch band"></i>정직한 슈의 95% 범위 (z −1.96 ~ +1.96)</span>` +
+    `<span><i class="swatch dot"></i>이 테이블의 값</span>` +
+    `<span class="m">축 범위 ±${Z}</span>`;
+  host.appendChild(legend);
+
+  for (const f of rep.findings) {
+    const adj = rep.corrections[f.statistic] || {};
+    const flagged = !!adj.significant_bh;
+    const row = el("div", "find" + (flagged ? " flagged" : ""));
+
+    const name = el("div", "fname");
+    name.appendChild(el("span", "t", STAT_KO[f.statistic] || f.statistic));
+    name.title = STAT_WHY[f.statistic] || "";
+    row.appendChild(name);
+
+    const offScale = Math.abs(f.z) > Z;
+    const cx = zx(f.z);
+    const mark = offScale
+      ? `<path d="${f.z > 0 ? `M${W - 11} ${MID - 5.5} L${W - 1.5} ${MID} L${W - 11} ${MID + 5.5} Z`
+                            : `M11 ${MID - 5.5} L1.5 ${MID} L11 ${MID + 5.5} Z`}" fill="var(--accent)"/>`
+      : `<circle cx="${cx}" cy="${MID}" r="4.5" fill="${flagged ? "var(--accent)" : "var(--ink-2)"}" stroke="var(--surface)" stroke-width="1.5"/>`;
+    const plot = el("div", "fplot");
+    plot.innerHTML =
+      `<svg viewBox="0 0 ${W} 22" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+         <rect x="${zx(-1.96)}" y="7" width="${zx(1.96) - zx(-1.96)}" height="8" rx="4" fill="var(--band)"/>
+         <line x1="${zx(0)}" y1="4" x2="${zx(0)}" y2="18" stroke="var(--line-2)" stroke-width="1"/>
+         ${mark}
+       </svg>`;
+    plot.title = offScale ? `z = ${f.z.toFixed(2)} — 축 범위 밖` : `z = ${f.z.toFixed(2)}`;
+    row.appendChild(plot);
+
+    const num = el("div", "fnum");
+    num.appendChild(el("span", "z", (f.z >= 0 ? "+" : "") + f.z.toFixed(2)));
+    num.appendChild(el("span", "p", "p " + adj.p_bh?.toFixed(3)));
+    row.appendChild(num);
+
+    row.appendChild(el("div", "fstate", flagged ? "이상" : "정상"));
+    host.appendChild(row);
+  }
+
+  $("intMeta").textContent =
+    `${rep.n_shoes.toLocaleString()}슈 · ${rep.n_games.toLocaleString()}판 · 통계 ${rep.findings.length}개 · ` +
+    `귀무 복제 ${rep.n_replicates}회 · 다중검정 보정 Benjamini-Hochberg`;
+}
+
+/* ------------------------------------------------------------ import/out */
+
+function corpusRows() {
+  const rows = [];
+  for (const [tableId, entry] of Object.entries(state.tables)) {
+    for (const shoe of entry.shoes) {
+      if (!shoe.o.length) continue;
+      [...shoe.o].forEach((o, i) => {
+        rows.push({
+          outcome: o, shoe_id: shoe.id, game_no: i + 1, table_id: tableId,
+          played_at: new Date(shoe.t + i * 45000).toISOString(),
+        });
+      });
+    }
+  }
+  return rows;
+}
+
+function toCsv(rows) {
+  const cols = ["outcome", "shoe_id", "game_no", "table_id", "played_at"];
+  return [cols.join(","), ...rows.map((r) => cols.map((c) => r[c]).join(","))].join("\n") + "\n";
+}
+
+/**
+ * Hand the file to the viewer, by whichever route this page has.
+ *
+ * Inside the artifact viewer a page cannot start its own download, so the
+ * platform capability is the only way; served as an ordinary page -- from
+ * GitHub Pages or from the desktop server -- a plain download link works and
+ * is one step shorter. The textarea is the last resort, so the data is never
+ * simply unreachable.
+ */
+async function download(filename, data) {
+  const note = $("exportNote");
+  const ingest = `python -m baccarat ingest ${filename} --save 내데이터`;
+
+  try {
+    const dl = await window.claude?.use?.("downloads");
+    if (dl) {
+      await dl.save({ filename, data });
+      note.textContent = `${filename} 저장을 요청했습니다. 데스크톱에서: ${ingest}`;
+      return;
+    }
+  } catch (e) {
+    note.textContent = e?.code === "declined"
+      ? "저장을 취소했습니다."
+      : `저장하지 못했습니다 (${e?.code || "오류"}).`;
+    return;
+  }
+
+  try {
+    const blob = new Blob([data], { type: filename.endsWith(".csv") ? "text/csv" : "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+    note.textContent = `${filename} 을 내려받았습니다. 데스크톱에서: ${ingest}`;
+  } catch {
+    note.textContent = "이 화면에서는 파일 저장이 막혀 있습니다. 아래 내용을 복사해서 쓰세요.";
+    $("exportDump").hidden = false;
+    $("exportDump").value = data;
+  }
+}
+
+/* ------------------------------------------------------------------ boot */
+
+function bindPaste() {
+  const zone = $("drop");
+
+  const readFile = (file) => {
+    if (!file || !file.type.startsWith("image/")) return false;
+    // A pasted image is an unambiguous request for the paste surface -- unless
+    // a live feed is running, which is the more current source of truth.
+    if (!live?.active) setMode("paste");
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => { handleImage(img); URL.revokeObjectURL(url); };
+    img.src = url;
+    return true;
+  };
+
+  document.addEventListener("paste", (e) => {
+    const items = [...(e.clipboardData?.items || [])];
+    const image = items.find((i) => i.type.startsWith("image/"));
+    if (image) { e.preventDefault(); readFile(image.getAsFile()); return; }
+    const text = e.clipboardData?.getData("text");
+    const tag = (e.target.tagName || "").toLowerCase();
+    if (text && tag !== "input" && tag !== "textarea") {
+      const { sequence } = parseSequenceText(text);
+      if (sequence.length >= 4) { e.preventDefault(); $("textIn").value = text; $("textIn").focus(); }
+    }
+  });
+
+  zone.addEventListener("dragover", (e) => { e.preventDefault(); zone.classList.add("over"); });
+  zone.addEventListener("dragleave", () => zone.classList.remove("over"));
+  zone.addEventListener("drop", (e) => {
+    e.preventDefault(); zone.classList.remove("over");
+    readFile(e.dataTransfer?.files?.[0]);
+  });
+  $("pickFile").addEventListener("click", () => $("filePick").click());
+  $("filePick").addEventListener("change", (e) => readFile(e.target.files?.[0]));
+
+  // Drag a box on the capture to tell the detector where to look.
+  const view = $("shotCanvas");
+  let start = null;
+  view.addEventListener("pointerdown", (e) => {
+    if (!shot) return;
+    const r = view.getBoundingClientRect();
+    start = { x: (e.clientX - r.left) * (shot.width / r.width), y: (e.clientY - r.top) * (shot.height / r.height) };
+    view.setPointerCapture(e.pointerId);
+  });
+  view.addEventListener("pointerup", (e) => {
+    if (!shot || !start) return;
+    const r = view.getBoundingClientRect();
+    const end = { x: (e.clientX - r.left) * (shot.width / r.width), y: (e.clientY - r.top) * (shot.height / r.height) };
+    const region = {
+      x: Math.min(start.x, end.x), y: Math.min(start.y, end.y),
+      w: Math.abs(end.x - start.x), h: Math.abs(end.y - start.y),
+    };
+    start = null;
+    if (region.w > 30 && region.h > 30) rerunDetection(region);
+  });
+}
+
+function bindControls() {
+  $("tableSel").onchange = (e) => { state.active = e.target.value; store.save(state, []); render(); };
+  $("addTable").onclick = () => {
+    const name = prompt("테이블 이름 (예: HANN-Speed-03)");
+    if (!name) return;
+    clearExample();
+    state.tables[name] ||= { shoes: [] };
+    state.active = name;
+    store.save(state, []);
+    render();
+  };
+
+  for (const side of ["P", "B", "T"]) $("key" + side).onclick = () => addOutcomes(side);
+  $("keyUndo").onclick = undo;
+  $("keyNew").onclick = newShoe;
+
+  $("textAdd").onclick = () => {
+    const { sequence, skipped } = parseSequenceText($("textIn").value);
+    if (!sequence) { $("textNote").textContent = "인식할 수 있는 결과가 없습니다."; return; }
+    addOutcomes(sequence);
+    $("textNote").textContent = `${sequence.length}판을 현재 슈에 추가했습니다${skipped ? ` (알 수 없는 문자 ${skipped}개는 건너뜀)` : ""}.`;
+    $("textIn").value = "";
+  };
+  $("textNew").onclick = () => {
+    const { sequence } = parseSequenceText($("textIn").value);
+    if (!sequence) { $("textNote").textContent = "인식할 수 있는 결과가 없습니다."; return; }
+    loadAsNewShoe(sequence);
+    $("textNote").textContent = `${sequence.length}판을 새 슈로 불러왔습니다.`;
+    $("textIn").value = "";
+  };
+
+  $("modeLive").onclick = () => setMode("live");
+  $("modePaste").onclick = () => setMode("paste");
+
+  live = new LiveWatcher({
+    onRead: onLiveRead,
+    onState: onLiveState,
+    intervalMs: Number($("liveInterval").value),
+  });
+  $("liveStart").onclick = () => live.start();
+  $("liveStop").onclick = () => { live.stop(); liveLog("화면 공유 중단"); };
+  $("liveRelock").onclick = () => { live.relock(); liveHolds = 0; setLiveWarn(null); liveLog("영역을 다시 찾습니다"); };
+  $("liveInterval").onchange = (e) => live.setInterval(Number(e.target.value));
+  if (!LiveWatcher.supported) { live.error = "unsupported"; live._emit(); }
+
+  $("runIntegrity").onclick = runIntegrity;
+  $("reps").onchange = renderIntegrityAvailability;
+  $("cancelIntegrity").onclick = () => { if (integrityRun) integrityRun.cancelled = true; };
+
+  $("exportCsv").onclick = () => {
+    const rows = corpusRows();
+    if (!rows.length) { $("exportNote").textContent = "내보낼 판이 없습니다."; return; }
+    download(`baccarat-${new Date().toISOString().slice(0, 10)}.csv`, toCsv(rows));
+  };
+  $("exportJson").onclick = () => {
+    const rows = corpusRows();
+    if (!rows.length) { $("exportNote").textContent = "내보낼 판이 없습니다."; return; }
+    download(`baccarat-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(rows, null, 1));
+  };
+
+  $("resetBtn").onclick = async () => {
+    if (!confirm(`"${state.active}" 테이블의 수집 데이터를 모두 지웁니다. 계속할까요?`)) return;
+    const ids = shoes().map((s) => s.id);
+    delete state.tables[state.active];
+    if (!Object.keys(state.tables).length) state.tables["테이블-1"] = { shoes: [] };
+    state.active = Object.keys(state.tables)[0];
+    state.isExample = false;
+    await store.deleteShoes(ids);
+    commit([]);
+  };
+
+  document.addEventListener("keydown", (e) => {
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    const tag = (e.target.tagName || "").toLowerCase();
+    if (tag === "input" || tag === "textarea" || tag === "select") return;
+    const act = { p: () => addOutcomes("P"), b: () => addOutcomes("B"), t: () => addOutcomes("T"),
+                  u: undo, n: newShoe }[e.key.toLowerCase()];
+    if (act) { e.preventDefault(); act(); flash(e.key.toLowerCase()); }
+  });
+}
+
+/* Fast entry needs to confirm the keystroke landed, and say what it did --
+   "U 기록됨" would read as if an undo had been recorded as a coup. */
+const FLASH_KO = { p: "플레이어 기록", b: "뱅커 기록", t: "타이 기록", u: "한 판 취소", n: "새 슈 시작" };
+
+function flash(key) {
+  const node = $("shoeMeta"), msg = "✓ " + (FLASH_KO[key] || key);
+  node.textContent = msg;
+  setTimeout(() => { if (node.textContent === msg) renderHeader(); }, 400);
+}
+
+async function boot() {
+  store.onStatus = (s) => {
+    const label = { local: "이 브라우저에만 저장", syncing: "저장 중…", synced: "저장됨", error: "저장 실패", full: "저장 공간 가득 참" }[s] || s;
+    $("storeLabel").textContent = label;
+    $("storeDot").className = "sdot " + s;
+  };
+  bindPaste();
+  bindControls();
+
+  state = store.readLocal() || exampleState();
+  render();
+  renderShot();
+
+  await store.connect();
+  const loaded = await store.load();
+  if (loaded && Object.keys(loaded.tables || {}).length) { state = loaded; render(); }
+}
+
+boot();
+</script>
+</body></html>
