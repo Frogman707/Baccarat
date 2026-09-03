@@ -822,10 +822,10 @@ const S = {
   /* ----------------------------------------------------------- collection */
   "collect.h": { ko: "수집 진행", en: "Collection progress", "zh-Hant": "收集進度", "zh-Hans": "收集进度" },
   "collect.sub": {
-    ko: "표본이 클수록 작은 편향까지 잡아냅니다. 각 단계는 실제로 측정한 탐지력 기준입니다 — 80슈에서 3% 편향을 80% 확률로 잡아냅니다.",
-    en: "A larger sample catches a smaller bias. Each step is a measured detection threshold — 80 shoes catch a 3% bias 80% of the time.",
-    "zh-Hant": "樣本越大，能抓到的偏差越小。各階段皆為實測的偵測門檻 — 80 靴可在 80% 機率下抓出 3% 的偏差。",
-    "zh-Hans": "样本越大，能抓到的偏差越小。各阶段皆为实测的检测门槛 — 80 靴可在 80% 概率下抓出 3% 的偏差。",
+    ko: "표본이 클수록 작은 편향까지 잡아냅니다. 각 단계는 실제로 측정한 탐지력 기준입니다 — 80슈에서 2.3% 편향을 80% 확률로 잡아냅니다.",
+    en: "A larger sample catches a smaller bias. Each step is a measured detection threshold — 80 shoes catch a 2.3% bias 80% of the time.",
+    "zh-Hant": "樣本越大，能抓到的偏差越小。各階段皆為實測的偵測門檻 — 80 靴可在 80% 機率下抓出 2.3% 的偏差。",
+    "zh-Hans": "样本越大，能抓到的偏差越小。各阶段皆为实测的检测门槛 — 80 靴可在 80% 概率下抓出 2.3% 的偏差。",
   },
   "collect.ms1": { ko: "명백한 이상", en: "Grossly broken", "zh-Hant": "明顯異常", "zh-Hans": "明显异常" },
   "collect.ms1note": { ko: "망가진 셔플이라면 여기서 드러납니다", en: "a badly broken shuffle shows up here", "zh-Hant": "洗牌若已損壞，在此就會顯現", "zh-Hans": "洗牌若已损坏，在此就会显现" },
@@ -1520,8 +1520,14 @@ const LAGS = [1, 2, 3, 4, 5, 6, 8, 10];
 /** History depths for the conditional-frequency test. */
 const CONDITION_DEPTHS = [1, 2, 3];
 
-/** Streak bias detectable at 80% power with 80 shoes, measured in Python. */
-const MEASURED_ANCHOR = [80, 0.03];
+/**
+ * Streak bias detectable at 80% power with 80 shoes.
+ *
+ * Measured against a 200-replicate null over 80 trials per strength: the
+ * threshold sits between 2.2% (73.8% power) and 2.4% (85.0%), interpolating
+ * to 2.3%. Python and this port were swept independently and agree.
+ */
+const MEASURED_ANCHOR = [80, 0.023];
 
 /** Smallest streak bias `nShoes` can detect at 80% power. */
 function detectableBias(nShoes) {
@@ -2499,6 +2505,21 @@ function corpusRows(tables) {
     }
   }
   return rows;
+}
+
+/**
+ * A table name a person typed, reduced to something safe to carry.
+ *
+ * Leading `= + - @` and a leading tab or carriage return are how a spreadsheet
+ * decides a cell is a formula, and the export is a file people open in one.
+ * The value itself must stay faithful -- it round-trips through
+ * `baccarat ingest` -- so the guard belongs here, where the name is accepted,
+ * rather than in the writer where it would corrupt the column.
+ */
+function cleanTableName(raw) {
+  const text = String(raw ?? "").replace(/[\u0000-\u001f\u007f]/g, " ").trim();
+  const stripped = text.replace(/^[=+\-@]+/, "").trim();
+  return stripped.slice(0, 60);
 }
 
 /**
@@ -3704,7 +3725,7 @@ function bindPaste() {
 function bindControls() {
   $("tableSel").onchange = (e) => { state.active = e.target.value; invalidate(); store.save(state, []); render(); };
   $("addTable").onclick = () => {
-    const name = prompt(t("header.newTablePrompt"));
+    const name = cleanTableName(prompt(t("header.newTablePrompt")));
     if (!name) return;
     clearExample();
     state.tables[name] ||= { shoes: [] };
