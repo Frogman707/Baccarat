@@ -190,16 +190,27 @@ h2{font-size:14px; font-weight:600; margin:0 0 3px; letter-spacing:-.005em}
 #batchBar i{display:block; height:100%; background:var(--accent); width:0; transition:width .15s}
 
 /* ── prediction ─────────────────────────────────────────────────────── */
-.aibar{display:grid; grid-template-columns:64px 1fr 56px; align-items:center;
-       gap:11px; margin-bottom:8px}
+.aibar{display:grid; grid-template-columns:58px 1fr 68px 60px; align-items:center;
+       gap:9px; margin-bottom:8px}
 .aibar .n{font-size:12.5px; color:var(--ink-2)}
 .aibar .track{height:9px; border-radius:5px; background:var(--surface-3); overflow:hidden}
 .aibar .track i{display:block; height:100%; border-radius:5px}
 .aibar.P .track i{background:var(--player)}
 .aibar.B .track i{background:var(--banker)}
 .aibar.T .track i{background:var(--tie)}
-.aibar .p{font-family:var(--mono); font-size:13.5px; text-align:right;
-          font-variant-numeric:tabular-nums; font-weight:500}
+.aibar .p{font-family:var(--mono); font-size:13px; text-align:right;
+          font-variant-numeric:tabular-nums; font-weight:500;
+          padding:1px 3px; border-radius:4px}
+/* The estimate moves by thousandths of a point per coup. The number carries
+   that; the arrow and the flash are what make it impossible to miss. */
+.aibar .d{font-family:var(--mono); font-size:10px; text-align:right; color:var(--ink-3);
+          font-variant-numeric:tabular-nums; white-space:nowrap; letter-spacing:-.02em}
+.aibar .d.up{color:var(--tie)}
+.aibar .d.dn{color:var(--accent)}
+@keyframes bump{from{background:var(--accent-soft)} to{background:transparent}}
+.aibar .p.bump{animation:bump 1.1s ease-out}
+.predhead{display:flex; align-items:baseline; justify-content:space-between;
+          gap:10px; margin-bottom:8px}
 .aibar.P .p{color:var(--player)} .aibar.B .p{color:var(--banker)} .aibar.T .p{color:var(--tie)}
 .airec{display:flex; align-items:center; justify-content:space-between; gap:12px;
        margin:15px 0 13px; padding:11px 14px; border-radius:9px;
@@ -473,7 +484,10 @@ footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
   <section class="panel c5" id="aiPanel">
     <h2 data-i18n="ai.h"></h2>
     <p class="sub" data-i18n="ai.sub"></p>
-    <div class="blabel" data-i18n="ai.next"></div>
+    <div class="predhead">
+      <span class="blabel" data-i18n="ai.next"></span>
+      <span class="obssub" data-i18n="ai.deltaLabel"></span>
+    </div>
     <div id="aiBars"></div>
     <div class="airec">
       <span class="k" data-i18n="ai.recommend"></span>
@@ -935,16 +949,18 @@ const S = {
     "zh-Hans": "尚无局数。结果进来后会累积在这里。",
   },
   "ai.overallNote": {
-    ko: "<b>전체 확률</b>은 실제로 나온 비율이고, <b>다음 판 예측</b>은 공정한 슈를 기준으로 삼아 그쪽으로 강하게 당겨진 값입니다. 그래서 한두 판으로는 예측이 거의 움직이지 않습니다 — 그게 정상입니다. 슈가 쌓일수록 예측이 실측 쪽으로 옮겨갑니다. 지금 옮겨간 폭은 {delta}%p입니다.",
-    en: "<b>Observed so far</b> is what actually came out; the <b>next coup</b> figure is pulled hard toward a fair shoe. That is why a coup or two barely moves it — as designed. The more shoes pile up, the further it moves toward the observed rate. So far it has moved {delta}pp.",
-    "zh-Hant": "<b>實際出現比率</b>是真正開出的結果，<b>下一局預測</b>則是被強力拉向公正牌靴的值。因此一兩局幾乎不會讓它變動 — 這是正常的。牌靴累積越多，預測就越靠近實測。目前已移動 {delta}%p。",
-    "zh-Hans": "<b>实际出现比率</b>是真正开出的结果，<b>下一局预测</b>则是被强力拉向公正牌靴的值。因此一两局几乎不会让它变动 — 这是正常的。牌靴累积越多，预测就越靠近实测。目前已移动 {delta}%p。",
+    ko: "<b>전체 확률</b>은 실제로 나온 비율이고, <b>다음 판 예측</b>은 공정한 슈를 기준으로 삼아 그쪽으로 당겨진 값입니다. 그래서 한 판이 움직이는 폭은 <b>0.007%p 정도</b>로 작습니다 — 그게 정상이고, 그래서 소수점 셋째 자리까지 보여줍니다. 슈가 쌓일수록 예측이 실측 쪽으로 옮겨갑니다. 지금까지 옮겨간 폭은 {delta}%p입니다.",
+    en: "<b>Observed so far</b> is what actually came out; the <b>next coup</b> figure is pulled toward a fair shoe. One coup therefore moves it by <b>around 0.007pp</b> — as designed, and why it is shown to three decimals. The more shoes pile up, the further it moves toward the observed rate. So far it has moved {delta}pp.",
+    "zh-Hant": "<b>實際出現比率</b>是真正開出的結果，<b>下一局預測</b>則是被拉向公正牌靴的值。因此一局只會讓它移動<b>約 0.007%p</b> — 這是正常的，也是顯示到小數第三位的原因。牌靴累積越多，預測就越靠近實測。目前已移動 {delta}%p。",
+    "zh-Hans": "<b>实际出现比率</b>是真正开出的结果，<b>下一局预测</b>则是被拉向公正牌靴的值。因此一局只会让它移动<b>约 0.007%p</b> — 这是正常的，也是显示到小数第三位的原因。牌靴累积越多，预测就越靠近实测。目前已移动 {delta}%p。",
   },
-  "ai.overallNotePrior": {
-    ko: "<b>전체 확률</b>은 실제로 나온 비율입니다. <b>다음 판 예측</b>은 아직 공정한 슈의 기본값 그대로입니다 — 타이를 뺀 판이 30판을 넘어야 실측을 섞기 시작합니다. 지금 {n}판.",
-    en: "<b>Observed so far</b> is what actually came out. The <b>next coup</b> figure is still the fair-shoe baseline — it starts folding in the observed rate past 30 decided coups. It has {n}.",
-    "zh-Hant": "<b>實際出現比率</b>是真正開出的結果。<b>下一局預測</b>仍是公正牌靴的基準值 — 扣除和局後超過 30 局才會開始混入實測。目前 {n} 局。",
-    "zh-Hans": "<b>实际出现比率</b>是真正开出的结果。<b>下一局预测</b>仍是公正牌靴的基准值 — 扣除和局后超过 30 局才会开始混入实测。目前 {n} 局。",
+  "ai.deltaLabel": {
+    ko: "최근 한 판의 변화 %p", en: "change from the last coup, pp",
+    "zh-Hant": "最近一局的變化 %p", "zh-Hans": "最近一局的变化 %p",
+  },
+  "ai.deltaTitle": {
+    ko: "마지막 판으로 {n}%p 움직였습니다", en: "moved {n}pp on the last coup",
+    "zh-Hant": "最後一局移動了 {n}%p", "zh-Hans": "最后一局移动了 {n}%p",
   },
   "ai.next": { ko: "다음 판 예측", en: "Next coup", "zh-Hant": "下一局預測", "zh-Hans": "下一局预测" },
   "ai.perCoup": { ko: "판당", en: "per coup", "zh-Hant": "每局", "zh-Hans": "每局" },
@@ -2527,6 +2543,118 @@ function toCsv(rows) {
   ].join("\n") + "\n";
 }
 
+/* ═══ predict.js ═══ */
+/* The next coup's probabilities, and which of the two wagers is less bad.
+ *
+ * Kept apart from the interface because it is pure -- numbers in, numbers out,
+ * no DOM -- and because it is the arithmetic the whole panel rests on: if it
+ * is wrong, every figure a person reads is wrong, and there is no way to see
+ * that from the screen. Here it can be checked against the Python engine and
+ * against closed-form values in the same test run as the rest of the analysis.
+ */
+
+
+/**
+ * Where a Banker bet stops being the better of the two losing wagers.
+ *
+ * Banker returns 0.95q - (1-q), Player returns (1-q) - q, so Banker is ahead
+ * while q > 2/3.95 = 50.6329%. A fresh shoe sits at 50.6825% -- just 0.05pp
+ * above the line, which is why the pick is never held with any confidence.
+ */
+const SIDE_CROSSOVER = 2 / 3.95;
+
+/*
+ * The fair-shoe prior, written as a Beta distribution.
+ *
+ * The estimate used to be a precision-weighted blend of the prior and the
+ * observed rate, which needed a thirty-coup gate: the observed standard error
+ * is zero when every coup so far went the same way, and the blend divides by
+ * it. Below the gate the estimate was frozen at the prior exactly, so the
+ * first thirty results changed nothing on screen.
+ *
+ * A Beta prior removes the gate rather than papering over it. It is conjugate
+ * to the coin flip the coups are, so the posterior after any number of them --
+ * including none -- is another Beta, in closed form, with no division by an
+ * empty sample. It is matched to the same mean and width as the blend it
+ * replaces: mean BASE_BANKER_SHARE, standard deviation BANKER_BREAKEVEN_GAP.
+ *
+ * The two agree to within 0.03pp anywhere a baccarat table can sit -- measured
+ * over a Banker share from 45% to 57% and up to twenty thousand coups. They
+ * part company only out at shares no shoe produces (0.83pp at 70%), and there
+ * the Beta is the exact posterior while the blend was a Gaussian
+ * approximation of it. So this is not a looser estimate bought for a livelier
+ * screen; it is the same estimate, defined everywhere, moving on every coup.
+ */
+const PRIOR_STRENGTH =
+  (BASE_BANKER_SHARE * (1 - BASE_BANKER_SHARE)) / BANKER_BREAKEVEN_GAP ** 2 - 1;
+const PRIOR_A = BASE_BANKER_SHARE * PRIOR_STRENGTH;
+const PRIOR_B = PRIOR_STRENGTH - PRIOR_A;
+
+/*
+ * The tie rate gets the same treatment, for the same reason.
+ *
+ * It used to be the constant 9.5156%, which meant a tie -- a real result, one
+ * of the three the table produces -- moved nothing on screen at all, and the
+ * bar labelled as a probability was not an estimate of anything. Shrunk
+ * against a prior of the same strength its width works out to 0.35pp, so a
+ * table whose ties ran a point off would be extraordinary, which is the right
+ * thing to believe about a fair shoe.
+ */
+const TIE_PRIOR_A = BASE_TIE * PRIOR_STRENGTH;
+const TIE_PRIOR_B = PRIOR_STRENGTH - TIE_PRIOR_A;
+
+/** Expected value per coup of a flat unit on each side, ties pushing. */
+function edges(q, tieP) {
+  const decided = 1 - tieP;
+  return { B: decided * (q * 0.95 - (1 - q)), P: decided * (1 - 2 * q) };
+}
+
+/**
+ * The next coup's estimate from what this table has produced so far.
+ *
+ * `sample` is what `measure()` counts: `n` decided coups of which the Banker
+ * share is `q`, `ties` out of `coups` in total, and `inflate` the square root
+ * of the shoe-share dispersion. Coups inside one shoe are not independent
+ * draws, so each carries less information than a fresh one; dividing the
+ * counts by the design effect is what keeps the posterior from believing a
+ * clustered sample more than it deserves.
+ */
+function posterior(sample = {}) {
+  const { n = 0, coups = 0, ties = 0, q: qObserved, inflate } = sample;
+  const deff = n && Number.isFinite(inflate) ? Math.max(1, inflate ** 2) : 1;
+
+  const nEff = n ? n / deff : 0;
+  const qObs = n ? qObserved : 0;              // undefined until a coup decides
+  const a = PRIOR_A + qObs * nEff;
+  const b = PRIOR_B + (1 - qObs) * nEff;
+  const q = a / (a + b);
+  const se = Math.sqrt((q * (1 - q)) / (a + b + 1));
+
+  // Ties are counted over every coup, not just the decided ones. The same
+  // clustering discount applies: it is measured on the Banker share, but what
+  // it measures -- that coups in one shoe are not independent draws -- is a
+  // property of the shoe, not of that one rate.
+  const coupsEff = coups ? coups / deff : 0;
+  const tieObs = coups ? ties / coups : 0;
+  const tieA = TIE_PRIOR_A + tieObs * coupsEff;
+  const tieB = TIE_PRIOR_B + (1 - tieObs) * coupsEff;
+  const tie = tieA / (tieA + tieB);
+  const decided = 1 - tie;
+
+  const e = edges(q, tie);
+  const pick = e.B >= e.P ? "B" : "P";
+  const z = se > 0 ? Math.abs(q - SIDE_CROSSOVER) / se : 0;
+
+  return {
+    q, se, tie, decided, z, pick, edge: e[pick],
+    informed: n > 0,
+    n, coups,
+    probability: { P: decided * (1 - q), B: decided * q, T: tie },
+    confidence: z >= 2 ? "high" : z >= 1 ? "medium" : "low",
+    moved: Math.abs(q - BASE_BANKER_SHARE),
+  };
+}
+
 /* ═══ live.js ═══ */
 /* Watch the table's screen live.
  *
@@ -3109,6 +3237,7 @@ class Store {
  * with the same code the desktop package runs, so no install is needed and
  * nothing about the operator's site is touched.
  */
+
 
 
 
@@ -3728,66 +3857,27 @@ function measure() {
   };
 }
 
-/** Expected value per coup of a flat unit on each side, ties pushing. */
-function edges(q, tieP) {
-  const decided = 1 - tieP;
-  return { B: decided * (q * 0.95 - (1 - q)), P: decided * (1 - 2 * q) };
-}
-
 /* ------------------------------------------------------------ prediction */
-
-/**
- * Where a Banker bet stops being the better of the two losing wagers.
- *
- * Banker returns 0.95q - (1-q), Player returns (1-q) - q, so Banker is ahead
- * while q > 2/3.95 = 50.6329%. A fresh shoe sits at 50.6825% -- just 0.05pp
- * above the line, which is why the pick is never held with any confidence.
- */
-const SIDE_CROSSOVER = 2 / 3.95;
 
 /** Cards consumed per coup and by the burn, measured over 3,000 simulated shoes. */
 const CARDS_PER_COUP = 4.9392;
 const MEAN_BURN = 7.518;
 const SHOE_CARDS = 416;
 
-/**
- * The next coup's probabilities, as a posterior rather than a raw rate.
- *
- * The prior is a fair shoe, with a width equal to the Banker break-even gap:
- * a deviation smaller than that could not matter, and one much larger would be
- * extraordinary. So a handful of shoes barely moves the estimate -- which is
- * the honest behaviour, since a handful of shoes genuinely says nothing -- and
- * a large, real deviation moves it as far as the evidence warrants.
- */
+/** The estimate, plus the one figure that depends on the shoe on screen. */
 function predict() {
-  const o = observed();
-  const q0 = BASE_BANKER_SHARE, s0 = BANKER_BREAKEVEN_GAP;
-
-  let q = q0, se = s0, informed = false;
-  if (o.n >= 30) {
-    const w0 = 1 / (s0 * s0), w1 = 1 / (o.se * o.se);
-    q = (q0 * w0 + o.q * w1) / (w0 + w1);
-    se = Math.sqrt(1 / (w0 + w1));
-    informed = true;
-  }
-
-  const tie = BASE_TIE, decided = 1 - tie;
-  const e = edges(q, tie);
-  const pick = e.B >= e.P ? "B" : "P";
-  const z = se > 0 ? Math.abs(q - SIDE_CROSSOVER) / se : 0;
-
+  const p = posterior(observed());
   return {
-    q, se, informed, n: o.n, z, pick, edge: e[pick],
-    probability: { P: decided * (1 - q), B: decided * q, T: tie },
-    confidence: z >= 2 ? "high" : z >= 1 ? "medium" : "low",
-    moved: Math.abs(q - q0),
-    cardsLeft: Math.max(0, Math.round(SHOE_CARDS - MEAN_BURN - openShoe().o.length * CARDS_PER_COUP)),
+    ...p,
+    cardsLeft: Math.max(0, Math.round(
+      SHOE_CARDS - MEAN_BURN - openShoe().o.length * CARDS_PER_COUP)),
   };
 }
 
 function renderPrediction() {
   const p = predict();
 
+  const moves = trackPrediction(p);
   const bars = $("aiBars");
   bars.innerHTML = "";
   for (const code of ["P", "B", "T"]) {
@@ -3799,7 +3889,13 @@ function renderPrediction() {
     fill.style.width = Math.min(100, (p.probability[code] / 0.5) * 100) + "%";
     track.appendChild(fill);
     row.appendChild(track);
-    row.appendChild(el("span", "p", pct(p.probability[code], 1)));
+    // Three decimals, because that is the scale the estimate actually moves
+    // at: one coup shifts it by about seven thousandths of a point, and a
+    // number rounded to one decimal sits still for a hundred hands.
+    const d = moves ? moves[code] : 0;
+    const value = el("span", "p" + (d ? " bump" : ""), pct(p.probability[code], 3));
+    row.appendChild(value);
+    row.appendChild(deltaChip(d));
     bars.appendChild(row);
   }
 
@@ -3808,9 +3904,9 @@ function renderPrediction() {
   pick.className = "v " + p.pick;
 
   const facts = [
-    { k: t("ai.ev"), v: pct(p.edge, 2), sub: t("ai.perCoup"), neg: p.edge < 0 },
+    { k: t("ai.ev"), v: pct(p.edge, 3), sub: t("ai.perCoup"), neg: p.edge < 0 },
     { k: t("ai.confidence"), v: t("ai.conf." + p.confidence) },
-    { k: t("ai.margin"), v: "±" + (1.96 * p.se * 100).toFixed(2) + "%p" },
+    { k: t("ai.margin"), v: "±" + (1.96 * p.se * 100).toFixed(3) + "%p" },
     { k: t("ai.cardsLeft"), v: String(p.cardsLeft), sub: t("ai.estimated") },
   ];
   const grid = $("aiFacts");
@@ -3832,6 +3928,43 @@ function renderPrediction() {
   why.push(t("ai.crossover", { q: pct(SIDE_CROSSOVER, 4), z: p.z.toFixed(1) }));
   $("aiWhy").textContent = why.join(" ");
   $("aiDisclaimer").textContent = t("ai.disclaimer");
+}
+
+/** Rendered change since the previous coup, or nothing on the first render. */
+let predHistory = null;
+
+/**
+ * How far each probability moved when the last result landed.
+ *
+ * Keyed on the corpus revision, so switching language or re-rendering for any
+ * other reason keeps showing the move that a coup actually caused rather than
+ * blanking it or inventing a new one. A different table starts over: its
+ * estimate has nothing to do with the one on screen a moment ago.
+ */
+function trackPrediction(p) {
+  const same = predHistory
+    && predHistory.revision === revision
+    && predHistory.table === state.active;
+  if (same) return predHistory.moves;
+
+  const prior = predHistory && predHistory.table === state.active
+    ? predHistory.probability : null;
+  const moves = prior
+    ? { P: p.probability.P - prior.P, B: p.probability.B - prior.B,
+        T: p.probability.T - prior.T }
+    : null;
+  predHistory = { revision, table: state.active, probability: { ...p.probability }, moves };
+  return moves;
+}
+
+/** The arrow and size of one move, in points, or an empty cell for no move. */
+function deltaChip(delta) {
+  const points = (delta || 0) * 100;
+  if (!points || Math.abs(points) < 0.0005) return el("span", "d");
+  const chip = el("span", "d " + (points > 0 ? "up" : "dn"),
+    (points > 0 ? "▲" : "▼") + Math.abs(points).toFixed(3));
+  chip.title = t("ai.deltaTitle", { n: (points > 0 ? "+" : "−") + Math.abs(points).toFixed(3) });
+  return chip;
 }
 
 /**
@@ -3874,12 +4007,7 @@ function renderObserved(p) {
     box.appendChild(row);
   }
 
-  // Below the blending threshold the posterior is the prior exactly, and
-  // reporting that it has moved 0.000pp reads as a broken number rather than
-  // as the deliberate silence it is.
-  note.innerHTML = p.informed
-    ? t("ai.overallNote", { delta: (p.moved * 100).toFixed(3) })
-    : t("ai.overallNotePrior", { n: o.n });
+  note.innerHTML = t("ai.overallNote", { delta: (p.moved * 100).toFixed(3) });
 }
 
 /* ---------------------------------------------------------------- render */
