@@ -4371,6 +4371,23 @@ function renderKpis() {
  * them, where a fresh shoe sits, and where this table's own measurement sits
  * with its interval. Everything this project measured is legible here at once.
  */
+/**
+ * Is there enough here to draw an interval that means anything?
+ *
+ * The scale plots the raw observed share and its confidence interval, not the
+ * shrunk estimate -- shrinking toward a fair shoe is exactly what would stop
+ * this drawing from ever flagging a table, which is its job. Raw intervals
+ * need guarding instead: the standard error is zero while every coup has gone
+ * the same way, which would draw a point with no width at all.
+ *
+ * So: both sides seen, and enough coups that the arithmetic is not a joke.
+ * Ten is early -- the interval spans most of the axis and gets clamped -- but
+ * a wide bar visibly narrowing as coups arrive is the honest picture, and it
+ * cannot flag anything while it is that wide.
+ */
+const MIN_INTERVAL_COUPS = 10;
+const hasInterval = (o) => o.n >= MIN_INTERVAL_COUPS && o.banker > 0 && o.player > 0;
+
 function renderScale() {
   const LO = 0.488, HI = 0.532, W = 720, H = 168;
   const x = (q) => ((q - LO) / (HI - LO)) * (W - 90) + 45;
@@ -4402,7 +4419,7 @@ function renderScale() {
   p.push(`<line x1="${x(BASE_BANKER_SHARE)}" y1="${yBand - 3}" x2="${x(BASE_BANKER_SHARE)}" y2="${yBand + hBand + 3}" stroke="${C("--ink-3")}" stroke-width="1" stroke-dasharray="3 3"/>`);
   p.push(`<text x="${x(BASE_BANKER_SHARE)}" y="${yFreshLabel}" text-anchor="middle" font-size="10.5" fill="${C("--ink-3")}">${t("scale.freshShoe")}</text>`);
 
-  if (o.n >= 30) {
+  if (hasInterval(o)) {
     const clears = o.lo > BANKER_BREAKEVEN || o.hi < PLAYER_BREAKEVEN;
     const col = clears ? C("--accent") : C("--ink");
     const clamp = (q) => Math.min(HI, Math.max(LO, q));
@@ -4434,7 +4451,7 @@ function renderScale() {
 
   const e = edges(BASE_BANKER_SHARE, BASE_TIE);
   const note = $("scaleNote");
-  if (o.n < 30) {
+  if (!hasInterval(o)) {
     note.className = "verdict neutral";
     note.innerHTML = t("scale.verdictWaiting", { eb: pct(e.B, 3), ep: pct(e.P, 3), n: o.n });
   } else if (o.lo > BANKER_BREAKEVEN) {
