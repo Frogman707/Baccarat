@@ -229,9 +229,25 @@ h2{font-size:14px; font-weight:600; margin:0 0 3px; letter-spacing:-.005em}
          margin:17px 0 8px; padding-top:14px; border-top:1px solid var(--line)}
 .obssub{font-size:11px; color:var(--ink-3); font-family:var(--mono);
         font-variant-numeric:tabular-nums; text-align:right}
+/* The replay's three outcomes, each carrying what it paid: the commission on
+   a Banker win is the term that decides the whole question, so it sits on the
+   row rather than in a footnote. The figures are what actually happened, not
+   what was predicted -- the counts on the right are the count of real coups. */
+.aibar.bet{grid-template-columns:82px 1fr 62px 44px; margin-bottom:6px}
+.aibar.bet .track{height:7px; background:var(--surface-2)}
+.aibar.bet .track i{opacity:.55}
+.aibar.bet .n{display:flex; align-items:baseline; gap:5px; font-size:12.5px}
+.aibar.bet .n small{font-family:var(--mono); font-size:10px; color:var(--ink-3);
+                    font-variant-numeric:tabular-nums}
+.aibar.bet .p{font-size:12.5px; font-weight:400}
+.aibar.bet .c{font-family:var(--mono); font-size:10.5px; color:var(--ink-3);
+              text-align:right; font-variant-numeric:tabular-nums}
+.aibar.bet.win .track i{background:var(--tie)}
+.aibar.bet.lose .track i{background:var(--banker)}
+.aibar.bet.push .track i{background:var(--ink-3)}
 /* One row each, full width: these are figures with captions, not a chart, and
    a half-width cell wraps the caption into the label beside it. */
-#aiLedger{grid-template-columns:1fr; gap:0; margin-bottom:12px}
+#aiLedger{grid-template-columns:1fr; gap:0; margin-top:12px; margin-bottom:12px}
 #aiLedger .aifact{padding:6px 0}
 #aiLedger .aifact:last-child{border-bottom:none}
 .ainote{font-size:11.5px; color:var(--ink-3); line-height:1.55; margin:13px 0 0}
@@ -495,6 +511,7 @@ footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
       <span class="blabel" id="aiOverallH"></span>
       <span class="obssub" id="aiOverallSub"></span>
     </div>
+    <div id="aiOutcomes"></div>
     <div class="aigrid" id="aiLedger"></div>
     <p class="ainote" id="aiOverallNote"></p>
     <p class="ainote" id="aiWhy"></p>
@@ -943,16 +960,17 @@ const S = {
   "ai.unit": { ko: "유닛", en: "u", "zh-Hant": " 單位", "zh-Hans": " 单位" },
 
   "ai.ledgerUnits": { ko: "누적 손익", en: "Net", "zh-Hant": "累計損益", "zh-Hans": "累计损益" },
-  "ai.ledgerPerBet": { ko: "배팅한 판당 {n}", en: "{n} per bet", "zh-Hant": "每注 {n}", "zh-Hans": "每注 {n}" },
-  "ai.ledgerBets": { ko: "배팅한 판", en: "Coups bet", "zh-Hant": "已下注局數", "zh-Hans": "已下注局数" },
-  "ai.ledgerCoups": { ko: "{n}판", en: "{n}", "zh-Hant": "{n} 局", "zh-Hans": "{n} 局" },
-  "ai.ledgerPushes": {
-    ko: "타이 {n}판은 판돈 반환", en: "{n} ties returned the stake",
-    "zh-Hant": "和局 {n} 次退還本金", "zh-Hans": "和局 {n} 次退还本金",
+  "ai.ledgerPerBet": {
+    ko: "{bets}판 배팅 · 판당 {n} · 승률 {rate}",
+    en: "{bets} bets · {n} each · {rate} won",
+    "zh-Hant": "下注 {bets} 局 · 每注 {n} · 勝率 {rate}",
+    "zh-Hans": "下注 {bets} 局 · 每注 {n} · 胜率 {rate}",
   },
-  "ai.ledgerRecord": { ko: "전적", en: "Record", "zh-Hant": "戰績", "zh-Hans": "战绩" },
-  "ai.ledgerWonLost": { ko: "{w}승 {l}패", en: "{w}W {l}L", "zh-Hant": "{w} 勝 {l} 敗", "zh-Hans": "{w} 胜 {l} 败" },
-  "ai.ledgerWinRate": { ko: "승률 {n}", en: "{n} won", "zh-Hant": "勝率 {n}", "zh-Hans": "胜率 {n}" },
+  "ai.bet.win": { ko: "이김", en: "Won", "zh-Hant": "贏", "zh-Hans": "赢" },
+  "ai.bet.lose": { ko: "짐", en: "Lost", "zh-Hant": "輸", "zh-Hans": "输" },
+  "ai.bet.push": { ko: "무효", en: "Push", "zh-Hant": "和局退還", "zh-Hans": "和局退还" },
+  "ai.betReturned": { ko: "반환", en: "returned", "zh-Hant": "退還", "zh-Hans": "退还" },
+  "ai.ledgerCoups": { ko: "{n}판", en: "{n}", "zh-Hant": "{n} 局", "zh-Hans": "{n} 局" },
   "ai.ledgerDrawdown": { ko: "최대 낙폭", en: "Worst drawdown", "zh-Hant": "最大回撤", "zh-Hans": "最大回撤" },
   "ai.ledgerPeak": { ko: "고점 {n}", en: "high point {n}", "zh-Hant": "高點 {n}", "zh-Hans": "高点 {n}" },
   "ai.ledgerSplit": { ko: "추천이 갈린 쪽", en: "Which side was picked", "zh-Hant": "推薦落在哪邊", "zh-Hans": "推荐落在哪边" },
@@ -4183,21 +4201,49 @@ function renderBetOutcome() {
   $("aiOverallH").textContent = t("ai.betH");
 
   if (!r.bets) {
+    $("aiOutcomes").innerHTML = "";
     sub.textContent = t("ai.betSubEmpty");
     note.innerHTML = t("ai.betNoteEmpty");
     return;
   }
   sub.textContent = t("ai.betSub", { shoes: o.shoes, coups: o.coups.toLocaleString() });
 
+  // How the replay's coups actually fell, with what each one paid. These are
+  // counts of real coups, not the prediction's probabilities relabelled: the
+  // three shares partition every coup, ties included, so they sum to one.
+  const outcomes = $("aiOutcomes");
+  outcomes.innerHTML = "";
+  // Coloured by what the bet did, not by which side won it: the replay backs
+  // Banker on some coups and Player on others, so a row here is a mix of both
+  // and cannot carry either side's colour honestly.
+  const bars = [
+    { kind: "win", n: r.wins, pay: "+" + (1 - BANKER_COMMISSION).toFixed(2) },
+    { kind: "lose", n: r.losses, pay: "\u22121.00" },
+    { kind: "push", n: r.pushes, pay: t("ai.betReturned") },
+  ];
+  for (const bar of bars) {
+    const row = el("div", "aibar bet " + bar.kind);
+    const name = el("span", "n", t("ai.bet." + bar.kind));
+    name.appendChild(el("small", null, bar.pay));
+    row.appendChild(name);
+    const track = el("div", "track");
+    const fill = el("i");
+    // The same 0.5 full-scale the prediction uses, so a bar here can be read
+    // against the one above it -- which is the comparison worth making now
+    // that these are outcomes rather than a copy of that forecast.
+    fill.style.width = Math.min(100, (bar.n / r.coups / 0.5) * 100) + "%";
+    track.appendChild(fill);
+    row.appendChild(track);
+    row.appendChild(el("span", "p", pct(bar.n / r.coups, 2)));
+    row.appendChild(el("span", "c", t("ai.ledgerCoups", { n: bar.n.toLocaleString() })));
+    outcomes.appendChild(row);
+  }
+
   const signed = (x, d = 2) => (x >= 0 ? "+" : "\u2212") + Math.abs(x).toFixed(d);
   const rows = [
     { k: t("ai.ledgerUnits"), v: signed(r.units) + t("ai.unit"), good: r.units >= 0,
-      sub: t("ai.ledgerPerBet", { n: signed(r.perBet * 100) + "%" }) },
-    { k: t("ai.ledgerBets"), v: t("ai.ledgerCoups", { n: r.bets.toLocaleString() }),
-      sub: t("ai.ledgerPushes", { n: r.pushes.toLocaleString() }) },
-    { k: t("ai.ledgerRecord"),
-      v: t("ai.ledgerWonLost", { w: r.wins.toLocaleString(), l: r.losses.toLocaleString() }),
-      sub: t("ai.ledgerWinRate", { n: pct(r.winRate, 2) }) },
+      sub: t("ai.ledgerPerBet", { n: signed(r.perBet * 100) + "%",
+                                  bets: r.bets.toLocaleString(), rate: pct(r.winRate, 2) }) },
     // The high-water mark, not the low one: paired with the deepest fall from a
     // peak it says how far the run swung, where the running low is often just
     // zero and repeats the drawdown besides.
