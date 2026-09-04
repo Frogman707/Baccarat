@@ -276,6 +276,64 @@ code{font-family:var(--mono); font-size:12px; background:var(--surface-3);
      padding:1px 5px; border-radius:4px}
 footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
        color:var(--ink-3); line-height:1.6}
+
+/* ── touch and small screens ────────────────────────────────────────────
+   A finger is not a cursor: every control that is tapped gets a 44px box,
+   and the findings table, which is four columns of numbers, folds rather
+   than pushing the page sideways. */
+@media (pointer: coarse){
+  .btn,.segbtn{min-height:44px; padding-top:11px; padding-bottom:11px}
+  select,#langSel,#reps,#liveInterval{min-height:44px; padding:10px 12px; font-size:14px}
+  .themebtn{width:40px; height:40px}
+  .themebtn svg{width:18px; height:18px}
+  .linkish{display:inline-block; min-height:44px; line-height:44px}
+  textarea{min-height:88px; font-size:16px}      /* 16px stops iOS zooming on focus */
+}
+@media (max-width:620px){
+  main{padding:12px; gap:12px}
+  .panel{padding:14px 15px; border-radius:11px}
+  .hin{padding:9px 14px; gap:9px 12px}
+  h1,.brand{font-size:14px}
+  #shoeMeta{order:5; flex-basis:100%; font-size:12px}
+  .find{grid-template-columns:1fr auto; grid-template-areas:"name state" "plot nums";
+        gap:5px 10px; padding:8px 0}
+  .fname{grid-area:name} .fstate{grid-area:state}
+  .fplot{grid-area:plot} .fnum{grid-area:nums}
+  .flegend{font-size:10.5px; gap:4px 12px}
+  #kpis{grid-template-columns:1fr 1fr; gap:8px}
+  .tile .v{font-size:19px}
+  .aigrid{grid-template-columns:1fr}
+  .boards{gap:16px}
+  .seqstrip{max-height:132px}
+  .livebox{padding:20px 14px}
+  .actions{gap:7px}
+  footer{padding-bottom:96px}          /* clear of the entry bar */
+}
+
+/* ── the quick entry bar ────────────────────────────────────────────────
+   On a phone the manual controls sit at the bottom of a very long page. The
+   same five actions ride above the fold instead, within thumb reach. */
+#quickbar{display:none}
+@media (pointer: coarse) and (max-width:820px){
+  #quickbar{
+    display:grid; grid-template-columns:repeat(5,1fr); gap:6px;
+    position:fixed; left:0; right:0; bottom:0; z-index:30;
+    padding:8px 10px calc(8px + env(safe-area-inset-bottom));
+    background:color-mix(in srgb, var(--surface) 92%, transparent);
+    backdrop-filter:blur(10px);
+    border-top:1px solid var(--line);
+  }
+  .qb{
+    min-height:46px; border-radius:10px; border:1px solid var(--line-2);
+    background:var(--surface-2); color:var(--ink); font-size:13px; font-weight:600;
+    cursor:pointer; padding:0 4px;
+  }
+  .qb.P{border-color:var(--player); color:var(--player)}
+  .qb.B{border-color:var(--banker); color:var(--banker)}
+  .qb.T{border-color:var(--tie); color:var(--tie)}
+  .qb.ghost{font-weight:500; font-size:12px; color:var(--ink-2)}
+  .qb:active{transform:scale(.97)}
+}
 </style>
 
 <header>
@@ -316,11 +374,13 @@ footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
     <div id="livePane">
       <div id="liveIdle">
         <div class="livebox">
-          <div class="big" data-i18n="live.idleH"></div>
-          <p class="small" data-i18n="live.idleBody"></p>
+          <div class="big" id="liveIdleH"></div>
+          <p class="small" id="liveIdleBody" data-i18n="live.idleBody"></p>
           <div class="actions" style="justify-content:center">
             <button class="btn primary" id="liveStart" data-i18n="live.start"></button>
+            <button class="btn primary" id="liveCamera" data-i18n="live.startCamera" hidden></button>
           </div>
+          <p class="small" id="liveCameraBody" style="margin-top:12px" data-i18n="live.cameraBody" hidden></p>
           <p class="small" style="margin-top:12px" data-i18n="live.privacy"></p>
         </div>
       </div>
@@ -352,10 +412,10 @@ footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
       <div id="drop">
         <div id="dropIdle">
           <div class="big" data-i18n="paste.h"></div>
-          <div class="kbd"><b>Ctrl</b><b>V</b></div>
-          <div class="small" data-i18n-html="paste.hint"></div>
+          <div class="kbd" id="kbdHint"><b>Ctrl</b><b>V</b></div>
+          <div class="small" id="pasteHint"></div>
           <div class="small" style="margin-top:10px">
-            <button class="linkish" id="pickFile" data-i18n="paste.pickFile"></button>
+            <button class="linkish" id="pickFile"></button>
             <input type="file" id="filePick" accept="image/*" hidden>
           </div>
         </div>
@@ -475,6 +535,14 @@ footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
   </section>
 </main>
 
+<div id="quickbar" aria-label="빠른 입력">
+  <button class="qb P" id="qbP"><span data-i18n="side.P"></span></button>
+  <button class="qb B" id="qbB"><span data-i18n="side.B"></span></button>
+  <button class="qb T" id="qbT"><span data-i18n="side.T"></span></button>
+  <button class="qb ghost" id="qbUndo" data-i18n="tools.undo"></button>
+  <button class="qb ghost" id="qbNew" data-i18n="tools.newShoe"></button>
+</div>
+
 <footer data-i18n="footer"></footer>
 
 <script type="module">
@@ -562,6 +630,47 @@ const S = {
     "zh-Hant": "開始畫面分享後，瀏覽器會請您選擇要分享的視窗。選擇開著桌台的分頁之後就不必再截圖或貼上 — 每隔數秒重新讀取珠盤路，新的一局會自動進來。",
     "zh-Hans": "开始画面共享后，浏览器会请您选择要共享的窗口。选择开着桌台的标签页之后就不必再截图或粘贴 — 每隔数秒重新读取珠盘路，新的一局会自动进来。",
   },
+  "live.idleHCamera": {
+    ko: "카메라로 테이블 화면을 읽습니다", en: "Read the table's screen with the camera",
+    "zh-Hant": "用相機讀取桌台畫面", "zh-Hans": "用相机读取桌台画面",
+  },
+  "live.startCamera": { ko: "카메라로 비추기", en: "Use the camera", "zh-Hant": "用相機拍攝", "zh-Hans": "用相机拍摄" },
+  "live.cameraBody": {
+    ko: "휴대폰에는 화면 공유가 없습니다. 대신 카메라로 테이블 화면을 비추면 같은 방식으로 읽습니다. 구슬판이 화면에 꽉 차도록 잡고 가만히 두세요.",
+    en: "Phones have no screen sharing. Point the camera at the table's screen instead and it reads the same way. Fill the frame with the bead plate and hold steady.",
+    "zh-Hant": "手機沒有畫面分享。改用相機對準桌台畫面，讀取方式完全相同。讓珠盤路填滿畫面並保持穩定。",
+    "zh-Hans": "手机没有画面共享。改用相机对准桌台画面，读取方式完全相同。让珠盘路填满画面并保持稳定。",
+  },
+  "live.cameraTip": {
+    ko: "비스듬히 찍으면 격자가 어긋납니다. 화면과 마주보게 잡고, 반사광이 구슬판을 가리지 않게 하세요.",
+    en: "A slanted angle skews the grid. Hold the phone square to the screen and keep reflections off the bead plate.",
+    "zh-Hant": "傾斜角度會使格線變形。請與畫面正對，並避免反光遮住珠盤路。",
+    "zh-Hans": "倾斜角度会使格线变形。请与画面正对，并避免反光遮住珠盘路。",
+  },
+  "live.sourceScreen": { ko: "화면 공유", en: "shared screen", "zh-Hant": "畫面分享", "zh-Hans": "画面共享" },
+  "live.sourceCamera": { ko: "카메라", en: "camera", "zh-Hant": "相機", "zh-Hans": "相机" },
+  "live.errCameraDeniedH": { ko: "카메라를 쓸 수 없습니다", en: "The camera is not available", "zh-Hant": "無法使用相機", "zh-Hans": "无法使用相机" },
+  "live.errCameraDenied1": {
+    ko: "<b>권한을 거부했다면</b> — 주소창의 자물쇠(또는 카메라) 아이콘에서 이 사이트의 카메라를 허용한 뒤 다시 시도하세요.",
+    en: "<b>If you denied the prompt</b> — allow the camera for this site from the padlock (or camera) icon in the address bar, then try again.",
+    "zh-Hant": "<b>若您拒絕了權限</b> — 請從網址列的鎖頭（或相機）圖示允許本站使用相機後再試。",
+    "zh-Hans": "<b>若您拒绝了权限</b> — 请从地址栏的锁头（或相机）图标允许本站使用相机后再试。",
+  },
+  "live.errCameraDenied2": {
+    ko: "<b>창이 뜨지 않았다면</b> — 이 페이지가 다른 페이지 안에 삽입돼 있어 카메라 권한을 받지 못한 경우입니다. 아래 링크로 새 탭에서 직접 열면 됩니다.",
+    en: "<b>If no prompt appeared</b> — this page is embedded in another one and was not granted camera access. Open it directly in its own tab with the link below.",
+    "zh-Hant": "<b>若完全沒有出現提示</b> — 表示本頁被嵌入在其他頁面中，未取得相機權限。請用下方連結在新分頁直接開啟。",
+    "zh-Hans": "<b>若完全没有出现提示</b> — 表示本页被嵌入在其他页面中，未取得相机权限。请用下方链接在新标签页直接打开。",
+  },
+  "paste.hintTouch": {
+    ko: "화면을 캡처한 뒤 <b>사진 선택</b>을 누르거나, 길게 눌러 붙여넣으세요",
+    en: "Take a screenshot, then tap <b>choose a photo</b> — or long-press to paste",
+    "zh-Hant": "先截圖，再點<b>選擇照片</b>；或長按貼上",
+    "zh-Hans": "先截图，再点<b>选择照片</b>；或长按粘贴",
+  },
+  "paste.pickFileTouch": { ko: "사진 선택 · 촬영", en: "Choose a photo", "zh-Hant": "選擇照片 · 拍攝", "zh-Hans": "选择照片 · 拍摄" },
+  "quick.title": { ko: "빠른 입력", en: "Quick entry", "zh-Hant": "快速輸入", "zh-Hans": "快速输入" },
+
   "live.start": { ko: "화면 공유 시작", en: "Start screen sharing", "zh-Hant": "開始畫面分享", "zh-Hans": "开始画面共享" },
   "live.privacy": {
     ko: "브라우저가 어느 화면을 공유할지 직접 묻습니다. 영상은 이 페이지 밖으로 나가지 않고, 녹화되지도 않습니다.",
@@ -2169,10 +2278,12 @@ function parseSequenceText(text) {
 /* ═══ live.js ═══ */
 /* Watch the table's screen live.
  *
- * `getDisplayMedia` asks the browser for a video stream of a window or tab the
- * viewer picks themselves. That stream is the same pixels they are already
- * looking at, so running the bead-plate detector over its frames reads the
- * board continuously with no capture step -- and still without touching the
+ * Two ways in, one pipeline. `getDisplayMedia` asks the browser for a stream
+ * of a window or tab the viewer picks -- the same pixels they are already
+ * looking at. `getUserMedia` asks for the camera, which is what a phone has
+ * instead: point it at the table's screen and the frames read the same way.
+ * Either stream feeds the bead-plate detector, so the board is read
+ * continuously with no capture step, and still without touching the
  * operator's site, its markup or its credentials.
  *
  * Two things keep a live feed from writing nonsense into the corpus:
@@ -2219,51 +2330,89 @@ class LiveWatcher {
     this.lastReadAt = 0;
     this.reads = 0;
     this.error = null;
+    this.source = null;      // "screen" or "camera", for the error advice
   }
 
   get active() { return !!this.stream; }
 
-  /** Is a live screen read even possible in this browsing context? */
+  /** Sharing a window or tab -- desktop browsers only. */
+  static get screenSupported() {
+    return typeof navigator !== "undefined" && !!navigator.mediaDevices?.getDisplayMedia;
+  }
+
+  /** The camera -- what a phone has instead of screen sharing. */
+  static get cameraSupported() {
+    return typeof navigator !== "undefined" && !!navigator.mediaDevices?.getUserMedia;
+  }
+
+  /** Is any live source available at all? */
   static get supported() {
-    return typeof navigator !== "undefined"
-      && !!navigator.mediaDevices?.getDisplayMedia;
+    return LiveWatcher.screenSupported || LiveWatcher.cameraSupported;
   }
 
   /**
-   * Ask for the stream and start sampling. Rejects nothing: the failure is
-   * reported through `onState` with a code the UI can explain, because the
-   * interesting failures here are environmental rather than exceptional.
+   * Share a window or tab. Desktop browsers only.
+   *
+   * Reports failure through `onState` rather than rejecting: what goes wrong
+   * here is environmental -- a permissions policy, a cancelled picker -- and
+   * the interface has to explain it, not catch it.
    */
   async start() {
+    return this._begin("screen", () => navigator.mediaDevices.getDisplayMedia({
+      video: { frameRate: 4 },
+      audio: false,
+      // Nudges Chrome's picker toward the tab list, which is what a viewer
+      // watching a browser-based table almost always wants.
+      preferCurrentTab: false,
+      selfBrowserSurface: "exclude",
+      surfaceSwitching: "include",
+    }));
+  }
+
+  /**
+   * Point the camera at the table's screen.
+   *
+   * The rear camera at the highest resolution offered: the bead plate has to
+   * survive being photographed, and detail is what the detector has to work
+   * with. Everything downstream is identical to a shared screen.
+   */
+  async startCamera() {
+    return this._begin("camera", () => navigator.mediaDevices.getUserMedia({
+      video: {
+        facingMode: { ideal: "environment" },
+        width: { ideal: 1920 },
+        height: { ideal: 1080 },
+      },
+      audio: false,
+    }));
+  }
+
+  async _begin(source, request) {
     if (this.stream) return true;
-    if (!LiveWatcher.supported) {
+    const available = source === "camera" ? LiveWatcher.cameraSupported : LiveWatcher.screenSupported;
+    if (!available) {
       this.error = "unsupported";
+      this.source = source;
       this._emit();
       return false;
     }
     try {
-      this.stream = await navigator.mediaDevices.getDisplayMedia({
-        video: { frameRate: 4 },
-        audio: false,
-        // Nudges Chrome's picker toward the tab list, which is what a viewer
-        // watching a browser-based table almost always wants.
-        preferCurrentTab: false,
-        selfBrowserSurface: "exclude",
-        surfaceSwitching: "include",
-      });
+      this.stream = await request();
     } catch (e) {
       // A permissions-policy block inside an iframe and an outright refusal
       // both arrive as NotAllowedError; they need different advice, and the
       // page cannot tell them apart, so the UI offers both.
       this.error = e?.name === "NotAllowedError" ? "denied"
-        : e?.name === "NotFoundError" ? "nosource"
+        : e?.name === "NotFoundError" || e?.name === "OverconstrainedError" ? "nosource"
         : "failed";
       this.stream = null;
+      this.source = source;
       this._emit();
       return false;
     }
 
     this.error = null;
+    this.source = source;
     this.video = document.createElement("video");
     this.video.srcObject = this.stream;
     this.video.muted = true;
@@ -2322,6 +2471,7 @@ class LiveWatcher {
       active: this.active,
       error: this.error,
       board: this.lastBoard,
+      source: this.source,
       bounds: this.bounds,
       locked: !!this.region,
       lastReadAt: this.lastReadAt,
@@ -3039,13 +3189,32 @@ function setLiveWarn(text, action) {
   }
 }
 
+/**
+ * Offer the sources this device actually has, and describe the one it will
+ * use. A phone has no screen sharing, so telling it about a window picker it
+ * will never show is worse than saying nothing.
+ */
+function renderLiveSources() {
+  const screen = LiveWatcher.screenSupported, camera = LiveWatcher.cameraSupported;
+  $("liveStart").hidden = !screen;
+  $("liveCamera").hidden = !camera;
+  $("liveStart").classList.toggle("primary", screen);
+  $("liveCamera").classList.toggle("primary", !screen);
+
+  $("liveIdleH").textContent = t(screen ? "live.idleH" : "live.idleHCamera");
+  $("liveIdleBody").hidden = !screen;
+  // Where both exist the camera note is the secondary explanation; where the
+  // camera is the only way in it is the whole explanation.
+  $("liveCameraBody").hidden = !camera;
+}
+
 function onLiveState(st) {
   $("liveIdle").hidden = st.active || !!st.error;
   $("liveActive").hidden = !st.active;
   $("liveError").hidden = !st.error;
 
-  if (st.error) { renderLiveError(st.error); return; }
-  if (!st.active) return;
+  if (st.error) { renderLiveError(st.error, st.source); return; }
+  if (!st.active) { renderLiveSources(); return; }
 
   live.drawPreview($("liveCanvas"));
 
@@ -3053,31 +3222,40 @@ function onLiveState(st) {
   const found = !!st.board;
   dot.className = "livedot " + (found ? "on" : "searching");
   const ago = st.lastReadAt ? Math.round((Date.now() - st.lastReadAt) / 1000) : null;
+  const via = t(st.source === "camera" ? "live.sourceCamera" : "live.sourceScreen");
   $("liveStatus").textContent = found
     ? t("live.reading", {
         n: st.board.sequence.length,
         lock: t(st.locked ? "live.locked" : "live.locking"),
         ago,
-      })
+      }) + " · " + via
     : t("live.searching");
 }
 
-function renderLiveError(code) {
+function renderLiveError(code, source) {
   const box = $("liveError");
   const own = location.href;
+  const camera = source === "camera";
   const bodies = {
     unsupported: `<h3>${t("live.errUnsupportedH")}</h3><p>${t("live.errUnsupportedBody")}</p>`,
-    denied:
-      `<h3>${t("live.errDeniedH")}</h3><p>${t("live.errDeniedIntro")}</p>` +
-      `<ol><li>${t("live.errDenied1")}</li><li>${t("live.errDenied2")}</li></ol>` +
-      `<p style="margin-top:11px"><a href="${own}" target="_blank" rel="noopener">${t("live.errOpenTop")}</a></p>`,
+    denied: camera
+      ? `<h3>${t("live.errCameraDeniedH")}</h3><p>${t("live.errDeniedIntro")}</p>` +
+        `<ol><li>${t("live.errCameraDenied1")}</li><li>${t("live.errCameraDenied2")}</li></ol>` +
+        `<p style="margin-top:11px"><a href="${own}" target="_blank" rel="noopener">${t("live.errOpenTop")}</a></p>`
+      : `<h3>${t("live.errDeniedH")}</h3><p>${t("live.errDeniedIntro")}</p>` +
+        `<ol><li>${t("live.errDenied1")}</li><li>${t("live.errDenied2")}</li></ol>` +
+        `<p style="margin-top:11px"><a href="${own}" target="_blank" rel="noopener">${t("live.errOpenTop")}</a></p>`,
     nosource: `<h3>${t("live.errNoSourceH")}</h3><p>${t("live.errNoSourceBody")}</p>`,
     failed: `<h3>${t("live.errFailedH")}</h3><p>${t("live.errFailedBody")}</p>`,
   };
   box.innerHTML = (bodies[code] || bodies.failed) +
     `<div class="actions"><button class="btn" id="liveRetry">${t("live.retry")}</button>
      <button class="btn ghost" id="liveToPaste">${t("live.toPaste")}</button></div>`;
-  $("liveRetry").onclick = () => { live.error = null; live._emit(); live.start(); };
+  $("liveRetry").onclick = () => {
+    live.error = null;
+    live._emit();
+    if (camera) live.startCamera(); else live.start();
+  };
   $("liveToPaste").onclick = () => setMode("paste");
 }
 
@@ -3252,6 +3430,18 @@ function renderPrediction() {
 
 /* ---------------------------------------------------------------- render */
 
+/** Coarse pointer and no hover: a phone or a tablet, not a mouse. */
+const isTouch = () => typeof matchMedia === "function"
+  && matchMedia("(pointer: coarse)").matches;
+
+/** Copy that names a keyboard or a mouse only where there is one. */
+function renderInputHints() {
+  const touch = isTouch();
+  $("pasteHint").innerHTML = t(touch ? "paste.hintTouch" : "paste.hint");
+  $("pickFile").textContent = t(touch ? "paste.pickFileTouch" : "paste.pickFile");
+  $("kbdHint").hidden = touch;
+}
+
 /** The interval options carry a number, so their labels are built not stored. */
 function renderLiveIntervals() {
   for (const option of $("liveInterval").options) {
@@ -3263,6 +3453,8 @@ function renderLiveIntervals() {
  *  these are the views this file renders itself. */
 function renderAll() {
   renderLiveIntervals();
+  renderInputHints();
+  renderLiveSources();
   render();
   renderShot();
   if (live) live._emit();
@@ -3785,10 +3977,18 @@ function bindControls() {
     intervalMs: Number($("liveInterval").value),
   });
   $("liveStart").onclick = () => live.start();
+  $("liveCamera").onclick = () => live.startCamera();
+  renderLiveSources();
   $("liveStop").onclick = () => { live.stop(); liveLog(t("live.logStopped")); };
   $("liveRelock").onclick = () => { live.relock(); liveHolds = 0; setLiveWarn(null); liveLog(t("live.logRelock")); };
   $("liveInterval").onchange = (e) => live.setSampleInterval(Number(e.target.value));
   if (!LiveWatcher.supported) { live.error = "unsupported"; live._emit(); }
+
+  // The same five actions as the manual panel, kept within thumb reach.
+  for (const [id, run] of [["qbP", () => addOutcomes("P")], ["qbB", () => addOutcomes("B")],
+                           ["qbT", () => addOutcomes("T")], ["qbUndo", undo], ["qbNew", newShoe]]) {
+    $(id).onclick = run;
+  }
 
   $("runIntegrity").onclick = runIntegrity;
   $("reps").onchange = renderIntegrityAvailability;
@@ -3851,6 +4051,7 @@ async function boot() {
   bindPaste();
   bindControls();
   renderLiveIntervals();
+  renderInputHints();
 
   // Reflect the restored theme on the control now that it exists.
   for (const [name, id] of [["auto", "themeAuto"], ["light", "themeLight"], ["dark", "themeDark"]]) {
