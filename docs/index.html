@@ -167,6 +167,28 @@ h2{font-size:14px; font-weight:600; margin:0 0 3px; letter-spacing:-.005em}
 #liveError ol{margin:9px 0 0; padding-left:19px}
 #liveError li{margin-bottom:5px}
 
+/* ── batch import ───────────────────────────────────────────────────── */
+.onephone{margin-top:14px; padding:12px 14px; border-radius:9px;
+          background:var(--surface-2); border:1px solid var(--line)}
+.onephone .k{font-size:11.5px; font-weight:600; color:var(--ink-2); margin-bottom:5px}
+.onephone p{margin:0; font-size:12px; color:var(--ink-3); line-height:1.6}
+#batch{margin-top:14px}
+.bsum{font-size:13px; font-weight:500; margin-bottom:4px}
+.bnote{font-size:11.5px; color:var(--ink-3); margin:0 0 11px}
+.blist{display:flex; flex-direction:column; gap:7px; max-height:210px; overflow-y:auto}
+.brow{display:flex; align-items:center; gap:10px; padding:8px 11px; border-radius:8px;
+      border:1px solid var(--line); background:var(--surface-2)}
+.brow .n{font-family:var(--mono); font-size:12px; color:var(--ink-2);
+         font-variant-numeric:tabular-nums; flex:0 0 auto}
+.brow .strip{display:flex; gap:2px; overflow-x:auto; flex:1; min-width:0;
+             scrollbar-width:none; -webkit-overflow-scrolling:touch}
+.brow .strip::-webkit-scrollbar{display:none}
+.brow .strip i{width:8px; height:14px; border-radius:2px; flex:0 0 auto}
+.brow .strip i.P{background:var(--player)} .brow .strip i.B{background:var(--banker)}
+.brow .strip i.T{background:var(--tie)}
+#batchBar{height:5px; border-radius:3px; background:var(--surface-3); overflow:hidden; margin:9px 0}
+#batchBar i{display:block; height:100%; background:var(--accent); width:0; transition:width .15s}
+
 /* ── prediction ─────────────────────────────────────────────────────── */
 .aibar{display:grid; grid-template-columns:64px 1fr 56px; align-items:center;
        gap:11px; margin-bottom:8px}
@@ -414,16 +436,25 @@ footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
           <div class="big" data-i18n="paste.h"></div>
           <div class="kbd" id="kbdHint"><b>Ctrl</b><b>V</b></div>
           <div class="small" id="pasteHint"></div>
-          <div class="small" style="margin-top:10px">
-            <button class="linkish" id="pickFile"></button>
-            <input type="file" id="filePick" accept="image/*" hidden>
+          <div class="actions" style="justify-content:center;margin-top:14px">
+            <button class="btn" id="pickFile"></button>
+            <button class="btn" id="pickMulti" data-i18n="paste.multi"></button>
+            <button class="btn ghost" id="pickClipboard" data-i18n="paste.clipboard" hidden></button>
           </div>
+          <input type="file" id="filePick" accept="image/*" hidden>
+          <input type="file" id="filePickMulti" accept="image/*" multiple hidden>
+          <p class="small" id="pickNote" style="margin-top:10px"></p>
         </div>
         <div id="shotWrap" hidden>
           <canvas id="shotCanvas"></canvas>
         </div>
       </div>
       <div id="readout" hidden></div>
+      <div id="batch" hidden></div>
+      <div class="onephone">
+        <div class="k" data-i18n="onephone.h"></div>
+        <p data-i18n-html="onephone.body"></p>
+      </div>
     </div>
   </section>
 
@@ -749,6 +780,40 @@ const S = {
     "zh-Hant": "Windows 用 <b>Win + Shift + S</b>，Mac 用 <b>⌘ + Shift + 4</b> 截圖 · 也可直接拖曳圖片進來",
     "zh-Hans": "Windows 用 <b>Win + Shift + S</b>，Mac 用 <b>⌘ + Shift + 4</b> 截图 · 也可直接拖拽图片进来",
   },
+  "onephone.h": { ko: "폰 하나로 쓰기", en: "Using one phone", "zh-Hant": "只用一支手機", "zh-Hans": "只用一部手机" },
+  "onephone.body": {
+    ko: "휴대폰 브라우저는 다른 앱의 화면을 읽을 수 없습니다 — 이건 브라우저의 제약이라 우회할 방법이 없습니다. 대신 <b>보면서 캡처만 눌러두고, 나중에 한 번에 가져오세요.</b> 겹치는 사진은 알아서 같은 슈로 합쳐집니다.",
+    en: "A mobile browser cannot read another app's screen — that is a platform limit with no way around it. So <b>just take screenshots as you watch, and import the lot afterwards.</b> Overlapping shots are folded back into the same shoe on their own.",
+    "zh-Hant": "手機瀏覽器無法讀取其他 App 的畫面 — 這是平台限制，無法繞過。因此請<b>邊看邊截圖，之後一次匯入</b>。重疊的截圖會自動合併回同一靴。",
+    "zh-Hans": "手机浏览器无法读取其他 App 的画面 — 这是平台限制，无法绕过。因此请<b>边看边截图，之后一次导入</b>。重叠的截图会自动合并回同一靴。",
+  },
+  "paste.multi": { ko: "사진 여러 장 가져오기", en: "Import several photos", "zh-Hant": "匯入多張照片", "zh-Hans": "导入多张照片" },
+  "paste.clipboard": { ko: "클립보드에서 가져오기", en: "Paste from the clipboard", "zh-Hant": "從剪貼簿貼上", "zh-Hans": "从剪贴板粘贴" },
+  "paste.clipboardEmpty": { ko: "클립보드에 이미지가 없습니다.", en: "There is no image on the clipboard.", "zh-Hant": "剪貼簿中沒有圖片。", "zh-Hans": "剪贴板中没有图片。" },
+  "paste.clipboardDenied": {
+    ko: "클립보드를 읽을 수 없습니다. 브라우저가 권한을 물으면 허용하거나, 사진 선택을 쓰세요.",
+    en: "The clipboard could not be read. Allow it when the browser asks, or choose a photo instead.",
+    "zh-Hant": "無法讀取剪貼簿。請在瀏覽器詢問時允許，或改用選擇照片。",
+    "zh-Hans": "无法读取剪贴板。请在浏览器询问时允许，或改用选择照片。",
+  },
+  "batch.reading": { ko: "{done}/{total}장 읽는 중…", en: "Reading {done} of {total}…", "zh-Hant": "正在讀取 {done}/{total} 張…", "zh-Hans": "正在读取 {done}/{total} 张…" },
+  "batch.summary": {
+    ko: "사진 {photos}장 → 슈 {shoes}개 · 총 {coups}판",
+    en: "{photos} photos → {shoes} shoes · {coups} coups",
+    "zh-Hant": "{photos} 張照片 → {shoes} 靴 · 共 {coups} 局",
+    "zh-Hans": "{photos} 张照片 → {shoes} 靴 · 共 {coups} 局",
+  },
+  "batch.skipped": { ko: "{n}장은 구슬판을 찾지 못해 건너뛰었습니다.", en: "{n} had no bead plate and were skipped.", "zh-Hant": "{n} 張找不到珠盤路，已略過。", "zh-Hans": "{n} 张找不到珠盘路，已跳过。" },
+  "batch.shoe": { ko: "{n}판 · 사진 {shots}장", en: "{n} coups · from {shots}", "zh-Hant": "{n} 局 · 來自 {shots} 張", "zh-Hans": "{n} 局 · 来自 {shots} 张" },
+  "batch.add": { ko: "슈 {n}개 모두 추가", en: "Add all {n} shoes", "zh-Hant": "全部加入 {n} 靴", "zh-Hans": "全部加入 {n} 靴" },
+  "batch.none": {
+    ko: "가져온 사진에서 구슬판을 찾지 못했습니다. 구슬판이 잘 보이게 캡처했는지 확인하세요.",
+    en: "No bead plate was found in any of them. Check that the bead plate is visible in the screenshots.",
+    "zh-Hant": "所有照片都找不到珠盤路。請確認截圖中珠盤路清楚可見。",
+    "zh-Hans": "所有照片都找不到珠盘路。请确认截图中珠盘路清楚可见。",
+  },
+  "batch.added": { ko: "슈 {shoes}개 · {coups}판을 추가했습니다.", en: "Added {shoes} shoes, {coups} coups.", "zh-Hant": "已加入 {shoes} 靴 · {coups} 局。", "zh-Hans": "已加入 {shoes} 靴 · {coups} 局。" },
+
   "paste.pickFile": { ko: "파일에서 고르기", en: "Choose a file", "zh-Hant": "從檔案選擇", "zh-Hans": "从文件选择" },
   "paste.notFound": {
     ko: "이 이미지에서 구슬판을 찾지 못했습니다. 구슬판이 잘 보이도록 다시 캡처하거나, 이미지 위에서 구슬판 영역을 드래그해 지정해 보세요.",
@@ -2275,6 +2340,113 @@ function parseSequenceText(text) {
   return { sequence: out.join(""), skipped };
 }
 
+/* ═══ corpus.js ═══ */
+/* Turning the collected shoes into something the desktop package can read.
+ *
+ * Kept apart from the interface because it is pure: it takes the corpus and
+ * returns text, touches no DOM, and is therefore testable in the same place
+ * as the rest of the analysis -- which matters, because the CSV it writes is
+ * fed straight to `baccarat ingest` and a quoting mistake there corrupts a
+ * corpus silently rather than failing.
+ */
+
+/**
+ * Do two readings of a board describe the same shoe?
+ *
+ * A bead plate grows from the left, so one reading being a prefix of the other
+ * means they are the same shoe seen at two moments. It is the single rule the
+ * live feed, the pasted capture and a batch of screenshots all decide by.
+ */
+function sharePrefix(a, b) {
+  return a.startsWith(b) || b.startsWith(a);
+}
+
+/**
+ * Fold a pile of board readings into the shoes they came from.
+ *
+ * Someone watching on one phone screenshots as they go, then imports the lot.
+ * The shots overlap heavily -- twenty of the same shoe at different lengths --
+ * so readings that share a prefix collapse to the longest, and a reading that
+ * shares none opens another shoe. Capture order comes from the files
+ * themselves, since a photo library hands them over in whatever order it
+ * likes.
+ *
+ * `readings` are `{sequence, at}` with `at` a timestamp; the result is ordered
+ * by first sighting.
+ */
+function groupReadings(readings) {
+  const shoes = [];
+  for (const { sequence, at } of [...readings].sort((x, y) => (x.at || 0) - (y.at || 0))) {
+    if (!sequence) continue;
+    const shoe = shoes.find((s) => sharePrefix(s.sequence, sequence));
+    if (!shoe) {
+      shoes.push({ sequence, at: at || 0, seen: 1 });
+      continue;
+    }
+    shoe.seen += 1;
+    // The longer reading is the later view of the same shoe.
+    if (sequence.length > shoe.sequence.length) shoe.sequence = sequence;
+  }
+  return shoes;
+}
+
+/** Seconds a live table takes per coup, used to space the timestamps. */
+const SECONDS_PER_COUP = 45;
+
+/** The columns `baccarat ingest` sniffs for, in the order it expects. */
+const COLUMNS = ["outcome", "shoe_id", "game_no", "table_id", "played_at"];
+
+/** One row per coup, across every table. */
+function corpusRows(tables) {
+  const rows = [];
+  for (const [tableId, entry] of Object.entries(tables)) {
+    for (const shoe of entry.shoes) {
+      if (!shoe.o.length) continue;
+      [...shoe.o].forEach((outcome, i) => {
+        rows.push({
+          outcome,
+          shoe_id: shoe.id,
+          game_no: i + 1,
+          table_id: tableId,
+          played_at: new Date(shoe.t + i * SECONDS_PER_COUP * 1000).toISOString(),
+        });
+      });
+    }
+  }
+  return rows;
+}
+
+/**
+ * A table name a person typed, reduced to something safe to carry.
+ *
+ * Leading `= + - @` and a leading tab or carriage return are how a spreadsheet
+ * decides a cell is a formula, and the export is a file people open in one.
+ * The value itself must stay faithful -- it round-trips through
+ * `baccarat ingest` -- so the guard belongs here, where the name is accepted,
+ * rather than in the writer where it would corrupt the column.
+ */
+function cleanTableName(raw) {
+  const text = String(raw ?? "").replace(/[\u0000-\u001f\u007f]/g, " ").trim();
+  const stripped = text.replace(/^[=+\-@]+/, "").trim();
+  return stripped.slice(0, 60);
+}
+
+/**
+ * RFC 4180 quoting. Table names are typed by hand, so a comma or a quote in
+ * one has to survive the round trip rather than shift every later column.
+ */
+function csvCell(value) {
+  const text = String(value ?? "");
+  return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+}
+
+function toCsv(rows) {
+  return [
+    COLUMNS.join(","),
+    ...rows.map((r) => COLUMNS.map((c) => csvCell(r[c])).join(",")),
+  ].join("\n") + "\n";
+}
+
 /* ═══ live.js ═══ */
 /* Watch the table's screen live.
  *
@@ -2296,6 +2468,7 @@ function parseSequenceText(text) {
  *    searched there. That is faster, and it stops the detector wandering onto a
  *    different grid on the same screen between frames.
  */
+
 
 
 /** Consecutive identical readings required before a change is accepted. */
@@ -2563,9 +2736,8 @@ class LiveWatcher {
 function diagnose(current, incoming) {
   if (incoming === current) return "same";
   if (!current.length) return "grow";
-  if (incoming.startsWith(current)) return "grow";
-  if (current.startsWith(incoming)) return "hold";
-  return "reset";
+  if (!sharePrefix(current, incoming)) return "reset";
+  return incoming.length > current.length ? "grow" : "hold";
 }
 
 
@@ -2619,73 +2791,6 @@ function drawStrip(ctx, source, bounds, board) {
     }
   }
   ctx.restore();
-}
-
-/* ═══ corpus.js ═══ */
-/* Turning the collected shoes into something the desktop package can read.
- *
- * Kept apart from the interface because it is pure: it takes the corpus and
- * returns text, touches no DOM, and is therefore testable in the same place
- * as the rest of the analysis -- which matters, because the CSV it writes is
- * fed straight to `baccarat ingest` and a quoting mistake there corrupts a
- * corpus silently rather than failing.
- */
-
-/** Seconds a live table takes per coup, used to space the timestamps. */
-const SECONDS_PER_COUP = 45;
-
-/** The columns `baccarat ingest` sniffs for, in the order it expects. */
-const COLUMNS = ["outcome", "shoe_id", "game_no", "table_id", "played_at"];
-
-/** One row per coup, across every table. */
-function corpusRows(tables) {
-  const rows = [];
-  for (const [tableId, entry] of Object.entries(tables)) {
-    for (const shoe of entry.shoes) {
-      if (!shoe.o.length) continue;
-      [...shoe.o].forEach((outcome, i) => {
-        rows.push({
-          outcome,
-          shoe_id: shoe.id,
-          game_no: i + 1,
-          table_id: tableId,
-          played_at: new Date(shoe.t + i * SECONDS_PER_COUP * 1000).toISOString(),
-        });
-      });
-    }
-  }
-  return rows;
-}
-
-/**
- * A table name a person typed, reduced to something safe to carry.
- *
- * Leading `= + - @` and a leading tab or carriage return are how a spreadsheet
- * decides a cell is a formula, and the export is a file people open in one.
- * The value itself must stay faithful -- it round-trips through
- * `baccarat ingest` -- so the guard belongs here, where the name is accepted,
- * rather than in the writer where it would corrupt the column.
- */
-function cleanTableName(raw) {
-  const text = String(raw ?? "").replace(/[\u0000-\u001f\u007f]/g, " ").trim();
-  const stripped = text.replace(/^[=+\-@]+/, "").trim();
-  return stripped.slice(0, 60);
-}
-
-/**
- * RFC 4180 quoting. Table names are typed by hand, so a comma or a quote in
- * one has to survive the round trip rather than shift every later column.
- */
-function csvCell(value) {
-  const text = String(value ?? "");
-  return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
-}
-
-function toCsv(rows) {
-  return [
-    COLUMNS.join(","),
-    ...rows.map((r) => COLUMNS.map((c) => csvCell(r[c])).join(",")),
-  ].join("\n") + "\n";
 }
 
 /* ═══ store.js ═══ */
@@ -3268,6 +3373,151 @@ function setMode(mode) {
   $("livePane").hidden = !isLive;
   $("pastePane").hidden = isLive;
   if (!isLive && live?.active) live.stop();
+}
+
+/* --------------------------------------------------------- batch import */
+
+/* One phone cannot watch another app, so the workflow is: screenshot while
+   you play, import the pile afterwards. The shots overlap heavily -- the same
+   shoe at twenty lengths -- so they are folded back into shoes rather than
+   landing as twenty separate ones. */
+
+let batchShoes = null;
+/** Which import is current: an older one that is still decoding stands down. */
+let batchRun = 0;
+
+/** Decode one file and read whatever board is in it. */
+function readFile(file) {
+  return new Promise((resolve) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      try {
+        const canvas = document.createElement("canvas");
+        const { imageData } = toWorkingImage(img, canvas);
+        const { boards } = detectBoards(imageData);
+        resolve({ sequence: boards.length ? boards[0].sequence : "", at: file.lastModified || 0 });
+      } catch {
+        resolve({ sequence: "", at: file.lastModified || 0 });
+      }
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); resolve({ sequence: "", at: 0 }); };
+    img.src = url;
+  });
+}
+
+async function importPhotos(files) {
+  const list = [...files].filter((f) => f.type.startsWith("image/"));
+  if (!list.length) return;
+
+  // Decoding a pile takes seconds, and nothing stops a second pick during it.
+  // The later pick owns the panel; this one stops touching it.
+  const run = ++batchRun;
+
+  setMode("paste");
+  shot = null;
+  renderShot();
+  const box = $("batch");
+  box.hidden = false;
+  box.innerHTML = `<div class="bsum" id="batchLabel"></div>
+                   <div id="batchBar"><i></i></div>`;
+
+  const readings = [];
+  for (let i = 0; i < list.length; i++) {
+    if (run !== batchRun) return;
+    const label = $("batchLabel"), bar = $("batchBar");
+    if (label) label.textContent = t("batch.reading", { done: i + 1, total: list.length });
+    if (bar) bar.firstElementChild.style.width = ((i + 1) / list.length) * 100 + "%";
+    // Yield so the progress actually paints between decodes.
+    await new Promise((r) => setTimeout(r, 0));
+    readings.push(await readFile(list[i]));
+  }
+  if (run !== batchRun) return;
+
+  const found = readings.filter((r) => r.sequence.length >= 4);
+  batchShoes = groupReadings(found);
+  renderBatch(list.length, readings.length - found.length);
+}
+
+function renderBatch(photos, skipped) {
+  const box = $("batch");
+  box.innerHTML = "";
+  if (!batchShoes || !batchShoes.length) {
+    box.appendChild(el("p", "warn", t("batch.none")));
+    return;
+  }
+
+  const coups = batchShoes.reduce((a, s) => a + s.sequence.length, 0);
+  box.appendChild(el("div", "bsum",
+    t("batch.summary", { photos, shoes: batchShoes.length, coups })));
+  if (skipped) box.appendChild(el("p", "bnote", t("batch.skipped", { n: skipped })));
+
+  const list = el("div", "blist");
+  for (const shoe of batchShoes) {
+    const row = el("div", "brow");
+    row.appendChild(el("span", "n", t("batch.shoe", { n: shoe.sequence.length, shots: shoe.seen })));
+    const strip = el("div", "strip");
+    for (const c of shoe.sequence) strip.appendChild(el("i", c));
+    row.appendChild(strip);
+    list.appendChild(row);
+  }
+  box.appendChild(list);
+
+  const actions = el("div", "actions");
+  const add = el("button", "btn primary", t("batch.add", { n: batchShoes.length }));
+  add.onclick = () => {
+    clearExample();
+    const changed = [];
+    const shoes_ = shoes();
+    const last = shoes_[shoes_.length - 1];
+    if (last && !last.o.length) shoes_.pop();
+    else if (last && !last.closed) { last.closed = true; changed.push(last.id); }
+    // The shoes you screenshotted earlier are over; the one you were watching
+    // when you took the last shot may still be running, so it stays open --
+    // the quick bar carries it on and the prediction counts its cards. That is
+    // what a single pasted capture does too.
+    batchShoes.forEach((shoe, i) => {
+      const open = i === batchShoes.length - 1;
+      const fresh = { id: newShoeId(), o: shoe.sequence, closed: !open, t: shoe.at || Date.now() };
+      shoes_.push(fresh);
+      changed.push(fresh.id);
+    });
+    const added = { shoes: batchShoes.length, coups };
+    batchShoes = null;
+    batchRun += 1;
+    $("batch").hidden = true;
+    commit(changed);
+    $("pickNote").textContent = t("batch.added", added);
+  };
+  actions.appendChild(add);
+
+  const cancel = el("button", "btn ghost", t("paste.cancel"));
+  cancel.onclick = () => { batchShoes = null; batchRun += 1; $("batch").hidden = true; };
+  actions.appendChild(cancel);
+  box.appendChild(actions);
+}
+
+/** Read an image straight off the clipboard, where the browser allows it. */
+async function importClipboard() {
+  const note = $("pickNote");
+  try {
+    const items = await navigator.clipboard.read();
+    for (const item of items) {
+      const type = item.types.find((x) => x.startsWith("image/"));
+      if (!type) continue;
+      note.textContent = "";
+      const blob = await item.getType(type);
+      const img = new Image();
+      const url = URL.createObjectURL(blob);
+      img.onload = () => { setMode("paste"); handleImage(img); URL.revokeObjectURL(url); };
+      img.src = url;
+      return;
+    }
+    note.textContent = t("paste.clipboardEmpty");
+  } catch {
+    note.textContent = t("paste.clipboardDenied");
+  }
 }
 
 /* --------------------------------------------------------------- analysis */
@@ -3859,7 +4109,7 @@ async function download(filename, data) {
 function bindPaste() {
   const zone = $("drop");
 
-  const readFile = (file) => {
+  const readImageFile = (file) => {
     if (!file || !file.type.startsWith("image/")) return false;
     // A pasted image is an unambiguous request for the paste surface -- unless
     // a live feed is running, which is the more current source of truth.
@@ -3874,7 +4124,7 @@ function bindPaste() {
   document.addEventListener("paste", (e) => {
     const items = [...(e.clipboardData?.items || [])];
     const image = items.find((i) => i.type.startsWith("image/"));
-    if (image) { e.preventDefault(); readFile(image.getAsFile()); return; }
+    if (image) { e.preventDefault(); readImageFile(image.getAsFile()); return; }
     const text = e.clipboardData?.getData("text");
     const tag = (e.target.tagName || "").toLowerCase();
     if (text && tag !== "input" && tag !== "textarea") {
@@ -3887,10 +4137,21 @@ function bindPaste() {
   zone.addEventListener("dragleave", () => zone.classList.remove("over"));
   zone.addEventListener("drop", (e) => {
     e.preventDefault(); zone.classList.remove("over");
-    readFile(e.dataTransfer?.files?.[0]);
+    const dropped = e.dataTransfer?.files || [];
+    if (dropped.length > 1) importPhotos(dropped); else readImageFile(dropped[0]);
   });
   $("pickFile").addEventListener("click", () => $("filePick").click());
-  $("filePick").addEventListener("change", (e) => readFile(e.target.files?.[0]));
+  $("filePick").addEventListener("change", (e) => {
+    readImageFile(e.target.files?.[0]);
+    e.target.value = "";            // so picking the same photo twice still fires
+  });
+  $("pickMulti").addEventListener("click", () => $("filePickMulti").click());
+  $("filePickMulti").addEventListener("change", (e) => {
+    importPhotos(e.target.files || []);
+    e.target.value = "";
+  });
+  $("pickClipboard").hidden = !navigator.clipboard?.read;
+  $("pickClipboard").addEventListener("click", importClipboard);
 
   // Drag a box on the capture to tell the detector where to look.
   const view = $("shotCanvas");
