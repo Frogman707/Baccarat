@@ -153,6 +153,8 @@ h2{font-size:14px; font-weight:600; margin:0 0 3px; letter-spacing:-.005em}
 .livedot{width:8px; height:8px; border-radius:50%; background:var(--ink-3); flex:0 0 auto}
 .livedot.on{background:var(--tie); animation:pulse 2s ease-in-out infinite}
 .livedot.searching{background:var(--accent)}
+/* Between shoes the reader is holding its place, not hunting for one. */
+.livedot.waiting{background:var(--accent); animation:pulse 2s ease-in-out infinite}
 @keyframes pulse{0%,100%{opacity:1} 50%{opacity:.35}}
 .livelog{margin-top:11px; max-height:104px; overflow-y:auto; font-family:var(--mono);
          font-size:11.5px; color:var(--ink-3); line-height:1.75}
@@ -763,6 +765,14 @@ const S = {
     "zh-Hant": "已讀 {n} 局 · {lock} · {ago} 秒前", "zh-Hans": "已读 {n} 局 · {lock} · {ago} 秒前",
   },
   "live.locked": { ko: "영역 고정", en: "board locked", "zh-Hant": "區域已鎖定", "zh-Hans": "区域已锁定" },
+  "live.cleared": {
+    ko: "슈 종료 — 새 슈를 기다리는 중", en: "Shoe finished — waiting for the next one",
+    "zh-Hant": "牌靴結束 — 等待下一靴", "zh-Hans": "牌靴结束 — 等待下一靴",
+  },
+  "live.logCleared": {
+    ko: "구슬판이 비었습니다 — 슈 종료", en: "The bead plate cleared — end of shoe",
+    "zh-Hant": "珠盤路已清空 — 牌靴結束", "zh-Hans": "珠盘路已清空 — 牌靴结束",
+  },
   "live.locking": { ko: "영역 찾는 중", en: "finding the board", "zh-Hant": "尋找區域中", "zh-Hans": "寻找区域中" },
   "live.searching": {
     ko: "구슬판을 찾는 중 — 테이블 화면이 보이는 창을 공유했는지 확인하세요",
@@ -2793,8 +2803,16 @@ function replayPicks(sequences, { deff = 1, commission = 0.05 } = {}) {
 /** Consecutive identical readings required before a change is accepted. */
 const CONFIRM_GROWTH = 2;
 const CONFIRM_RESET = 3;
-/** Failed reads inside the locked region before falling back to a full search. */
-const LOCK_PATIENCE = 3;
+/**
+ * Empty samples inside the locked strip before the shoe is called finished.
+ *
+ * Every road on a table clears at the same moment when the shoe changes, so
+ * "the locked strip has nothing in it" is what a shoe change looks like from
+ * here -- and it is also what a window that moved looks like. The two are told
+ * apart by evidence rather than by waiting: at this count the whole screen is
+ * searched once, and a strip found elsewhere means the window moved.
+ */
+const CLEAR_PATIENCE = 3;
 /**
  * How far below the best board on the frame the one being followed may fall
  * before the anchor stops protecting it.
@@ -2817,8 +2835,15 @@ const PICK_TOLERANCE = 0.5;
  * comparison below moves the lock back.
  */
 const RECHECK_EVERY = 12;
-/** Marks needed to call something a board: fewer once the strip is located. */
-const COLD_CELLS = 8, LOCKED_CELLS = 3;
+/**
+ * Marks needed to call something a board: fewer once the strip is located, and
+ * one is enough in a strip just watched go empty.
+ *
+ * A new shoe deals into the same place one mark at a time. Holding the strip's
+ * usual bar of three would drop the opening coups on the floor, and the cold
+ * bar of eight -- which is where losing the lock lands -- drops the first seven.
+ */
+const COLD_CELLS = 8, LOCKED_CELLS = 3, FRESH_CELLS = 1;
 
 class LiveWatcher {
   /**
@@ -2839,12 +2864,14 @@ class LiveWatcher {
     this.region = null;
     this.bounds = null;      // the whole result strip, in frame pixels
     this.anchor = null;      // centre of the board being read, to keep the pick stable
-    this.misses = 0;
+    this.empties = 0;        // consecutive samples with nothing in the strip
+    this.cleared = false;    // the strip went empty: the next reading is a new shoe
     this.candidate = null;
     this.repeats = 0;
     this.lastBoard = null;
     this.lastReadAt = 0;
     this.reads = 0;
+    this.samples = 0;
     this.error = null;
     this.source = null;      // "screen" or "camera", for the error advice
     this.preview = null;     // canvas the feed is painted into
@@ -2976,7 +3003,8 @@ class LiveWatcher {
     this.region = null;
     this.bounds = null;
     this.anchor = null;
-    this.misses = 0;
+    this.empties = 0;
+    this.cleared = false;
     this.candidate = null;
     this.repeats = 0;
   }
@@ -2994,6 +3022,7 @@ class LiveWatcher {
     this.relock();
     this.lastBoard = null;
     this.reads = 0;
+    this.samples = 0;
   }
 
   _emit() {
@@ -3004,6 +3033,7 @@ class LiveWatcher {
       source: this.source,
       bounds: this.bounds,
       locked: !!this.region,
+      cleared: this.cleared,
       lastReadAt: this.lastReadAt,
       reads: this.reads,
       candidate: this.candidate,
@@ -3029,15 +3059,16 @@ class LiveWatcher {
     // is read from its opening hands instead of waiting for eight. A cold
     // full-screen search keeps the higher bar, where anything red or blue can
     // turn up.
-    let { boards, bounds } = detectBoards(frame, {
-      region: this.region,
-      minCells: this.region ? LOCKED_CELLS : COLD_CELLS,
-    });
+    this.samples += 1;
+    const bar = !this.region ? COLD_CELLS : this.cleared ? FRESH_CELLS : LOCKED_CELLS;
+    let { boards, bounds } = detectBoards(frame, { region: this.region, minCells: bar });
 
     // Every so often, look at the whole screen again. If the strip is clearly
     // elsewhere -- the window moved, or the first lock landed on the wrong
-    // thing -- this is what lets go of it.
-    if (this.region && this.reads > 0 && this.reads % RECHECK_EVERY === 0) {
+    // thing -- this is what lets go of it. Counted in samples rather than
+    // readings: a strip reading nothing is exactly when this is needed, and
+    // counting readings meant it never ran then.
+    if (this.region && this.samples % RECHECK_EVERY === 0) {
       const full = detectBoards(frame, { minCells: COLD_CELLS });
       const here = boards.length ? boards[0].score : 0;
       if (full.boards.length && full.boards[0].score > here * 1.25) {
@@ -3045,16 +3076,37 @@ class LiveWatcher {
         bounds = full.bounds;
         this.region = null;
         this.anchor = null;
+        this.cleared = false;
       }
     }
 
     if (!boards.length && this.region) {
-      this.misses += 1;
-      if (this.misses >= LOCK_PATIENCE) { this.region = null; this.misses = 0; }
+      // An empty strip is not a lost board. The table wipes every road at once
+      // when the shoe changes, so falling back to a full search here searched
+      // for eight marks the new shoe had not dealt yet -- and told the viewer
+      // their screen sharing was broken while it did. The lock is kept and the
+      // emptiness reported instead.
+      if (this.empties === CLEAR_PATIENCE) {
+        const full = detectBoards(frame, { minCells: COLD_CELLS });
+        if (full.boards.length) {
+          // The strip is still on screen, just not where it was: the window
+          // moved. Let go and take it from the top.
+          this.region = null;
+          this.anchor = null;
+          this.cleared = false;
+        } else {
+          this.cleared = true;
+        }
+        this.candidate = null;
+        this.repeats = 0;
+      }
+      this.empties += 1;
+      this.lastBoard = null;
       this._emit();
       return;
     }
-    if (!boards.length) { this.lastBoard = null; this._emit(); return; }
+    if (!boards.length) { this.lastBoard = null; this.empties += 1; this._emit(); return; }
+    this.empties = 0;
 
     // Prefer the board this run has been reading, so a strip that gains a
     // derived road between frames does not move the reading somewhere else --
@@ -3062,7 +3114,6 @@ class LiveWatcher {
     // outlive the reason for it.
     const board = pickBoard(boards, this.anchor);
     this.anchor = centreOf(board.box);
-    this.misses = 0;
     this.bounds = bounds;
     this.lastBoard = { ...board, frameWidth: w, frameHeight: h };
     this.lastReadAt = Date.now();
@@ -3083,7 +3134,18 @@ class LiveWatcher {
       };
     }
 
-    this.onRead(board.sequence, this.lastBoard, this.repeats);
+    // The flag rides with the reading and is dropped on the one that carries
+    // it far enough to be acted on, so the caller sees it exactly once.
+    const afterClear = this.cleared;
+    // A shoe fills to the right, and the lock is drawn around the strip as it
+    // was when it was found. Detection is confined to the region, so the lock
+    // cannot see what it is cutting off -- it reads a clipped board and stays
+    // that way. So a board that comes within a cell or two of its own edge
+    // pushes that edge out, keeping headroom ahead of where the shoe is going.
+    if (this.region) this.region = widenFor(this.region, board, w, h);
+
+    this.onRead(board.sequence, this.lastBoard, this.repeats, { afterClear });
+    if (afterClear && this.repeats >= CONFIRM_GROWTH) this.cleared = false;
     this._emit();
   }
 
@@ -3187,6 +3249,31 @@ function diagnose(current, incoming) {
 
 
 const centreOf = (box) => ({ x: (box.x + box.x2) / 2, y: (box.y + box.y2) / 2 });
+
+/**
+ * The locked strip, pushed outward wherever `board` has reached its edge.
+ *
+ * It only ever grows, and only up to the frame: a lock that could tighten
+ * would chase a board that had already been clipped into a corner. Distances
+ * are in marks rather than pixels, because a mark is the size the board grows
+ * by and the only scale on screen that means anything here.
+ */
+function widenFor(region, board, frameW, frameH) {
+  const d = board.diameter || 20;
+  const margin = Math.max(48, d * 1.5);       // headroom kept ahead of the board
+  const step = Math.max(80, d * 3);           // and how much is added when it runs out
+  let x = region.x, y = region.y;
+  let x2 = region.x + region.w, y2 = region.y + region.h;
+
+  if (board.box.x - x < margin) x -= step;
+  if (x2 - board.box.x2 < margin) x2 += step;
+  if (board.box.y - y < margin) y -= step;
+  if (y2 - board.box.y2 < margin) y2 += step;
+
+  x = Math.max(0, x); y = Math.max(0, y);
+  x2 = Math.min(frameW, x2); y2 = Math.min(frameH, y2);
+  return { x, y, w: x2 - x, h: y2 - y };
+}
 
 /**
  * The board to read: the one being followed, as long as it is still credible.
@@ -3484,6 +3571,7 @@ let integrityRun = null;
 let live = null;            // LiveWatcher, created on first use
 let lastReport = null;      // kept so a language change can redraw the verdict
 let liveHolds = 0;          // consecutive readings shorter than the shoe in progress
+let liveCleared = false;    // the strip was last seen empty, so the log says so once
 
 const newShoeId = () => "S" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 
@@ -3710,16 +3798,23 @@ function liveLog(text, kind) {
   while (box.children.length > 40) box.lastChild.remove();
 }
 
-function onLiveRead(seq, board, repeats) {
+function onLiveRead(seq, board, repeats, { afterClear = false } = {}) {
   const current = openShoe().o;
   const verdict = diagnose(current, seq);
   // Reading the big road is not a failure -- it is the same coups -- but it
   // loses ties and folds long runs, so it must never pass unremarked.
   const road = board.kind === "bead" ? null : t("live.bigRoadWarn");
 
+  // The strip was watched going empty, so a reading that is not the same board
+  // carrying on is the next shoe. Saying so here is what lets a new shoe that
+  // opens on the same two or three marks as the last one through: without it
+  // the reading shares a prefix, reads as a truncated board, and stalls behind
+  // the warning meant for a bead plate that has been cropped or scrolled.
+  const restart = afterClear && (verdict === "hold" || verdict === "reset");
+
   if (verdict === "same") { liveHolds = 0; setLiveWarn(road); return; }
 
-  if (verdict === "hold") {
+  if (verdict === "hold" && !restart) {
     liveHolds += 1;
     if (liveHolds >= 4) {
       setLiveWarn(
@@ -3740,6 +3835,12 @@ function onLiveRead(seq, board, repeats) {
   liveHolds = 0;
   setLiveWarn(road);
 
+  // A reset costs the shoe in progress, so it normally has to be seen three
+  // times running. Where the strip was watched going empty that agreement has
+  // already been paid for -- the emptiness is the confirmation -- so the new
+  // shoe registers on the same evidence as any other change.
+  const enough = restart ? CONFIRM_GROWTH : CONFIRM_RESET;
+
   if (verdict === "grow" && repeats >= CONFIRM_GROWTH) {
     const added = seq.length - current.length;
     replaceCurrentShoe(seq);
@@ -3747,7 +3848,7 @@ function onLiveRead(seq, board, repeats) {
       n: added, total: seq.length,
       sides: [...seq.slice(current.length)].map(side).join(" "),
     }));
-  } else if (verdict === "reset" && repeats >= CONFIRM_RESET) {
+  } else if ((restart || verdict === "reset") && repeats >= enough) {
     loadAsNewShoe(seq);
     liveLog(t("live.logNewShoe", { n: seq.length }), "new");
   }
@@ -3802,9 +3903,13 @@ function onLiveState(st) {
 
   live.drawPreview($("liveCanvas"));
 
+  // An empty strip that is still locked is a shoe change, not a lost screen,
+  // and it must not be reported as one: telling someone to check their screen
+  // sharing while the table is simply between shoes sends them fixing what is
+  // not broken.
   const dot = $("liveDot");
   const found = !!st.board;
-  dot.className = "livedot " + (found ? "on" : "searching");
+  dot.className = "livedot " + (found ? "on" : st.cleared ? "waiting" : "searching");
   const ago = st.lastReadAt ? Math.round((Date.now() - st.lastReadAt) / 1000) : null;
   const via = t(st.source === "camera" ? "live.sourceCamera" : "live.sourceScreen");
   $("liveStatus").textContent = found
@@ -3813,7 +3918,12 @@ function onLiveState(st) {
         lock: t(st.locked ? "live.locked" : "live.locking"),
         ago,
       }) + " · " + via
-    : t("live.searching");
+    : st.cleared ? t("live.cleared") + " · " + via : t("live.searching");
+
+  // The gap between a shoe ending and the next one being readable can run to
+  // minutes, so the moment itself goes in the log rather than only the status.
+  if (st.cleared && !liveCleared) liveLog(t("live.logCleared"), "new");
+  liveCleared = st.cleared;
 }
 
 function renderLiveError(code, source) {
