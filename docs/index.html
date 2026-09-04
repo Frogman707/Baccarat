@@ -737,6 +737,12 @@ const S = {
     "zh-Hant": "讀到 {read} 局，比目前牌靴的 {cur} 局還短。珠盤路可能被裁切或捲動 — 請確認畫面上看得到完整珠盤路。",
     "zh-Hans": "读到 {read} 局，比当前牌靴的 {cur} 局还短。珠盘路可能被裁切或滚动 — 请确认画面上看得到完整珠盘路。",
   },
+  "live.bigRoadWarn": {
+    ko: "지금 읽고 있는 건 구슬판이 아니라 대로입니다. 대로에는 타이가 표시되지 않고 6줄을 넘는 연속이 옆으로 꺾이므로 순서가 어긋날 수 있습니다 — 구슬판이 화면에 보이게 한 뒤 <b>영역 다시 찾기</b>를 누르세요.",
+    en: "This is the big road, not the bead plate. The big road omits ties and turns a run past six rows sideways, so the order can come out wrong — bring the bead plate into view and press <b>find the board again</b>.",
+    "zh-Hant": "目前讀取的是大路而非珠盤路。大路不顯示和局，且超過六列的連莊會向右轉折，順序可能出錯 — 請讓珠盤路顯示在畫面上，再按<b>重新尋找區域</b>。",
+    "zh-Hans": "当前读取的是大路而非珠盘路。大路不显示和局，且超过六行的连庄会向右转折，顺序可能出错 — 请让珠盘路显示在画面上，再按<b>重新寻找区域</b>。",
+  },
   "live.shortSwap": { ko: "{n}판으로 교체", en: "Replace with {n}", "zh-Hant": "替換為 {n} 局", "zh-Hans": "替换为 {n} 局" },
   "live.retry": { ko: "다시 시도", en: "Try again", "zh-Hant": "重試", "zh-Hans": "重试" },
   "live.toPaste": { ko: "캡처 붙여넣기로 전환", en: "Switch to pasting a capture", "zh-Hant": "改用貼上截圖", "zh-Hans": "改用粘贴截图" },
@@ -2274,9 +2280,37 @@ function detectBoards(imageData, { region = null, minCells = 8 } = {}) {
 
   return {
     boards,
-    bounds: unionBox(boards),
+    bounds: unionBox(stripBoards(boards)),
     diameter: boards.length ? boards[0].diameter : 0,
   };
+}
+
+/**
+ * The boards that belong to the same result strip as the best one.
+ *
+ * A casino screen is not only its strip. A live table carries a video feed and
+ * a betting panel, both full of the same reds and blues, and a run of them can
+ * pass every test a board has to pass -- a clock face on the felt reads as ten
+ * blue marks in a tidy row. Folding those into the strip box drags it up into
+ * moving video, and the live watcher then locks its search region onto pixels
+ * that change every frame.
+ *
+ * What actually separates them is layout: a result strip is one horizontal
+ * band, with the derived roads beside and below the bead plate at a comparable
+ * scale. Anything that shares no vertical band with the best board, or whose
+ * marks are a different order of size, is somewhere else on the screen.
+ */
+function stripBoards(boards) {
+  if (!boards.length) return boards;
+  const best = boards[0];
+  return boards.filter((b) => {
+    if (b === best) return true;
+    const overlap = Math.min(b.box.y2, best.box.y2) - Math.max(b.box.y, best.box.y);
+    const shorter = Math.min(b.box.y2 - b.box.y, best.box.y2 - best.box.y);
+    if (overlap < shorter * 0.25) return false;
+    const ratio = Math.max(b.diameter, best.diameter) / Math.min(b.diameter, best.diameter);
+    return ratio <= 4;
+  });
 }
 
 /** The box containing every board found -- the whole result strip. */
@@ -2476,6 +2510,30 @@ const CONFIRM_GROWTH = 2;
 const CONFIRM_RESET = 3;
 /** Failed reads inside the locked region before falling back to a full search. */
 const LOCK_PATIENCE = 3;
+/**
+ * How far below the best board on the frame the one being followed may fall
+ * before the anchor stops protecting it.
+ *
+ * The anchor exists to stop the reading hopping between boards as a strip
+ * fills in, not to defend a bad first choice. Without a floor it does the
+ * latter: one frame where the bead plate was missed leaves the anchor on the
+ * big road, and every frame after that hands the reading to a board scoring a
+ * fifteenth as well -- which drops ties and folds runs past six rows.
+ */
+const PICK_TOLERANCE = 0.5;
+/**
+ * Samples between full-screen re-checks, so a bad lock heals on its own.
+ *
+ * Twelve is about twenty seconds at the default interval -- long enough that
+ * the extra full-frame search costs nothing, short enough that nobody sits
+ * watching the wrong board for long. Inside a locked region a board is scored
+ * against its own neighbours only, so a lock holding just the big road scores
+ * a fraction of what the bead plate scores on the whole screen, and the
+ * comparison below moves the lock back.
+ */
+const RECHECK_EVERY = 12;
+/** Marks needed to call something a board: fewer once the strip is located. */
+const COLD_CELLS = 8, LOCKED_CELLS = 3;
 
 class LiveWatcher {
   /**
@@ -2668,7 +2726,29 @@ class LiveWatcher {
     ctx.drawImage(v, 0, 0, w, h);
     const frame = ctx.getImageData(0, 0, w, h);
 
-    const { boards, bounds } = detectBoards(frame, { region: this.region });
+    // Inside a located strip three marks are coups, not coincidence, so a shoe
+    // is read from its opening hands instead of waiting for eight. A cold
+    // full-screen search keeps the higher bar, where anything red or blue can
+    // turn up.
+    let { boards, bounds } = detectBoards(frame, {
+      region: this.region,
+      minCells: this.region ? LOCKED_CELLS : COLD_CELLS,
+    });
+
+    // Every so often, look at the whole screen again. If the strip is clearly
+    // elsewhere -- the window moved, or the first lock landed on the wrong
+    // thing -- this is what lets go of it.
+    if (this.region && this.reads > 0 && this.reads % RECHECK_EVERY === 0) {
+      const full = detectBoards(frame, { minCells: COLD_CELLS });
+      const here = boards.length ? boards[0].score : 0;
+      if (full.boards.length && full.boards[0].score > here * 1.25) {
+        boards = full.boards;
+        bounds = full.bounds;
+        this.region = null;
+        this.anchor = null;
+      }
+    }
+
     if (!boards.length && this.region) {
       this.misses += 1;
       if (this.misses >= LOCK_PATIENCE) { this.region = null; this.misses = 0; }
@@ -2678,8 +2758,11 @@ class LiveWatcher {
     if (!boards.length) { this.lastBoard = null; this._emit(); return; }
 
     // Prefer the board this run has been reading, so a strip that gains a
-    // derived road between frames does not move the reading somewhere else.
-    const board = this.anchor ? nearestTo(boards, this.anchor) : boards[0];
+    // derived road between frames does not move the reading somewhere else --
+    // but only among boards still worth reading, so the preference cannot
+    // outlive the reason for it.
+    const board = pickBoard(boards, this.anchor);
+    this.anchor = centreOf(board.box);
     this.misses = 0;
     this.bounds = bounds;
     this.lastBoard = { ...board, frameWidth: w, frameHeight: h };
@@ -2699,7 +2782,6 @@ class LiveWatcher {
         x: bounds.x - pad, y: bounds.y - pad,
         w: bounds.x2 - bounds.x + pad * 2, h: bounds.y2 - bounds.y + pad * 2,
       };
-      this.anchor = { x: (board.box.x + board.box.x2) / 2, y: (board.box.y + board.box.y2) / 2 };
     }
 
     this.onRead(board.sequence, this.lastBoard, this.repeats);
@@ -2740,6 +2822,24 @@ function diagnose(current, incoming) {
   return incoming.length > current.length ? "grow" : "hold";
 }
 
+
+const centreOf = (box) => ({ x: (box.x + box.x2) / 2, y: (box.y + box.y2) / 2 });
+
+/**
+ * The board to read: the one being followed, as long as it is still credible.
+ *
+ * Boards arrive best-first. With no anchor the best one wins outright; with
+ * one, the choice is made among those within `PICK_TOLERANCE` of the best, so
+ * following a board survives it gaining a column but not it turning out to be
+ * the wrong board.
+ */
+function pickBoard(boards, anchor) {
+  if (!boards.length) return null;
+  if (!anchor) return boards[0];
+  const floor = boards[0].score * PICK_TOLERANCE;
+  const credible = boards.filter((b) => b.score >= floor);
+  return nearestTo(credible.length ? credible : boards, anchor);
+}
 
 /** The board whose centre is closest to `point`, falling back to the best. */
 function nearestTo(boards, point) {
@@ -3243,8 +3343,11 @@ function liveLog(text, kind) {
 function onLiveRead(seq, board, repeats) {
   const current = openShoe().o;
   const verdict = diagnose(current, seq);
+  // Reading the big road is not a failure -- it is the same coups -- but it
+  // loses ties and folds long runs, so it must never pass unremarked.
+  const road = board.kind === "bead" ? null : t("live.bigRoadWarn");
 
-  if (verdict === "same") { liveHolds = 0; setLiveWarn(null); return; }
+  if (verdict === "same") { liveHolds = 0; setLiveWarn(road); return; }
 
   if (verdict === "hold") {
     liveHolds += 1;
@@ -3265,7 +3368,7 @@ function onLiveRead(seq, board, repeats) {
   }
 
   liveHolds = 0;
-  setLiveWarn(null);
+  setLiveWarn(road);
 
   if (verdict === "grow" && repeats >= CONFIRM_GROWTH) {
     const added = seq.length - current.length;
@@ -3285,7 +3388,11 @@ function setLiveWarn(text, action) {
   if (!text) { box.hidden = true; box.innerHTML = ""; return; }
   box.hidden = false;
   box.innerHTML = "";
-  box.appendChild(el("span", null, text));
+  // The warnings are i18n strings from this build, and two of them mark the
+  // control they are telling you to press, so they carry markup.
+  const line = el("span");
+  line.innerHTML = text;
+  box.appendChild(line);
   if (action) {
     const b = el("button", "btn ghost", action.label);
     b.style.marginLeft = "8px";
