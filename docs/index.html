@@ -214,6 +214,18 @@ h2{font-size:14px; font-weight:600; margin:0 0 3px; letter-spacing:-.005em}
 .aifact .v{font-family:var(--mono); font-size:13px; font-variant-numeric:tabular-nums}
 .aifact .v.neg{color:var(--banker)}
 .aifact .v small{font-family:var(--sans); font-size:10.5px; color:var(--ink-3); margin-left:3px}
+.obshead{display:flex; align-items:baseline; justify-content:space-between; gap:10px;
+         margin:17px 0 8px; padding-top:14px; border-top:1px solid var(--line)}
+.obssub{font-size:11px; color:var(--ink-3); font-family:var(--mono);
+        font-variant-numeric:tabular-nums; text-align:right}
+/* The observed bars are the evidence, not the headline: same geometry as the
+   prediction so the two read against each other, drawn a step quieter. */
+.aibar.obs .track{height:7px; background:var(--surface-2)}
+.aibar.obs .track i{opacity:.55}
+.aibar.obs .p{font-size:12.5px; font-weight:400}
+.aibar.obs .c{font-family:var(--mono); font-size:10.5px; color:var(--ink-3);
+              text-align:right; font-variant-numeric:tabular-nums}
+.aibar.obs{grid-template-columns:64px 1fr 50px 38px; margin-bottom:6px}
 .ainote{font-size:11.5px; color:var(--ink-3); line-height:1.55; margin:13px 0 0}
 .aiwarn{font-size:11.5px; line-height:1.55; margin:10px 0 0; padding:9px 11px;
         border-radius:8px; border:1px solid var(--banker); color:var(--ink-2);
@@ -461,12 +473,19 @@ footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
   <section class="panel c5" id="aiPanel">
     <h2 data-i18n="ai.h"></h2>
     <p class="sub" data-i18n="ai.sub"></p>
+    <div class="blabel" data-i18n="ai.next"></div>
     <div id="aiBars"></div>
     <div class="airec">
       <span class="k" data-i18n="ai.recommend"></span>
       <span class="v" id="aiSide"></span>
     </div>
     <div class="aigrid" id="aiFacts"></div>
+    <div class="obshead">
+      <span class="blabel" data-i18n="ai.overall"></span>
+      <span class="obssub" id="aiOverallSub"></span>
+    </div>
+    <div id="aiOverall"></div>
+    <p class="ainote" id="aiOverallNote"></p>
     <p class="ainote" id="aiWhy"></p>
     <p class="aiwarn" id="aiDisclaimer"></p>
   </section>
@@ -901,6 +920,33 @@ const S = {
     "zh-Hant": "百家樂兩邊的期望值皆為負。此推薦只是兩者中較不吃虧的一邊，並不能保證獲利。",
     "zh-Hans": "百家乐两边的期望值皆为负。此推荐只是两者中较不吃亏的一边，并不能保证盈利。",
   },
+  "ai.overall": { ko: "전체 확률", en: "Observed so far", "zh-Hant": "實際出現比率", "zh-Hans": "实际出现比率" },
+  "ai.overallSub": {
+    ko: "이 테이블에서 실제로 나온 비율 · {shoes}슈 {coups}판",
+    en: "What has actually come out at this table · {coups} coups over {shoes} shoes",
+    "zh-Hant": "本桌實際出現的比率 · {shoes} 靴 {coups} 局",
+    "zh-Hans": "本桌实际出现的比率 · {shoes} 靴 {coups} 局",
+  },
+  "ai.overallCount": { ko: "{n}판", en: "{n}", "zh-Hant": "{n} 局", "zh-Hans": "{n} 局" },
+  "ai.overallEmpty": {
+    ko: "아직 판이 없습니다. 결과가 들어오는 대로 여기에 쌓입니다.",
+    en: "No coups yet. They accumulate here as results arrive.",
+    "zh-Hant": "尚無局數。結果進來後會累積在這裡。",
+    "zh-Hans": "尚无局数。结果进来后会累积在这里。",
+  },
+  "ai.overallNote": {
+    ko: "<b>전체 확률</b>은 실제로 나온 비율이고, <b>다음 판 예측</b>은 공정한 슈를 기준으로 삼아 그쪽으로 강하게 당겨진 값입니다. 그래서 한두 판으로는 예측이 거의 움직이지 않습니다 — 그게 정상입니다. 슈가 쌓일수록 예측이 실측 쪽으로 옮겨갑니다. 지금 옮겨간 폭은 {delta}%p입니다.",
+    en: "<b>Observed so far</b> is what actually came out; the <b>next coup</b> figure is pulled hard toward a fair shoe. That is why a coup or two barely moves it — as designed. The more shoes pile up, the further it moves toward the observed rate. So far it has moved {delta}pp.",
+    "zh-Hant": "<b>實際出現比率</b>是真正開出的結果，<b>下一局預測</b>則是被強力拉向公正牌靴的值。因此一兩局幾乎不會讓它變動 — 這是正常的。牌靴累積越多，預測就越靠近實測。目前已移動 {delta}%p。",
+    "zh-Hans": "<b>实际出现比率</b>是真正开出的结果，<b>下一局预测</b>则是被强力拉向公正牌靴的值。因此一两局几乎不会让它变动 — 这是正常的。牌靴累积越多，预测就越靠近实测。目前已移动 {delta}%p。",
+  },
+  "ai.overallNotePrior": {
+    ko: "<b>전체 확률</b>은 실제로 나온 비율입니다. <b>다음 판 예측</b>은 아직 공정한 슈의 기본값 그대로입니다 — 타이를 뺀 판이 30판을 넘어야 실측을 섞기 시작합니다. 지금 {n}판.",
+    en: "<b>Observed so far</b> is what actually came out. The <b>next coup</b> figure is still the fair-shoe baseline — it starts folding in the observed rate past 30 decided coups. It has {n}.",
+    "zh-Hant": "<b>實際出現比率</b>是真正開出的結果。<b>下一局預測</b>仍是公正牌靴的基準值 — 扣除和局後超過 30 局才會開始混入實測。目前 {n} 局。",
+    "zh-Hans": "<b>实际出现比率</b>是真正开出的结果。<b>下一局预测</b>仍是公正牌靴的基准值 — 扣除和局后超过 30 局才会开始混入实测。目前 {n} 局。",
+  },
+  "ai.next": { ko: "다음 판 예측", en: "Next coup", "zh-Hant": "下一局預測", "zh-Hans": "下一局预测" },
   "ai.perCoup": { ko: "판당", en: "per coup", "zh-Hant": "每局", "zh-Hans": "每局" },
 
   /* ---------------------------------------------------------- state tiles */
@@ -3665,7 +3711,7 @@ function measure() {
       n++; if (ch === "B") b++;
     }
   }
-  if (!n) return { n: 0, coups, ties, shoes: list.length };
+  if (!n) return { n: 0, coups, ties, shoes: list.length, banker: 0, player: 0 };
 
   const q = b / n;
   // Within-shoe clustering inflates the true standard error above the
@@ -3677,6 +3723,7 @@ function measure() {
   const se = Math.sqrt((q * (1 - q)) / n) * inflate;
   return {
     n, coups, ties, shoes: list.length, q, se, inflate,
+    banker: b, player: n - b,
     lo: Math.max(0, q - 1.96 * se), hi: Math.min(1, q + 1.96 * se),
   };
 }
@@ -3777,12 +3824,62 @@ function renderPrediction() {
     grid.appendChild(row);
   }
 
+  renderObserved(p);
+
   const why = [t("ai.whyBase")];
   if (!p.informed || p.moved < 0.0002) why.push(t("ai.whyThin", { n: p.n }));
   else why.push(t("ai.whyMoved", { n: p.n, delta: (p.moved * 100).toFixed(2) }));
   why.push(t("ai.crossover", { q: pct(SIDE_CROSSOVER, 4), z: p.z.toFixed(1) }));
   $("aiWhy").textContent = why.join(" ");
   $("aiDisclaimer").textContent = t("ai.disclaimer");
+}
+
+/**
+ * What has actually come out at this table.
+ *
+ * The prediction above it is a posterior against a fair-shoe prior a fraction
+ * of a percentage point wide, so a coup moves it by almost nothing and the
+ * panel reads as frozen while results pour in. It is not frozen; it is
+ * shrunk, and the honest way to show that is to put the raw rate beside it and
+ * say by how much the two differ. This is also the number that answers "what
+ * is this table doing", which the posterior deliberately refuses to.
+ */
+function renderObserved(p) {
+  const o = observed();
+  const box = $("aiOverall"), note = $("aiOverallNote");
+  const sub = $("aiOverallSub");
+  box.innerHTML = "";
+
+  if (!o.coups) {
+    sub.textContent = "";
+    note.textContent = t("ai.overallEmpty");
+    return;
+  }
+
+  sub.textContent = t("ai.overallSub", { shoes: o.shoes, coups: o.coups });
+  const counts = { P: o.player || 0, B: o.banker || 0, T: o.ties };
+  for (const code of ["P", "B", "T"]) {
+    const share = counts[code] / o.coups;
+    const row = el("div", "aibar obs " + code);
+    row.appendChild(el("span", "n", side(code)));
+    const track = el("div", "track");
+    const fill = el("i");
+    // The same 0.5 full-scale as the prediction, so a bar here sits directly
+    // under the one above it and the gap between them is the whole point.
+    fill.style.width = Math.min(100, (share / 0.5) * 100) + "%";
+    track.appendChild(fill);
+    row.appendChild(track);
+    row.appendChild(el("span", "p", pct(share, 1)));
+    row.appendChild(el("span", "c", t("ai.overallCount", { n: counts[code] })));
+    box.appendChild(row);
+  }
+
+  // Below the blending threshold the posterior is the prior exactly, and
+  // reporting that it has moved 0.000pp reads as a broken number rather than
+  // as the deliberate silence it is.
+  note.innerHTML = p.informed
+    ? t("ai.overallNote", { delta: (p.moved * 100).toFixed(3) })
+    : t("ai.overallNotePrior", { n: o.n });
 }
 
 /* ---------------------------------------------------------------- render */
