@@ -2777,6 +2777,9 @@ class LiveWatcher {
     this.reads = 0;
     this.error = null;
     this.source = null;      // "screen" or "camera", for the error advice
+    this.preview = null;     // canvas the feed is painted into
+    this.previewHandle = null;
+    this.previewOwner = null;
   }
 
   get active() { return !!this.stream; }
@@ -2805,7 +2808,11 @@ class LiveWatcher {
    */
   async start() {
     return this._begin("screen", () => navigator.mediaDevices.getDisplayMedia({
-      video: { frameRate: 4 },
+      // A cap, not a floor: screen capture sends a frame when the screen
+      // changes, so a table sitting still costs nothing either way. Four was
+      // enough when the preview only repainted once a reading; now that it
+      // paints every frame, four is what a choppy preview looks like.
+      video: { frameRate: { ideal: 15 } },
       audio: false,
       // Nudges Chrome's picker toward the tab list, which is what a viewer
       // watching a browser-based table almost always wants.
@@ -2828,6 +2835,11 @@ class LiveWatcher {
         facingMode: { ideal: "environment" },
         width: { ideal: 1920 },
         height: { ideal: 1080 },
+        // Aiming a phone at a screen is a hand-eye task: the preview is what
+        // you line the bead plate up with, so it has to move like a camera
+        // and not like a slideshow. The detector still reads at its own much
+        // slower interval -- these frames are for the person, not for it.
+        frameRate: { ideal: 30 },
       },
       audio: false,
     }));
@@ -2871,6 +2883,7 @@ class LiveWatcher {
     }
 
     this._reset();
+    this._startPreview();
     this.timer = setInterval(() => this._sample(), this.intervalMs);
     this._sample();
     this._emit();
@@ -2880,6 +2893,7 @@ class LiveWatcher {
   stop() {
     if (this.timer) clearInterval(this.timer);
     this.timer = null;
+    this._stopPreview();
     if (this.stream) for (const t of this.stream.getTracks()) t.stop();
     this.stream = null;
     if (this.video) { this.video.srcObject = null; this.video = null; }
@@ -3004,20 +3018,84 @@ class LiveWatcher {
   }
 
   /**
-   * Paint the most recent frame into `target`: the whole result strip stays
-   * lit, everything else dims, and the board being read is outlined with its
-   * cells ringed, so it is obvious both what is being watched and what is
-   * actually being counted.
+   * Paint the feed into `target`, and keep painting it.
+   *
+   * The preview used to be drawn once per reading, from the frame the reader
+   * had just analysed -- so a camera producing thirty frames a second was
+   * shown at two thirds of one. That is fine for a shared tab, which barely
+   * changes, and useless for a camera, where the preview is the thing you aim
+   * with. So the two are separated: the reader keeps its slow interval, and
+   * the picture runs at the rate the frames actually arrive.
    */
   drawPreview(target) {
-    const v = this.video, board = this.lastBoard;
-    if (!v || !v.videoWidth || !this.canvas) return false;
-    const w = this.canvas.width, h = this.canvas.height;
-    target.width = w; target.height = h;
+    this.preview = target;
+    return this._paintPreview();
+  }
+
+  /**
+   * Ask to be called back for the next frame.
+   *
+   * `requestVideoFrameCallback` fires once per decoded frame, which is exactly
+   * the cadence wanted: a camera at thirty frames a second paints thirty
+   * times, and a shared tab held at four paints four times instead of
+   * repainting an unchanged picture sixty. Where it is missing, the animation
+   * frame is the honest fallback.
+   */
+  _queuePreview(step) {
+    const v = this.video;
+    if (v && typeof v.requestVideoFrameCallback === "function") {
+      this.previewOwner = v;
+      this.previewHandle = v.requestVideoFrameCallback(step);
+    } else {
+      this.previewOwner = null;
+      this.previewHandle = requestAnimationFrame(step);
+    }
+  }
+
+  _startPreview() {
+    this._stopPreview();
+    const step = () => {
+      this.previewHandle = null;
+      if (!this.stream) return;
+      this._paintPreview();
+      this._queuePreview(step);
+    };
+    this._queuePreview(step);
+  }
+
+  _stopPreview() {
+    if (this.previewHandle === null) return;
+    if (this.previewOwner?.cancelVideoFrameCallback) {
+      this.previewOwner.cancelVideoFrameCallback(this.previewHandle);
+    } else {
+      cancelAnimationFrame(this.previewHandle);
+    }
+    this.previewHandle = null;
+    this.previewOwner = null;
+  }
+
+  /**
+   * One frame: the live picture, then the strip lit and the board outlined.
+   *
+   * The overlay comes from the last reading rather than this frame, which is
+   * what makes the separation work -- the region is locked, so the box belongs
+   * where it was drawn until the reader moves it.
+   */
+  _paintPreview() {
+    const v = this.video, target = this.preview;
+    if (!target || !v || !v.videoWidth) return false;
+
+    // Working resolution, so the overlay's coordinates land where they belong.
+    const scale = Math.min(1, WORK_MAX / Math.max(v.videoWidth, v.videoHeight));
+    const w = Math.round(v.videoWidth * scale), h = Math.round(v.videoHeight * scale);
+    // Assigning width or height clears and reallocates the canvas, so it is
+    // only worth doing when the frame size actually changed.
+    if (target.width !== w || target.height !== h) { target.width = w; target.height = h; }
+
     const ctx = target.getContext("2d");
-    ctx.drawImage(this.canvas, 0, 0);
-    if (!board) return true;
-    drawStrip(ctx, this.canvas, this.bounds || board.box, board);
+    ctx.drawImage(v, 0, 0, w, h);
+    const board = this.lastBoard;
+    if (board) drawStrip(ctx, target, this.bounds || board.box, board);
     return true;
   }
 }
@@ -3082,9 +3160,15 @@ function drawStrip(ctx, source, bounds, board) {
   const bh = Math.min(h - by, bounds.y2 - bounds.y + pad * 2);
 
   ctx.save();
+  // Dim everything outside the strip with four rectangles. Filling the whole
+  // frame and painting the bright part back over it gives the same picture,
+  // but costs a second upload of the source every frame -- which the preview
+  // now pays thirty times a second rather than once a reading.
   ctx.fillStyle = "rgba(0,0,0,0.6)";
-  ctx.fillRect(0, 0, w, h);
-  ctx.drawImage(source, bx, by, bw, bh, bx, by, bw, bh);
+  ctx.fillRect(0, 0, w, by);
+  ctx.fillRect(0, by + bh, w, h - by - bh);
+  ctx.fillRect(0, by, bx, bh);
+  ctx.fillRect(bx + bw, by, w - bx - bw, bh);
 
   ctx.strokeStyle = css.getPropertyValue("--accent").trim();
   ctx.lineWidth = 2;
