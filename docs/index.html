@@ -229,31 +229,11 @@ h2{font-size:14px; font-weight:600; margin:0 0 3px; letter-spacing:-.005em}
          margin:17px 0 8px; padding-top:14px; border-top:1px solid var(--line)}
 .obssub{font-size:11px; color:var(--ink-3); font-family:var(--mono);
         font-variant-numeric:tabular-nums; text-align:right}
-/* The observed bars are the evidence, not the headline: same geometry as the
-   prediction so the two read against each other, drawn a step quieter. */
-.aibar.obs .track{height:7px; background:var(--surface-2)}
-.aibar.obs .track i{opacity:.55}
-.aibar.obs .p{font-size:12.5px; font-weight:400}
-.aibar.obs .c{font-family:var(--mono); font-size:10.5px; color:var(--ink-3);
-              text-align:right; font-variant-numeric:tabular-nums}
-.aibar.obs{grid-template-columns:64px 1fr 50px 38px; margin-bottom:6px}
-/* The wager's own three outcomes, each carrying what it pays: the commission
-   on a Banker win is the term that decides the whole question, so it sits on
-   the row rather than in a footnote. */
-/* One row each, full width: the break-even figure beside the win rate is a
-   long enough caption that a half-width cell wraps it into its own label. */
-#aiSuccess{grid-template-columns:1fr; gap:0; margin-bottom:12px}
-#aiSuccess .aifact{padding:6px 0}
-#aiSuccess .aifact:last-child{border-bottom:none}
-.aibar.bet{grid-template-columns:82px 1fr 62px 44px; margin-bottom:6px}
-.aibar.bet .track{height:7px; background:var(--surface-2)}
-.aibar.bet .track i{opacity:.55}
-.aibar.bet .n{display:flex; align-items:baseline; gap:5px; font-size:12.5px}
-.aibar.bet .n small{font-family:var(--mono); font-size:10px; color:var(--ink-3);
-                    font-variant-numeric:tabular-nums}
-.aibar.bet .p{font-size:12.5px; font-weight:400}
-.aibar.bet .c{font-family:var(--mono); font-size:10.5px; color:var(--ink-3);
-              text-align:right; font-variant-numeric:tabular-nums}
+/* One row each, full width: these are figures with captions, not a chart, and
+   a half-width cell wraps the caption into the label beside it. */
+#aiLedger{grid-template-columns:1fr; gap:0; margin-bottom:12px}
+#aiLedger .aifact{padding:6px 0}
+#aiLedger .aifact:last-child{border-bottom:none}
 .ainote{font-size:11.5px; color:var(--ink-3); line-height:1.55; margin:13px 0 0}
 .aiwarn{font-size:11.5px; line-height:1.55; margin:10px 0 0; padding:9px 11px;
         border-radius:8px; border:1px solid var(--banker); color:var(--ink-2);
@@ -515,8 +495,7 @@ footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
       <span class="blabel" id="aiOverallH"></span>
       <span class="obssub" id="aiOverallSub"></span>
     </div>
-    <div class="aigrid" id="aiSuccess"></div>
-    <div id="aiOverall"></div>
+    <div class="aigrid" id="aiLedger"></div>
     <p class="ainote" id="aiOverallNote"></p>
     <p class="ainote" id="aiWhy"></p>
     <p class="aiwarn" id="aiDisclaimer"></p>
@@ -952,48 +931,51 @@ const S = {
     "zh-Hant": "百家樂兩邊的期望值皆為負。此推薦只是兩者中較不吃虧的一邊，並不能保證獲利。",
     "zh-Hans": "百家乐两边的期望值皆为负。此推荐只是两者中较不吃亏的一边，并不能保证盈利。",
   },
-  "ai.overallCount": { ko: "{n}판", en: "{n}", "zh-Hant": "{n} 局", "zh-Hans": "{n} 局" },
   "ai.betH": {
-    ko: "AI 추천({side}) 배팅 결과", en: "Backing the pick ({side})",
-    "zh-Hant": "依 AI 推薦（{side}）下注的結果", "zh-Hans": "依 AI 推荐（{side}）下注的结果",
+    ko: "AI 추천 배팅 결과", en: "Backing the pick, in full",
+    "zh-Hant": "依 AI 推薦下注的總結果", "zh-Hans": "依 AI 推荐下注的总结果",
   },
-  "ai.successRate": {
-    ko: "성공 확률", en: "Win rate", "zh-Hant": "成功機率", "zh-Hans": "成功概率",
-  },
-  "ai.successBreakeven": {
-    ko: "무효 제외 · 손익분기 {n}", en: "of settled coups · break-even {n}",
-    "zh-Hant": "不計和局 · 損益平衡 {n}", "zh-Hans": "不计和局 · 损益平衡 {n}",
-  },
-  "ai.successActual": {
-    ko: "실제 성공률", en: "Actually won", "zh-Hant": "實際成功率", "zh-Hans": "实际成功率",
-  },
-  "ai.successRecord": {
-    ko: "{w}승 {l}패", en: "{w} won, {l} lost", "zh-Hant": "{w} 勝 {l} 敗", "zh-Hans": "{w} 胜 {l} 败",
-  },
-  "ai.successNone": {
-    ko: "승부난 판 없음", en: "nothing settled yet",
-    "zh-Hant": "尚無已分勝負的局", "zh-Hans": "尚无已分胜负的局",
-  },
-  "ai.bet.win": { ko: "이김", en: "Wins", "zh-Hant": "贏", "zh-Hans": "赢" },
-  "ai.bet.lose": { ko: "짐", en: "Loses", "zh-Hant": "輸", "zh-Hans": "输" },
-  "ai.bet.push": { ko: "무효", en: "Push", "zh-Hant": "和局退還", "zh-Hans": "和局退还" },
-  "ai.betReturned": { ko: "반환", en: "returned", "zh-Hant": "退還", "zh-Hans": "退还" },
   "ai.betSub": {
-    ko: "이 테이블 {shoes}슈 {coups}판", en: "{coups} coups over {shoes} shoes here",
-    "zh-Hant": "本桌 {shoes} 靴 {coups} 局", "zh-Hans": "本桌 {shoes} 靴 {coups} 局",
+    ko: "이 테이블 {shoes}슈 {coups}판 전부", en: "all {coups} coups over {shoes} shoes here",
+    "zh-Hant": "本桌 {shoes} 靴 {coups} 局全部", "zh-Hans": "本桌 {shoes} 靴 {coups} 局全部",
   },
-  "ai.betSubEmpty": { ko: "아직 판 없음", en: "no coups yet", "zh-Hant": "尚無局數", "zh-Hans": "尚无局数" },
+  "ai.betSubEmpty": { ko: "아직 배팅할 판 없음", en: "nothing bet yet", "zh-Hant": "尚無可下注的局", "zh-Hans": "尚无可下注的局" },
+  "ai.unit": { ko: "유닛", en: "u", "zh-Hant": " 單位", "zh-Hans": " 单位" },
+
+  "ai.ledgerUnits": { ko: "누적 손익", en: "Net", "zh-Hant": "累計損益", "zh-Hans": "累计损益" },
+  "ai.ledgerPerBet": { ko: "배팅한 판당 {n}", en: "{n} per bet", "zh-Hant": "每注 {n}", "zh-Hans": "每注 {n}" },
+  "ai.ledgerBets": { ko: "배팅한 판", en: "Coups bet", "zh-Hant": "已下注局數", "zh-Hans": "已下注局数" },
+  "ai.ledgerCoups": { ko: "{n}판", en: "{n}", "zh-Hant": "{n} 局", "zh-Hans": "{n} 局" },
+  "ai.ledgerPushes": {
+    ko: "타이 {n}판은 판돈 반환", en: "{n} ties returned the stake",
+    "zh-Hant": "和局 {n} 次退還本金", "zh-Hans": "和局 {n} 次退还本金",
+  },
+  "ai.ledgerRecord": { ko: "전적", en: "Record", "zh-Hant": "戰績", "zh-Hans": "战绩" },
+  "ai.ledgerWonLost": { ko: "{w}승 {l}패", en: "{w}W {l}L", "zh-Hant": "{w} 勝 {l} 敗", "zh-Hans": "{w} 胜 {l} 败" },
+  "ai.ledgerWinRate": { ko: "승률 {n}", en: "{n} won", "zh-Hant": "勝率 {n}", "zh-Hans": "胜率 {n}" },
+  "ai.ledgerDrawdown": { ko: "최대 낙폭", en: "Worst drawdown", "zh-Hant": "最大回撤", "zh-Hans": "最大回撤" },
+  "ai.ledgerPeak": { ko: "고점 {n}", en: "high point {n}", "zh-Hant": "高點 {n}", "zh-Hans": "高点 {n}" },
+  "ai.ledgerSplit": { ko: "추천이 갈린 쪽", en: "Which side was picked", "zh-Hant": "推薦落在哪邊", "zh-Hans": "推荐落在哪边" },
+  "ai.ledgerSplitValue": {
+    ko: "뱅커 {b} · 플레이어 {p}", en: "Banker {b} · Player {p}",
+    "zh-Hant": "莊 {b} · 閒 {p}", "zh-Hans": "庄 {b} · 闲 {p}",
+  },
+  "ai.ledgerSplitSub": {
+    ko: "매 판 다시 계산한 결과", en: "recomputed at every coup",
+    "zh-Hant": "每局重新計算的結果", "zh-Hans": "每局重新计算的结果",
+  },
+
   "ai.betNote": {
-    ko: "아래 세 줄은 <b>무효를 포함한 전체 판</b> 기준이라 합이 100%입니다 — 위의 성공 확률은 승부가 난 판만 센 값이라 더 높습니다. 배당은 각 줄에 있습니다: 뱅커는 이겨도 커미션 5%를 떼고 <b>0.95배</b>만 받고, 그 항 하나 때문에 과반을 이겨도 손익분기에 못 미칠 수 있습니다. 이 테이블 {coups}판에 계속 걸었다면 기댓값은 <b>{units}유닛</b>, 실제로는 <b>{actual}유닛</b>이었습니다. (추천 자체가 이 데이터에서 나왔으므로 자기 데이터로 채점한 값입니다.)",
-    en: "The three rows below cover <b>every coup, ties included</b>, so they sum to 100% — the win rate above counts only settled coups and is higher. What each outcome pays is on its row: a Banker win returns <b>0.95</b> after the 5% commission, and that one term is why winning more than half can still fall short of break-even. Backing that side through all {coups} coups here, the expectation was <b>{units} units</b> and the actual result <b>{actual} units</b>. (The pick came from this same data, so this is scored against itself.)",
-    "zh-Hant": "下方三列涵蓋<b>包含和局的全部局數</b>，因此合計 100% — 上方的成功機率只計已分勝負的局，故較高。各列標示該結果的賠付：莊贏須扣 5% 佣金，只賠 <b>0.95 倍</b>，正因這一項，贏過半數仍可能達不到損益平衡。本桌 {coups} 局全都押同一邊，期望值為 <b>{units} 單位</b>，實際結果是 <b>{actual} 單位</b>。（推薦本身出自這批資料，因此是以自身資料評分。）",
-    "zh-Hans": "下方三行涵盖<b>包含和局的全部局数</b>，因此合计 100% — 上方的成功概率只计已分胜负的局，故较高。各行标示该结果的赔付：庄赢须扣 5% 佣金，只赔 <b>0.95 倍</b>，正因这一项，赢过半数仍可能达不到损益平衡。本桌 {coups} 局全都押同一边，期望值为 <b>{units} 单位</b>，实际结果是 <b>{actual} 单位</b>。（推荐本身出自这批数据，因此是以自身数据评分。）",
+    ko: "{coups}판을 하나씩 되돌리며, <b>그 시점까지의 결과만으로</b> 추천을 다시 계산해 그 쪽에 1유닛씩 걸었을 때의 합계입니다. 앞을 보지 않으므로 자기 데이터로 자기를 채점하는 문제가 없습니다. 타이는 판돈이 돌아오므로 배팅 판수에서 빠지고, 뱅커로 이긴 판은 커미션 5%를 떼고 0.95유닛만 받습니다. 공정한 테이블이라면 판당 −1.06%(뱅커)에서 −1.24%(플레이어) 사이로 수렴합니다 — 추천을 따라도 그 구간을 벗어나지 못한다는 것이 이 표가 말하는 바입니다.",
+    en: "The sum of replaying all {coups} coups one at a time, recomputing the pick from <b>only the coups before each one</b> and putting a unit on it. Nothing looks ahead, so this is not the pick scored against the data that produced it. Ties return the stake and so are not counted as bets; a Banker win pays 0.95 after the 5% commission. On a fair table this settles between −1.06% a coup (Banker) and −1.24% (Player) — that following the pick does not escape that band is what this table is here to show.",
+    "zh-Hant": "把全部 {coups} 局逐一重播，每一局都<b>只用該局之前的結果</b>重新計算推薦並押上 1 單位的合計。不看未來，因此不是拿產生推薦的資料替自己評分。和局退還本金故不計入下注局數；莊贏須扣 5% 佣金，只得 0.95 單位。公正的桌台會收斂在每局 −1.06%（莊）到 −1.24%（閒）之間 — 跟著推薦也走不出這個區間，正是本表要說明的。",
+    "zh-Hans": "把全部 {coups} 局逐一重播，每一局都<b>只用该局之前的结果</b>重新计算推荐并押上 1 单位的合计。不看未来，因此不是拿产生推荐的数据替自己评分。和局退还本金故不计入下注局数；庄赢须扣 5% 佣金，只得 0.95 单位。公正的桌台会收敛在每局 −1.06%（庄）到 −1.24%（闲）之间 — 跟着推荐也走不出这个区间，正是本表要说明的。",
   },
   "ai.betNoteEmpty": {
-    ko: "아래 세 줄은 <b>무효를 포함한 전체 판</b> 기준이라 합이 100%이고, 위의 성공 확률은 승부가 난 판만 센 값이라 더 높습니다. 100판 걸면 기댓값 <b>{units}유닛</b>입니다. 결과를 넣으면 이 테이블에서 실제로 어땠는지도 함께 나옵니다.",
-    en: "The three rows below cover <b>every coup, ties included</b>, so they sum to 100%; the win rate above counts only settled coups and is higher. Over 100 coups the expectation is <b>{units} units</b>. Enter results and what it would actually have returned here appears alongside.",
-    "zh-Hant": "下方三列涵蓋<b>包含和局的全部局數</b>，合計 100%；上方的成功機率只計已分勝負的局，故較高。下注 100 局的期望值為 <b>{units} 單位</b>。輸入結果後，本桌的實際成績也會一併顯示。",
-    "zh-Hans": "下方三行涵盖<b>包含和局的全部局数</b>，合计 100%；上方的成功概率只计已分胜负的局，故较高。下注 100 局的期望值为 <b>{units} 单位</b>。输入结果后，本桌的实际成绩也会一并显示。",
+    ko: "결과를 넣으면, 그 판들을 하나씩 되돌리며 <b>그 시점까지의 결과만으로</b> 추천을 다시 계산해 그 쪽에 걸었을 때의 누적 손익이 여기에 쌓입니다.",
+    en: "Enter results and this fills in: every coup replayed in order, the pick recomputed from <b>only what came before it</b>, and what backing it adds up to.",
+    "zh-Hant": "輸入結果後，這裡會顯示：逐局重播，每局<b>只用之前的結果</b>重新計算推薦並下注，累計損益為何。",
+    "zh-Hans": "输入结果后，这里会显示：逐局重播，每局<b>只用之前的结果</b>重新计算推荐并下注，累计损益为何。",
   },
   "ai.deltaLabel": {
     ko: "최근 한 판의 변화 %p", en: "change from the last coup, pp",
@@ -2696,6 +2678,79 @@ function posterior(sample = {}) {
   };
 }
 
+/**
+ * What backing the recommendation would actually have come to.
+ *
+ * Not the probabilities again -- those are the prediction, and showing them a
+ * second time relabelled says nothing new. This walks the corpus one coup at a
+ * time and settles a wager on each: at every coup the pick is recomputed from
+ * the coups *before* it only, a unit goes on that side, and the result is
+ * added up. Nothing here sees a coup before betting on it, which is the whole
+ * point -- scoring a pick against the data that produced it flatters it.
+ *
+ * A tie returns the stake, so it is neither a win nor a loss and does not
+ * count as a bet. A Banker win pays 0.95 after commission; everything else
+ * pays or costs one.
+ *
+ * `deff` is the clustering discount. It is estimated once over the whole
+ * corpus rather than re-estimated at each coup: it says how much a shoe's
+ * coups repeat each other, not which side is going to win, so it cannot leak
+ * the answer -- and using it keeps this replay on the same footing as the
+ * estimate the panel shows live.
+ */
+function replayPicks(sequences, { deff = 1, commission = 0.05 } = {}) {
+  const step = 1 / Math.max(1, deff);
+  let a = PRIOR_A, b = PRIOR_B, tieA = TIE_PRIOR_A, tieB = TIE_PRIOR_B;
+
+  let bets = 0, wins = 0, losses = 0, pushes = 0, coups = 0;
+  let units = 0, peak = 0, drawdown = 0, best = 0, worst = 0;
+  let bankerBets = 0, playerBets = 0;
+
+  for (const seq of sequences) {
+    for (const outcome of seq) {
+      coups += 1;
+
+      // decide on what was knowable at the time
+      const q = a / (a + b);
+      const tie = tieA / (tieA + tieB);
+      const e = edges(q, tie);
+      const pick = e.B >= e.P ? "B" : "P";
+
+      if (outcome === "T") {
+        pushes += 1;
+      } else {
+        bets += 1;
+        if (pick === "B") bankerBets += 1; else playerBets += 1;
+        if (outcome === pick) {
+          wins += 1;
+          units += pick === "B" ? 1 - commission : 1;
+        } else {
+          losses += 1;
+          units -= 1;
+        }
+        peak = Math.max(peak, units);
+        drawdown = Math.min(drawdown, units - peak);
+        best = Math.max(best, units);
+        worst = Math.min(worst, units);
+      }
+
+      // and only then learn from it
+      if (outcome === "T") tieA += step;
+      else {
+        tieB += step;
+        if (outcome === "B") a += step; else b += step;
+      }
+    }
+  }
+
+  return {
+    coups, bets, wins, losses, pushes, units, drawdown, best, worst,
+    bankerBets, playerBets,
+    winRate: bets ? wins / bets : 0,
+    perBet: bets ? units / bets : 0,
+  };
+}
+
 /* ═══ live.js ═══ */
 /* Watch the table's screen live.
  *
@@ -4045,7 +4100,7 @@ function renderPrediction() {
     grid.appendChild(row);
   }
 
-  renderBetOutcome(p);
+  renderBetOutcome();
 
   const why = [t("ai.whyBase")];
   if (!p.informed || p.moved < 0.0002) why.push(t("ai.whyThin", { n: p.n }));
@@ -4093,125 +4148,77 @@ function deltaChip(delta) {
 }
 
 /**
- * What betting the recommendation actually comes to.
+ * What backing the recommendation actually came to at this table.
  *
- * The three probabilities above are about the table; this is about the wager,
- * which is the thing a person is deciding. Backing the pick every coup has
- * three outcomes -- it wins, the other side wins, or the coup ties and the
- * stake comes back -- and they are the same three numbers rearranged around
- * the bet, with what each one pays attached. Banker pays 0.95 rather than 1,
- * and that commission is the entire reason the better side is not the
- * profitable side; a panel that shows the probability without the payout hides
- * exactly the term that decides the question.
+ * This block used to show the wager's three outcomes -- wins, loses, push --
+ * which are the prediction's own three probabilities relabelled. Printing the
+ * same numbers twice under a different heading tells a reader nothing they did
+ * not already have two inches higher up.
  *
- * Beside each row is what this table has actually produced, so the estimate and
- * the record sit together: what the bet is expected to return per hundred
- * coups, and what backing that side through every coup collected here would
- * have returned in fact.
+ * A result is a different thing from a probability. `replayPicks` settles a
+ * wager on every coup this table has produced, recomputing the pick each time
+ * from the coups before it only, and this shows what that adds up to: units
+ * won or lost, how many coups were actually bet, the record, the worst the
+ * running total ever got, and which way the picks fell -- which is also the
+ * answer to why the recommendation can look stuck on one side.
  */
-/**
- * How often the bet wins, on the basis that word is usually meant.
- *
- * The three rows below cover every coup, ties included, so the winning row
- * reads 45.9% -- which looks like a bet that loses more than it wins. It is
- * not: a tie returns the stake, and of the coups that actually settle, the
- * pick takes 50.7%. Both are true and they differ by nearly five points, so
- * showing only the first understates the wager and showing only the second
- * hides that a tenth of coups pay nothing either way.
- *
- * Beside it sits the number that decides the question: the share of settled
- * coups the bet has to win to break even, which for Banker is 51.28% because
- * of the commission. Winning more than half and still losing money is the
- * whole shape of this game, and it is only visible with the two side by side.
- */
-function renderSuccessRate(p) {
-  const o = observed();
-  const grid = $("aiSuccess");
-  grid.innerHTML = "";
+let ledgerCache = null;
 
-  const other = p.pick === "B" ? "P" : "B";
-  const settled = p.probability[p.pick] + p.probability[other];
-  const rate = settled > 0 ? p.probability[p.pick] / settled : 0;
-  const breakeven = p.pick === "B" ? BANKER_BREAKEVEN : PLAYER_BREAKEVEN;
-
-  const wins = p.pick === "B" ? (o.banker || 0) : (o.player || 0);
-  const losses = p.pick === "B" ? (o.player || 0) : (o.banker || 0);
-  const decided = wins + losses;
-
-  const rows = [
-    { k: t("ai.successRate"), v: pct(rate, 3), good: rate > breakeven,
-      sub: t("ai.successBreakeven", { n: pct(breakeven, 3) }) },
-    decided
-      ? { k: t("ai.successActual"), v: pct(wins / decided, 1),
-          good: wins / decided > breakeven,
-          sub: t("ai.successRecord", { w: wins, l: losses }) }
-      : { k: t("ai.successActual"), v: "—", sub: t("ai.successNone") },
-  ];
-  for (const r of rows) {
-    const row = el("div", "aifact");
-    row.appendChild(el("span", "k", r.k));
-    const v = el("span", "v" + (r.good === false ? " neg" : ""), r.v);
-    v.appendChild(el("small", null, r.sub));
-    row.appendChild(v);
-    grid.appendChild(row);
+function ledger() {
+  if (ledgerCache && ledgerCache.revision === revision && ledgerCache.table === state.active) {
+    return ledgerCache.value;
   }
+  const o = observed();
+  const deff = Number.isFinite(o.inflate) ? Math.max(1, o.inflate ** 2) : 1;
+  const value = replayPicks(shoes().map((s) => s.o).filter(Boolean), { deff });
+  ledgerCache = { revision, table: state.active, value };
+  return value;
 }
 
-function renderBetOutcome(p) {
+function renderBetOutcome() {
   const o = observed();
-  const box = $("aiOverall"), note = $("aiOverallNote"), sub = $("aiOverallSub");
-  box.innerHTML = "";
-  $("aiOverallH").textContent = t("ai.betH", { side: side(p.pick) });
-  renderSuccessRate(p);
+  const r = ledger();
+  const grid = $("aiLedger"), note = $("aiOverallNote"), sub = $("aiOverallSub");
+  grid.innerHTML = "";
+  $("aiOverallH").textContent = t("ai.betH");
 
-  const other = p.pick === "B" ? "P" : "B";
-  const winPay = p.pick === "B" ? 1 - BANKER_COMMISSION : 1;
-  const wins = p.pick === "B" ? (o.banker || 0) : (o.player || 0);
-  const losses = p.pick === "B" ? (o.player || 0) : (o.banker || 0);
-
-  sub.textContent = o.coups
-    ? t("ai.betSub", { shoes: o.shoes, coups: o.coups })
-    : t("ai.betSubEmpty");
-
-  const rows = [
-    { kind: "win", code: p.pick, prob: p.probability[p.pick],
-      pay: "+" + winPay.toFixed(2), n: wins },
-    { kind: "lose", code: other, prob: p.probability[other], pay: "−1.00", n: losses },
-    { kind: "push", code: "T", prob: p.probability.T, pay: t("ai.betReturned"), n: o.ties },
-  ];
-  for (const r of rows) {
-    const row = el("div", "aibar bet " + r.code);
-    const name = el("span", "n", t("ai.bet." + r.kind));
-    name.appendChild(el("small", null, r.pay));
-    row.appendChild(name);
-    const track = el("div", "track");
-    const fill = el("i");
-    // The same 0.5 full-scale as the prediction above, because these are the
-    // same three numbers relabelled around the bet: "wins" is the pick's own
-    // probability. Drawing one of them at a different length than the other
-    // would say they were different quantities.
-    fill.style.width = Math.min(100, (r.prob / 0.5) * 100) + "%";
-    track.appendChild(fill);
-    row.appendChild(track);
-    row.appendChild(el("span", "p", pct(r.prob, 3)));
-    row.appendChild(el("span", "c", o.coups ? t("ai.overallCount", { n: r.n }) : ""));
-    box.appendChild(row);
-  }
-
-  if (!o.coups) {
-    note.innerHTML = t("ai.betNoteEmpty", { units: (p.edge * 100).toFixed(2) });
+  if (!r.bets) {
+    sub.textContent = t("ai.betSubEmpty");
+    note.innerHTML = t("ai.betNoteEmpty");
     return;
   }
+  sub.textContent = t("ai.betSub", { shoes: o.shoes, coups: o.coups.toLocaleString() });
 
-  // Both figures over the same number of coups. Quoting the expectation per
-  // hundred beside an actual result over thirty-two invites reading a losing
-  // bet as a winning one.
-  const signed = (x) => (x >= 0 ? "+" : "\u2212") + Math.abs(x).toFixed(2);
-  note.innerHTML = t("ai.betNote", {
-    units: signed(p.edge * o.coups),
-    actual: signed(wins * winPay - losses),
-    coups: o.coups,
-  });
+  const signed = (x, d = 2) => (x >= 0 ? "+" : "\u2212") + Math.abs(x).toFixed(d);
+  const rows = [
+    { k: t("ai.ledgerUnits"), v: signed(r.units) + t("ai.unit"), good: r.units >= 0,
+      sub: t("ai.ledgerPerBet", { n: signed(r.perBet * 100) + "%" }) },
+    { k: t("ai.ledgerBets"), v: t("ai.ledgerCoups", { n: r.bets.toLocaleString() }),
+      sub: t("ai.ledgerPushes", { n: r.pushes.toLocaleString() }) },
+    { k: t("ai.ledgerRecord"),
+      v: t("ai.ledgerWonLost", { w: r.wins.toLocaleString(), l: r.losses.toLocaleString() }),
+      sub: t("ai.ledgerWinRate", { n: pct(r.winRate, 2) }) },
+    // The high-water mark, not the low one: paired with the deepest fall from a
+    // peak it says how far the run swung, where the running low is often just
+    // zero and repeats the drawdown besides.
+    { k: t("ai.ledgerDrawdown"), v: signed(r.drawdown) + t("ai.unit"),
+      good: r.drawdown >= 0,
+      sub: t("ai.ledgerPeak", { n: signed(r.best) }) },
+    { k: t("ai.ledgerSplit"),
+      v: t("ai.ledgerSplitValue", { b: r.bankerBets.toLocaleString(),
+                                    p: r.playerBets.toLocaleString() }),
+      sub: t("ai.ledgerSplitSub") },
+  ];
+  for (const row of rows) {
+    const line = el("div", "aifact");
+    line.appendChild(el("span", "k", row.k));
+    const v = el("span", "v" + (row.good === false ? " neg" : ""), row.v);
+    if (row.sub) v.appendChild(el("small", null, row.sub));
+    line.appendChild(v);
+    grid.appendChild(line);
+  }
+
+  note.innerHTML = t("ai.betNote", { coups: r.coups.toLocaleString() });
 }
 
 /* ---------------------------------------------------------------- render */
