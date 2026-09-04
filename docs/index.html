@@ -240,6 +240,11 @@ h2{font-size:14px; font-weight:600; margin:0 0 3px; letter-spacing:-.005em}
 /* The wager's own three outcomes, each carrying what it pays: the commission
    on a Banker win is the term that decides the whole question, so it sits on
    the row rather than in a footnote. */
+/* One row each, full width: the break-even figure beside the win rate is a
+   long enough caption that a half-width cell wraps it into its own label. */
+#aiSuccess{grid-template-columns:1fr; gap:0; margin-bottom:12px}
+#aiSuccess .aifact{padding:6px 0}
+#aiSuccess .aifact:last-child{border-bottom:none}
 .aibar.bet{grid-template-columns:82px 1fr 62px 44px; margin-bottom:6px}
 .aibar.bet .track{height:7px; background:var(--surface-2)}
 .aibar.bet .track i{opacity:.55}
@@ -510,6 +515,7 @@ footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
       <span class="blabel" id="aiOverallH"></span>
       <span class="obssub" id="aiOverallSub"></span>
     </div>
+    <div class="aigrid" id="aiSuccess"></div>
     <div id="aiOverall"></div>
     <p class="ainote" id="aiOverallNote"></p>
     <p class="ainote" id="aiWhy"></p>
@@ -948,8 +954,25 @@ const S = {
   },
   "ai.overallCount": { ko: "{n}판", en: "{n}", "zh-Hant": "{n} 局", "zh-Hans": "{n} 局" },
   "ai.betH": {
-    ko: "AI 추천({side})으로 배팅했을 때", en: "Backing the pick ({side})",
-    "zh-Hant": "依 AI 推薦（{side}）下注時", "zh-Hans": "依 AI 推荐（{side}）下注时",
+    ko: "AI 추천({side}) 배팅 결과", en: "Backing the pick ({side})",
+    "zh-Hant": "依 AI 推薦（{side}）下注的結果", "zh-Hans": "依 AI 推荐（{side}）下注的结果",
+  },
+  "ai.successRate": {
+    ko: "성공 확률", en: "Win rate", "zh-Hant": "成功機率", "zh-Hans": "成功概率",
+  },
+  "ai.successBreakeven": {
+    ko: "무효 제외 · 손익분기 {n}", en: "of settled coups · break-even {n}",
+    "zh-Hant": "不計和局 · 損益平衡 {n}", "zh-Hans": "不计和局 · 损益平衡 {n}",
+  },
+  "ai.successActual": {
+    ko: "실제 성공률", en: "Actually won", "zh-Hant": "實際成功率", "zh-Hans": "实际成功率",
+  },
+  "ai.successRecord": {
+    ko: "{w}승 {l}패", en: "{w} won, {l} lost", "zh-Hant": "{w} 勝 {l} 敗", "zh-Hans": "{w} 胜 {l} 败",
+  },
+  "ai.successNone": {
+    ko: "승부난 판 없음", en: "nothing settled yet",
+    "zh-Hant": "尚無已分勝負的局", "zh-Hans": "尚无已分胜负的局",
   },
   "ai.bet.win": { ko: "이김", en: "Wins", "zh-Hant": "贏", "zh-Hans": "赢" },
   "ai.bet.lose": { ko: "짐", en: "Loses", "zh-Hant": "輸", "zh-Hans": "输" },
@@ -961,16 +984,16 @@ const S = {
   },
   "ai.betSubEmpty": { ko: "아직 판 없음", en: "no coups yet", "zh-Hant": "尚無局數", "zh-Hans": "尚无局数" },
   "ai.betNote": {
-    ko: "AI 추천대로 매 판 같은 쪽에 걸었을 때의 확률입니다. 배당은 각 줄에 있습니다 — 뱅커는 이겨도 커미션 5%를 떼고 <b>0.95배</b>만 받고, 그 항 하나가 “더 자주 이기는 쪽”과 “수익이 나는 쪽”을 갈라놓습니다. 이 테이블 {coups}판에 계속 걸었다면 기댓값은 <b>{units}유닛</b>, 실제로는 <b>{actual}유닛</b>이었습니다. (추천 자체가 이 데이터에서 나왔으므로 자기 데이터로 채점한 값입니다.)",
-    en: "The odds of backing the pick on every coup. What each outcome pays is on its row — a Banker win returns <b>0.95</b> after the 5% commission, and that one term is what separates the side that wins more often from the side that makes money. Backing that side through all {coups} coups here, the expectation was <b>{units} units</b> and the actual result <b>{actual} units</b>. (The pick came from this same data, so this is scored against itself.)",
-    "zh-Hant": "依 AI 推薦每局下注同一邊的機率。各行標示該結果的賠付 — 莊贏須扣 5% 佣金，只賠 <b>0.95 倍</b>，而正是這一項把「贏得比較多的一邊」和「能獲利的一邊」分開。本桌 {coups} 局全都押同一邊，期望值為 <b>{units} 單位</b>，實際結果是 <b>{actual} 單位</b>。（推薦本身出自這批資料，因此是以自身資料評分。）",
-    "zh-Hans": "依 AI 推荐每局下注同一边的概率。各行标示该结果的赔付 — 庄赢须扣 5% 佣金，只赔 <b>0.95 倍</b>，而正是这一项把“赢得比较多的一边”和“能盈利的一边”分开。本桌 {coups} 局全都押同一边，期望值为 <b>{units} 单位</b>，实际结果是 <b>{actual} 单位</b>。（推荐本身出自这批数据，因此是以自身数据评分。）",
+    ko: "아래 세 줄은 <b>무효를 포함한 전체 판</b> 기준이라 합이 100%입니다 — 위의 성공 확률은 승부가 난 판만 센 값이라 더 높습니다. 배당은 각 줄에 있습니다: 뱅커는 이겨도 커미션 5%를 떼고 <b>0.95배</b>만 받고, 그 항 하나 때문에 과반을 이겨도 손익분기에 못 미칠 수 있습니다. 이 테이블 {coups}판에 계속 걸었다면 기댓값은 <b>{units}유닛</b>, 실제로는 <b>{actual}유닛</b>이었습니다. (추천 자체가 이 데이터에서 나왔으므로 자기 데이터로 채점한 값입니다.)",
+    en: "The three rows below cover <b>every coup, ties included</b>, so they sum to 100% — the win rate above counts only settled coups and is higher. What each outcome pays is on its row: a Banker win returns <b>0.95</b> after the 5% commission, and that one term is why winning more than half can still fall short of break-even. Backing that side through all {coups} coups here, the expectation was <b>{units} units</b> and the actual result <b>{actual} units</b>. (The pick came from this same data, so this is scored against itself.)",
+    "zh-Hant": "下方三列涵蓋<b>包含和局的全部局數</b>，因此合計 100% — 上方的成功機率只計已分勝負的局，故較高。各列標示該結果的賠付：莊贏須扣 5% 佣金，只賠 <b>0.95 倍</b>，正因這一項，贏過半數仍可能達不到損益平衡。本桌 {coups} 局全都押同一邊，期望值為 <b>{units} 單位</b>，實際結果是 <b>{actual} 單位</b>。（推薦本身出自這批資料，因此是以自身資料評分。）",
+    "zh-Hans": "下方三行涵盖<b>包含和局的全部局数</b>，因此合计 100% — 上方的成功概率只计已分胜负的局，故较高。各行标示该结果的赔付：庄赢须扣 5% 佣金，只赔 <b>0.95 倍</b>，正因这一项，赢过半数仍可能达不到损益平衡。本桌 {coups} 局全都押同一边，期望值为 <b>{units} 单位</b>，实际结果是 <b>{actual} 单位</b>。（推荐本身出自这批数据，因此是以自身数据评分。）",
   },
   "ai.betNoteEmpty": {
-    ko: "AI 추천대로 매 판 같은 쪽에 걸었을 때의 확률입니다. 100판 걸면 기댓값 <b>{units}유닛</b>입니다. 결과를 넣으면 이 테이블에서 실제로 어땠는지도 함께 나옵니다.",
-    en: "The odds of backing the pick on every coup. Over 100 coups the expectation is <b>{units} units</b>. Enter results and what it would actually have returned here appears alongside.",
-    "zh-Hant": "依 AI 推薦每局下注同一邊的機率。下注 100 局的期望值為 <b>{units} 單位</b>。輸入結果後，本桌的實際成績也會一併顯示。",
-    "zh-Hans": "依 AI 推荐每局下注同一边的概率。下注 100 局的期望值为 <b>{units} 单位</b>。输入结果后，本桌的实际成绩也会一并显示。",
+    ko: "아래 세 줄은 <b>무효를 포함한 전체 판</b> 기준이라 합이 100%이고, 위의 성공 확률은 승부가 난 판만 센 값이라 더 높습니다. 100판 걸면 기댓값 <b>{units}유닛</b>입니다. 결과를 넣으면 이 테이블에서 실제로 어땠는지도 함께 나옵니다.",
+    en: "The three rows below cover <b>every coup, ties included</b>, so they sum to 100%; the win rate above counts only settled coups and is higher. Over 100 coups the expectation is <b>{units} units</b>. Enter results and what it would actually have returned here appears alongside.",
+    "zh-Hant": "下方三列涵蓋<b>包含和局的全部局數</b>，合計 100%；上方的成功機率只計已分勝負的局，故較高。下注 100 局的期望值為 <b>{units} 單位</b>。輸入結果後，本桌的實際成績也會一併顯示。",
+    "zh-Hans": "下方三行涵盖<b>包含和局的全部局数</b>，合计 100%；上方的成功概率只计已分胜负的局，故较高。下注 100 局的期望值为 <b>{units} 单位</b>。输入结果后，本桌的实际成绩也会一并显示。",
   },
   "ai.deltaLabel": {
     ko: "최근 한 판의 변화 %p", en: "change from the last coup, pp",
@@ -4002,11 +4025,60 @@ function deltaChip(delta) {
  * coups, and what backing that side through every coup collected here would
  * have returned in fact.
  */
+/**
+ * How often the bet wins, on the basis that word is usually meant.
+ *
+ * The three rows below cover every coup, ties included, so the winning row
+ * reads 45.9% -- which looks like a bet that loses more than it wins. It is
+ * not: a tie returns the stake, and of the coups that actually settle, the
+ * pick takes 50.7%. Both are true and they differ by nearly five points, so
+ * showing only the first understates the wager and showing only the second
+ * hides that a tenth of coups pay nothing either way.
+ *
+ * Beside it sits the number that decides the question: the share of settled
+ * coups the bet has to win to break even, which for Banker is 51.28% because
+ * of the commission. Winning more than half and still losing money is the
+ * whole shape of this game, and it is only visible with the two side by side.
+ */
+function renderSuccessRate(p) {
+  const o = observed();
+  const grid = $("aiSuccess");
+  grid.innerHTML = "";
+
+  const other = p.pick === "B" ? "P" : "B";
+  const settled = p.probability[p.pick] + p.probability[other];
+  const rate = settled > 0 ? p.probability[p.pick] / settled : 0;
+  const breakeven = p.pick === "B" ? BANKER_BREAKEVEN : PLAYER_BREAKEVEN;
+
+  const wins = p.pick === "B" ? (o.banker || 0) : (o.player || 0);
+  const losses = p.pick === "B" ? (o.player || 0) : (o.banker || 0);
+  const decided = wins + losses;
+
+  const rows = [
+    { k: t("ai.successRate"), v: pct(rate, 3), good: rate > breakeven,
+      sub: t("ai.successBreakeven", { n: pct(breakeven, 3) }) },
+    decided
+      ? { k: t("ai.successActual"), v: pct(wins / decided, 1),
+          good: wins / decided > breakeven,
+          sub: t("ai.successRecord", { w: wins, l: losses }) }
+      : { k: t("ai.successActual"), v: "—", sub: t("ai.successNone") },
+  ];
+  for (const r of rows) {
+    const row = el("div", "aifact");
+    row.appendChild(el("span", "k", r.k));
+    const v = el("span", "v" + (r.good === false ? " neg" : ""), r.v);
+    v.appendChild(el("small", null, r.sub));
+    row.appendChild(v);
+    grid.appendChild(row);
+  }
+}
+
 function renderBetOutcome(p) {
   const o = observed();
   const box = $("aiOverall"), note = $("aiOverallNote"), sub = $("aiOverallSub");
   box.innerHTML = "";
   $("aiOverallH").textContent = t("ai.betH", { side: side(p.pick) });
+  renderSuccessRate(p);
 
   const other = p.pick === "B" ? "P" : "B";
   const winPay = p.pick === "B" ? 1 - BANKER_COMMISSION : 1;
