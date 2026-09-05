@@ -86,7 +86,12 @@ main{max-width:1220px; margin:0 auto; padding:20px; display:grid;
 .panel{background:var(--surface); border:1px solid var(--line); border-radius:12px;
        padding:16px 18px; box-shadow:var(--shadow); min-width:0}
 .c12{grid-column:span 12} .c7{grid-column:span 7} .c5{grid-column:span 5}
-@media (max-width:940px){ .c7,.c5{grid-column:span 12} main{padding:14px; gap:13px} }
+.col{display:flex; flex-direction:column; gap:16px; min-width:0}
+@media (max-width:940px){
+  .c7,.c5{grid-column:span 12}
+  main{padding:14px; gap:13px}
+  .col{gap:13px}
+}
 h2{font-size:14px; font-weight:600; margin:0 0 3px; letter-spacing:-.005em}
 .sub{font-size:12px; color:var(--ink-3); margin:0 0 14px; line-height:1.5}
 .panel > .sub:last-child{margin-bottom:0}
@@ -279,7 +284,8 @@ h2{font-size:14px; font-weight:600; margin:0 0 3px; letter-spacing:-.005em}
         background:color-mix(in srgb, var(--banker) 7%, transparent)}
 
 /* ── stat tiles ─────────────────────────────────────────────────────── */
-#kpis{display:grid; grid-template-columns:1fr 1fr; gap:10px}
+#kpis{display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px}
+@media (max-width:1100px){ #kpis{grid-template-columns:1fr 1fr} }
 .tile{background:var(--surface-2); border:1px solid var(--line); border-radius:9px; padding:11px 12px}
 .tile .k{font-size:11px; color:var(--ink-3); letter-spacing:.02em}
 .tile .v{font-family:var(--mono); font-size:21px; font-weight:500; letter-spacing:-.02em;
@@ -441,7 +447,12 @@ footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
 </header>
 
 <main>
-  <section class="panel c7">
+  <!-- Left column: what you point at the table, and what it has collected.
+       They stack in one column rather than each taking a row of the page, so
+       the prediction's height is absorbed beside them instead of leaving a
+       band of empty ground under one of them. -->
+  <div class="col c7">
+  <section class="panel">
     <h2 data-i18n="capture.h"></h2>
     <p class="sub" data-i18n-html="capture.sub"></p>
 
@@ -517,6 +528,13 @@ footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
     </div>
   </section>
 
+  <section class="panel">
+    <h2 data-i18n="state.h"></h2>
+    <p class="sub" data-i18n="state.sub"></p>
+    <div id="kpis"></div>
+  </section>
+  </div>
+
   <section class="panel c5" id="aiPanel">
     <h2 data-i18n="ai.h"></h2>
     <p class="sub" data-i18n="ai.sub"></p>
@@ -540,12 +558,6 @@ footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
     <p class="ainote" id="aiOverallNote"></p>
     <p class="ainote" id="aiWhy"></p>
     <p class="aiwarn" id="aiDisclaimer"></p>
-  </section>
-
-  <section class="panel c5">
-    <h2 data-i18n="state.h"></h2>
-    <p class="sub" data-i18n="state.sub"></p>
-    <div id="kpis"></div>
   </section>
 
   <section class="panel c12">
@@ -2204,6 +2216,97 @@ function classifyPixel(r, g, b) {
   return NONE;
 }
 
+/**
+ * A blob too long to be a mark but shaped like a row of them.
+ *
+ * Solid, straight, and no wider at its narrow end than a mark -- a column of
+ * beads whose gaps closed. Rings and glyph-holed discs are round and never
+ * reach here, so the split below never touches them.
+ */
+function looksMerged(b, w, h) {
+  const short = Math.min(b.w, b.h), long = Math.max(b.w, b.h);
+  if (short < 6 || long <= short * 1.62) return false;
+  // A bead plate column holds six marks and a big road's at most six too, so
+  // fourteen marks' worth is already generous; anything longer is a banner or
+  // a border, not a row of beads. The bound is in marks rather than in the
+  // frame's own size, because a bar is a fraction of a shared screen and most
+  // of a cropped one, and it is the same bar either way.
+  if (long > short * 14) return false;
+  return b.n / (b.w * b.h) >= 0.55;
+}
+
+/** Roughly circular, by the same measure `keepMarks` uses. */
+function roundish(b) {
+  const aspect = b.w / b.h;
+  return aspect >= 0.62 && aspect <= 1.62 && b.w >= 6 && b.h >= 6;
+}
+
+/**
+ * One merged bar, cut back into the marks it was.
+ *
+ * Marks bleed into one another at the point where they nearly touch, so the
+ * bar is wide across each mark's middle and narrow between them: measuring its
+ * width along its length gives a row of humps with a dip at every join, and
+ * the dips are where to cut. Eroding the whole shape instead does not work --
+ * a bridge boxed in by the marks above and below it is interior, and loses
+ * only its ends however many times it is eroded.
+ */
+function unmerge(codes, w, h, bar) {
+  const vertical = bar.h >= bar.w;
+  const span = vertical ? bar.h : bar.w;
+  const width = new Int32Array(span);
+  for (let y = bar.minY; y <= bar.maxY; y++) {
+    for (let x = bar.minX; x <= bar.maxX; x++) {
+      if (codes[y * w + x] !== bar.code) continue;
+      width[vertical ? y - bar.minY : x - bar.minX] += 1;
+    }
+  }
+
+  let peak = 0;
+  for (const v of width) if (v > peak) peak = v;
+  const dip = peak * 0.75;
+
+  // Each run of narrow sections is one join; the cut goes down its middle.
+  const cuts = [];
+  let from = -1;
+  for (let i = 0; i < span; i++) {
+    const narrow = width[i] < dip;
+    if (narrow && from < 0) from = i;
+    if (!narrow && from >= 0) { cuts.push((from + i - 1) >> 1); from = -1; }
+  }
+  if (from >= 0) cuts.push((from + span - 1) >> 1);
+  // A narrow patch at either end is the bar's own rounded tip, not a join.
+  const joins = cuts.filter((c) => c > 2 && c < span - 3);
+  if (!joins.length) return [];
+
+  const edges = [-1, ...joins, span];
+  const out = [];
+  for (let k = 0; k < edges.length - 1; k++) {
+    const lo = edges[k] + 1, hi = edges[k + 1] - 1;
+    if (hi < lo) continue;
+    const y0 = vertical ? bar.minY + lo : bar.minY;
+    const y1 = vertical ? bar.minY + hi : bar.maxY;
+    const x0 = vertical ? bar.minX : bar.minX + lo;
+    const x1 = vertical ? bar.maxX : bar.minX + hi;
+    let n = 0, sx = 0, sy = 0, minX = w, maxX = -1, minY = h, maxY = -1;
+    for (let y = y0; y <= y1; y++) {
+      for (let x = x0; x <= x1; x++) {
+        if (codes[y * w + x] !== bar.code) continue;
+        n += 1; sx += x; sy += y;
+        if (x < minX) minX = x;
+        if (x > maxX) maxX = x;
+        if (y < minY) minY = y;
+        if (y > maxY) maxY = y;
+      }
+    }
+    if (!n) continue;
+    out.push({ code: bar.code, n, cx: sx / n, cy: sy / n,
+               minX, minY, maxX, maxY, w: maxX - minX + 1, h: maxY - minY + 1 });
+  }
+  const marks = out.filter(roundish);
+  return marks.length > 1 ? marks : [];
+}
+
 /** Connected components over the classified mask, 4-connectivity. */
 function labelBlobs(codes, w, h) {
   const seen = new Uint8Array(w * h);
@@ -2400,7 +2503,22 @@ function detectBoards(imageData, { region = null, minCells = 8 } = {}) {
   }
 
   const all = labelBlobs(codes, w, h);
-  const marks = keepMarks(all, w, h);
+  let marks = keepMarks(all, w, h);
+
+  // A run of one outcome is the most common thing on a baccarat board and the
+  // easiest to lose: screen sharing and camera photos both carry colour at
+  // half resolution, so the pixel or two between two marks of the same side
+  // bleeds shut and the whole column labels as a single bar. The bar fails the
+  // roundness test above, and the streak disappears from the reading. Splitting
+  // those bars back apart costs nothing on a clean screenshot, where there are
+  // none.
+  const bars = all.filter((b) => looksMerged(b, w, h));
+  if (bars.length) {
+    const split = [];
+    for (const bar of bars) split.push(...unmerge(codes, w, h, bar));
+    if (split.length) marks = marks.concat(keepMarks(split, w, h));
+  }
+
   if (marks.length < minCells) return { boards: [], bounds: null, diameter: 0 };
 
   for (const m of marks) { m.cx += x0; m.cy += y0; m.minX += x0; m.maxX += x0; m.minY += y0; m.maxY += y0; }
