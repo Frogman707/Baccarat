@@ -245,6 +245,29 @@ h2{font-size:14px; font-weight:600; margin:0 0 3px; letter-spacing:-.005em}
 .aibar.bet.win .track i{background:var(--tie)}
 .aibar.bet.lose .track i{background:var(--banker)}
 .aibar.bet.push .track i{background:var(--ink-3)}
+/* The coup just settled. It carries the outcome's own colour because it is one
+   event rather than a total, and it is the only line in the block that answers
+   "what did the last result do" -- so it sits above the running totals and is
+   given the weight of an answer. */
+.ailast{display:flex; align-items:baseline; justify-content:space-between; gap:12px;
+        margin:12px 0 11px; padding:9px 13px; border-radius:9px;
+        border:1px solid var(--line-2); background:var(--surface-2)}
+.ailast .k{font-size:11.5px; color:var(--ink-3)}
+.ailast .v{display:flex; align-items:baseline; gap:9px}
+.ailast .v b{font-size:13px; font-weight:600}
+.ailast .v i{font-family:var(--mono); font-style:normal; font-size:14px; font-weight:500;
+             font-variant-numeric:tabular-nums}
+.ailast.win{border-color:var(--tie); background:color-mix(in srgb, var(--tie) 8%, transparent)}
+.ailast.win .v i{color:var(--tie)}
+.ailast.lose{border-color:var(--banker); background:color-mix(in srgb, var(--banker) 8%, transparent)}
+.ailast.lose .v i{color:var(--banker)}
+.ailast.push .v i{color:var(--ink-3)}
+.ailast .v i.bump{animation:bump 1.1s ease-out; border-radius:5px; padding:1px 5px; margin:0 -5px}
+/* And the running row it landed on is lit for a moment, so the total and the
+   event read as the same thing happening. */
+.aibar.bet.landed .p{animation:bump 1.1s ease-out}
+.aibar.bet.landed .track i{opacity:1}
+
 /* One row each, full width: these are figures with captions, not a chart, and
    a half-width cell wraps the caption into the label beside it. */
 #aiLedger{grid-template-columns:1fr; gap:0; margin-top:12px; margin-bottom:12px}
@@ -511,6 +534,7 @@ footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
       <span class="blabel" id="aiOverallH"></span>
       <span class="obssub" id="aiOverallSub"></span>
     </div>
+    <div id="aiLast" class="ailast" hidden></div>
     <div id="aiOutcomes"></div>
     <div class="aigrid" id="aiLedger"></div>
     <p class="ainote" id="aiOverallNote"></p>
@@ -747,6 +771,11 @@ const S = {
     "zh-Hans": "先截图，再点<b>选择照片</b>；或长按粘贴",
   },
   "paste.pickFileTouch": { ko: "사진 선택 · 촬영", en: "Choose a photo", "zh-Hant": "選擇照片 · 拍攝", "zh-Hans": "选择照片 · 拍摄" },
+  "ai.lastH": { ko: "직전 판", en: "Last coup", "zh-Hant": "上一局", "zh-Hans": "上一局" },
+  "ai.lastPlay": {
+    ko: "{pick} 추천 → {came}", en: "picked {pick} → {came}",
+    "zh-Hant": "推薦{pick} → {came}", "zh-Hans": "推荐{pick} → {came}",
+  },
   "quick.title": { ko: "빠른 입력", en: "Quick entry", "zh-Hant": "快速輸入", "zh-Hans": "快速输入" },
 
   "live.start": { ko: "화면 공유 시작", en: "Start screen sharing", "zh-Hant": "開始畫面分享", "zh-Hans": "开始画面共享" },
@@ -1074,6 +1103,12 @@ const S = {
     en: "<b>No bet.</b> This table's Banker share is <b>{q}</b>, 95% interval <b>{lo}–{hi}</b>, inside the dead band. Until that interval clears one of the break-even lines entirely, neither side has positive expectation.",
     "zh-Hant": "<b>不下注。</b>本桌莊家比率為 <b>{q}</b>，95% 信賴區間 <b>{lo}–{hi}</b>，落在死區之內。在區間整段越過任一條損益平衡線之前，兩邊的期望值都不為正。",
     "zh-Hans": "<b>不下注。</b>本桌庄家比率为 <b>{q}</b>，95% 置信区间 <b>{lo}–{hi}</b>，落在死区之内。在区间整段越过任一条盈亏平衡线之前，两边的期望值都不为正。",
+  },
+  "scale.verdictStraddle": {
+    ko: "<b>베팅 안 함.</b> 이 테이블의 뱅커 비율 <b>{q}</b>은 {line} 손익분기선을 넘었지만, 95% 신뢰구간 <b>{lo}–{hi}</b>이 아직 그 선을 걸치고 있습니다. {n}판으로는 우연히도 이만큼 벌어집니다 — 구간이 선을 통째로 넘어가야 판단할 수 있습니다.",
+    en: "<b>No bet.</b> This table's Banker share of <b>{q}</b> is past the {line} break-even, but the 95% interval <b>{lo}–{hi}</b> still straddles that line. Chance alone spreads {n} coups this far — the interval has to clear the line entirely before it means anything.",
+    "zh-Hant": "<b>不下注。</b>本桌莊家比率 <b>{q}</b> 已越過{line}損益平衡線，但 95% 信賴區間 <b>{lo}–{hi}</b> 仍橫跨該線。僅 {n} 局，單憑運氣就能拉開這樣的差距 — 區間必須整段越過該線才具意義。",
+    "zh-Hans": "<b>不下注。</b>本桌庄家比率 <b>{q}</b> 已越过{line}盈亏平衡线，但 95% 置信区间 <b>{lo}–{hi}</b> 仍横跨该线。仅 {n} 局，单凭运气就能拉开这样的差距 — 区间必须整段越过该线才具意义。",
   },
   "scale.verdictBanker": {
     ko: "<b>이례적입니다.</b> 이 테이블의 뱅커 비율 신뢰구간(<b>{lo}–{hi}</b>)이 뱅커 손익분기선 <b>51.282%</b>를 통째로 넘습니다. 아래 무결성 검정을 돌려 판독 오류·덱 수·규칙 차이부터 배제하세요.",
@@ -2728,6 +2763,9 @@ function replayPicks(sequences, { deff = 1, commission = 0.05 } = {}) {
   let a = PRIOR_A, b = PRIOR_B, tieA = TIE_PRIOR_A, tieB = TIE_PRIOR_B;
 
   let bets = 0, wins = 0, losses = 0, pushes = 0, coups = 0;
+  // The coup this replay settled last, so a reader can see what the pick just
+  // did rather than only what every pick before it added up to.
+  let last = null;
   let units = 0, peak = 0, drawdown = 0, best = 0, worst = 0;
   let bankerBets = 0, playerBets = 0;
 
@@ -2743,16 +2781,21 @@ function replayPicks(sequences, { deff = 1, commission = 0.05 } = {}) {
 
       if (outcome === "T") {
         pushes += 1;
+        last = { pick, outcome, kind: "push", paid: 0, units };
       } else {
         bets += 1;
         if (pick === "B") bankerBets += 1; else playerBets += 1;
+        let paid;
         if (outcome === pick) {
           wins += 1;
-          units += pick === "B" ? 1 - commission : 1;
+          paid = pick === "B" ? 1 - commission : 1;
+          units += paid;
         } else {
           losses += 1;
+          paid = -1;
           units -= 1;
         }
+        last = { pick, outcome, kind: paid > 0 ? "win" : "lose", paid, units };
         peak = Math.max(peak, units);
         drawdown = Math.min(drawdown, units - peak);
         best = Math.max(best, units);
@@ -2769,6 +2812,7 @@ function replayPicks(sequences, { deff = 1, commission = 0.05 } = {}) {
   }
 
   return {
+    last,
     coups, bets, wins, losses, pushes, units, drawdown, best, worst,
     bankerBets, playerBets,
     winRate: bets ? wins / bets : 0,
@@ -4184,7 +4228,7 @@ function predict() {
 function renderPrediction() {
   const p = predict();
 
-  const moves = trackPrediction(p);
+  const { moves, fresh } = trackPrediction(p);
   const bars = $("aiBars");
   bars.innerHTML = "";
   for (const code of ["P", "B", "T"]) {
@@ -4200,7 +4244,7 @@ function renderPrediction() {
     // at: one coup shifts it by about seven thousandths of a point, and a
     // number rounded to one decimal sits still for a hundred hands.
     const d = moves ? moves[code] : 0;
-    const value = el("span", "p" + (d ? " bump" : ""), pct(p.probability[code], 3));
+    const value = el("span", "p" + (d && fresh ? " bump" : ""), pct(p.probability[code], 3));
     row.appendChild(value);
     row.appendChild(deltaChip(d));
     bars.appendChild(row);
@@ -4252,7 +4296,11 @@ function trackPrediction(p) {
   const same = predHistory
     && predHistory.revision === revision
     && predHistory.table === state.active;
-  if (same) return predHistory.moves;
+  // `moves` survives a re-render, because the arrows are the state of the
+  // estimate and belong on screen until the next coup replaces them. `fresh`
+  // does not: it drives the flash, and a flash means "a result just landed" --
+  // replaying it when the language or theme changed says that when nothing did.
+  if (same) return { moves: predHistory.moves, fresh: false };
 
   const prior = predHistory && predHistory.table === state.active
     ? predHistory.probability : null;
@@ -4261,7 +4309,7 @@ function trackPrediction(p) {
         T: p.probability.T - prior.T }
     : null;
   predHistory = { revision, table: state.active, probability: { ...p.probability }, moves };
-  return moves;
+  return { moves, fresh: !!prior };
 }
 
 /** The arrow and size of one move, in points, or an empty cell for no move. */
@@ -4290,6 +4338,8 @@ function deltaChip(delta) {
  * answer to why the recommendation can look stuck on one side.
  */
 let ledgerCache = null;
+/** The revision this block last flashed for, so a re-render does not re-flash. */
+let ledgerFlash = null;
 
 function ledger() {
   if (ledgerCache && ledgerCache.revision === revision && ledgerCache.table === state.active) {
@@ -4305,12 +4355,23 @@ function ledger() {
 function renderBetOutcome() {
   const o = observed();
   const r = ledger();
+  // A flash marks a coup landing, so it fires when this table's corpus moved
+  // -- not on a re-render for a language or theme change, and not on arriving
+  // at a table whose last coup happened an hour ago.
+  const moved = ledgerFlash !== null
+    && ledgerFlash.table === state.active
+    && ledgerFlash.revision !== revision;
+  ledgerFlash = { revision, table: state.active };
   const grid = $("aiLedger"), note = $("aiOverallNote"), sub = $("aiOverallSub");
   grid.innerHTML = "";
   $("aiOverallH").textContent = t("ai.betH");
 
   if (!r.bets) {
     $("aiOutcomes").innerHTML = "";
+    // Cleared as well as hidden: leaving the previous table's coup in the DOM
+    // is a stale value waiting to be read by something that does not check.
+    $("aiLast").hidden = true;
+    $("aiLast").innerHTML = "";
     sub.textContent = t("ai.betSubEmpty");
     note.innerHTML = t("ai.betNoteEmpty");
     return;
@@ -4330,8 +4391,12 @@ function renderBetOutcome() {
     { kind: "lose", n: r.losses, pay: "\u22121.00" },
     { kind: "push", n: r.pushes, pay: t("ai.betReturned") },
   ];
+  // The row this coup landed on is lit, the same way the estimate above is:
+  // the block is a running total, and a total that moves without saying which
+  // way it moved leaves a reader counting digits to find out.
   for (const bar of bars) {
-    const row = el("div", "aibar bet " + bar.kind);
+    const landed = moved && r.last && r.last.kind === bar.kind;
+    const row = el("div", "aibar bet " + bar.kind + (landed ? " landed" : ""));
     const name = el("span", "n", t("ai.bet." + bar.kind));
     name.appendChild(el("small", null, bar.pay));
     row.appendChild(name);
@@ -4343,12 +4408,37 @@ function renderBetOutcome() {
     fill.style.width = Math.min(100, (bar.n / r.coups / 0.5) * 100) + "%";
     track.appendChild(fill);
     row.appendChild(track);
-    row.appendChild(el("span", "p", pct(bar.n / r.coups, 2)));
+    row.appendChild(el("span", "p" + (landed ? " bump" : ""), pct(bar.n / r.coups, 2)));
     row.appendChild(el("span", "c", t("ai.ledgerCoups", { n: bar.n.toLocaleString() })));
     outcomes.appendChild(row);
   }
 
   const signed = (x, d = 2) => (x >= 0 ? "+" : "\u2212") + Math.abs(x).toFixed(d);
+
+  // The coup just settled, spelled out. Everything else in this block is a
+  // total over the whole table, so none of it answers the one question a
+  // reader has when a result lands: what did that do?
+  const lastRow = $("aiLast");
+  if (r.last) {
+    lastRow.hidden = false;
+    lastRow.className = "ailast " + r.last.kind;
+    lastRow.innerHTML = "";
+    lastRow.appendChild(el("span", "k", t("ai.lastH")));
+    const v = el("span", "v");
+    v.appendChild(el("b", null, t("ai.lastPlay", {
+      pick: side(r.last.pick), came: side(r.last.outcome),
+    })));
+    // Two coups running can settle identically, and then the line reads the
+    // same twice over -- so what says a result landed is the flash, not the
+    // text. The element is rebuilt each render, which is what restarts it.
+    v.appendChild(el("i", moved ? "bump" : null, r.last.kind === "push"
+      ? t("ai.betReturned")
+      : signed(r.last.paid) + t("ai.unit")));
+    lastRow.appendChild(v);
+  } else {
+    lastRow.hidden = true;
+  }
+
   const rows = [
     { k: t("ai.ledgerUnits"), v: signed(r.units) + t("ai.unit"), good: r.units >= 0,
       sub: t("ai.ledgerPerBet", { n: signed(r.perBet * 100) + "%",
@@ -4569,9 +4659,20 @@ function renderScale() {
   } else if (o.hi < PLAYER_BREAKEVEN) {
     note.className = "verdict flag";
     note.innerHTML = t("scale.verdictPlayer", { lo: pct(o.lo, 2), hi: pct(o.hi, 2) });
-  } else {
+  } else if (o.q >= PLAYER_BREAKEVEN && o.q <= BANKER_BREAKEVEN) {
     note.className = "verdict neutral";
     note.innerHTML = t("scale.verdictDead", { q: pct(o.q, 2), lo: pct(o.lo, 2), hi: pct(o.hi, 2) });
+  } else {
+    // The share itself has cleared a break-even line but the interval around
+    // it has not. Saying "inside the dead band" here was simply false -- and
+    // it contradicted the tile above, which reports the share and correctly
+    // says it is past the line. Both readings are of the same number; what
+    // separates them is the interval, so that is what this says.
+    note.className = "verdict neutral";
+    note.innerHTML = t("scale.verdictStraddle", {
+      q: pct(o.q, 2), lo: pct(o.lo, 2), hi: pct(o.hi, 2), n: o.n.toLocaleString(),
+      line: o.q > BANKER_BREAKEVEN ? t("side.B") : t("side.P"),
+    });
   }
 }
 
