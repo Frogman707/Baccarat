@@ -1,7 +1,18 @@
 <!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style>*{box-sizing:border-box}body{margin:0;font:14px system-ui}img{max-width:100%}[hidden]{display:none!important}</style></head><body><title>바카라 슈 판독기</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+KR:wght@300;400;500;600&display=swap">
+<!-- A stylesheet blocks the first paint until it answers, and this one is a
+     third party's. On a slow connection, or where fonts.googleapis.com is not
+     reachable at all, that is a blank page for as long as the request takes to
+     give up -- measured at twelve seconds behind a proxy that drops it. Asking
+     for it as print and promoting it on load keeps it off that path: the page
+     draws immediately in the fallback stack and takes the faces when they
+     arrive. The `noscript` copy keeps the fonts for a reader without script,
+     who has nothing to promote it. -->
+<link rel="stylesheet" media="print" onload="this.media='all'"
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+KR:wght@300;400;500;600&display=swap">
+<noscript><link rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+KR:wght@300;400;500;600&display=swap"></noscript>
 <style>
 /* ── tokens ─────────────────────────────────────────────────────────────
    Cool blue-biased neutrals, the shade of a dealer terminal. The data triad
@@ -279,6 +290,15 @@ h2{font-size:14px; font-weight:600; margin:0 0 3px; letter-spacing:-.005em}
 #aiLedger .aifact{padding:6px 0}
 #aiLedger .aifact:last-child{border-bottom:none}
 .ainote{font-size:11.5px; color:var(--ink-3); line-height:1.55; margin:13px 0 0}
+/* The one line that says which of the two is actually being used. */
+.aiverdict{font-size:12.5px; line-height:1.55; margin:11px 0 0; padding:9px 12px;
+           border-radius:8px; border:1px solid var(--line-2); background:var(--surface-2)}
+.aiverdict.on{border-color:var(--accent); background:var(--accent-soft)}
+.aiverdict b{color:var(--ink)}
+#learnRows{grid-template-columns:1fr; gap:0; margin-top:10px}
+#learnRows .aifact{padding:6px 0}
+#learnRows .aifact:last-child{border-bottom:none}
+#learnRows .aifact.picked .k{color:var(--ink); font-weight:600}
 .aiwarn{font-size:11.5px; line-height:1.55; margin:10px 0 0; padding:9px 11px;
         border-radius:8px; border:1px solid var(--banker); color:var(--ink-2);
         background:color-mix(in srgb, var(--banker) 7%, transparent)}
@@ -556,6 +576,16 @@ footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
     <div id="aiOutcomes"></div>
     <div class="aigrid" id="aiLedger"></div>
     <p class="ainote" id="aiOverallNote"></p>
+
+    <div class="obshead">
+      <span class="blabel" data-i18n="learn.h"></span>
+      <span class="obssub" id="learnTrained"></span>
+    </div>
+    <p class="ainote" style="margin-top:0" data-i18n="learn.sub"></p>
+    <div class="aigrid" id="learnRows"></div>
+    <p class="aiverdict" id="learnVerdict"></p>
+    <p class="ainote" id="learnNote"></p>
+
     <p class="ainote" id="aiWhy"></p>
     <p class="aiwarn" id="aiDisclaimer"></p>
   </section>
@@ -788,6 +818,53 @@ const S = {
     ko: "{pick} 추천 → {came}", en: "picked {pick} → {came}",
     "zh-Hant": "推薦{pick} → {came}", "zh-Hans": "推荐{pick} → {came}",
   },
+  "learn.h": { ko: "학습 모델", en: "Learned model", "zh-Hant": "學習模型", "zh-Hans": "学习模型" },
+  "learn.sub": {
+    ko: "판이 들어올 때마다, 그 판 이전의 기록만으로 신경망을 학습시켜 다음 판을 맞혀보게 합니다. 앞을 보지 않으므로 점수는 진짜입니다.",
+    en: "As each coup arrives a network is trained on the record before it and asked for the next one. It never sees ahead, so the score is real.",
+    "zh-Hant": "每一局進來時，以該局之前的紀錄訓練神經網路並預測下一局。不會看到未來，因此分數是真實的。",
+    "zh-Hans": "每一局进来时，以该局之前的记录训练神经网络并预测下一局。不会看到未来，因此分数是真实的。",
+  },
+  "learn.trained": { ko: "{n}판 학습", en: "trained on {n}", "zh-Hant": "已學習 {n} 局", "zh-Hans": "已学习 {n} 局" },
+  "learn.model": { ko: "학습 모델", en: "Network", "zh-Hant": "神經網路", "zh-Hans": "神经网络" },
+  "learn.base": { ko: "기본 추정", en: "Base estimate", "zh-Hant": "基本估計", "zh-Hans": "基本估计" },
+  "learn.split": { ko: "추천이 갈린 판", en: "coups they disagreed on", "zh-Hant": "推薦分歧的局數", "zh-Hans": "推荐分歧的局数" },
+  "learn.usingModel": {
+    ko: "<b>학습 모델을 씁니다.</b> 기본 추정보다 {lead}유닛 앞서고, 우연으로 보기 어렵습니다 (z {z}).",
+    en: "<b>Using the network.</b> It is {lead} units ahead of the base estimate, by more than chance would give (z {z}).",
+    "zh-Hant": "<b>採用神經網路。</b>領先基本估計 {lead} 單位，超出運氣可解釋的範圍（z {z}）。",
+    "zh-Hans": "<b>采用神经网络。</b>领先基本估计 {lead} 单位，超出运气可解释的范围（z {z}）。",
+  },
+  "learn.behind": {
+    ko: "<b>기본 추정을 씁니다.</b> 학습 모델이 앞서지 못합니다.",
+    en: "<b>Using the base estimate.</b> The network is not ahead of it.",
+    "zh-Hant": "<b>採用基本估計。</b>神經網路並未領先。",
+    "zh-Hans": "<b>采用基本估计。</b>神经网络并未领先。",
+  },
+  "learn.noise": {
+    ko: "<b>기본 추정을 씁니다.</b> 학습 모델이 앞서 있지만 (z {z}) 우연과 구별되지 않습니다.",
+    en: "<b>Using the base estimate.</b> The network is ahead (z {z}) but not by more than chance.",
+    "zh-Hant": "<b>採用基本估計。</b>神經網路雖領先（z {z}），但與運氣無法區分。",
+    "zh-Hans": "<b>采用基本估计。</b>神经网络虽领先（z {z}），但与运气无法区分。",
+  },
+  "learn.tooFew": {
+    ko: "<b>기본 추정을 씁니다.</b> 두 추천이 갈린 판이 {n}판뿐입니다 — 어느 쪽이 나은지 묻기에 200판은 필요합니다.",
+    en: "<b>Using the base estimate.</b> They have disagreed on only {n} coups — asking which is better takes 200.",
+    "zh-Hant": "<b>採用基本估計。</b>兩者僅在 {n} 局上分歧 — 要判斷孰優需要 200 局。",
+    "zh-Hans": "<b>采用基本估计。</b>两者仅在 {n} 局上分歧 — 要判断孰优需要 200 局。",
+  },
+  "learn.note": {
+    ko: "이 저장소는 1,600만 판에 38개 모델을 이미 돌렸습니다. 수익이 난 모델은 0개였고, 다중검정 보정 후 유의한 모델도 0개였으며, 승률이 가장 높았던 것은 <b>아무것도 보지 않고 늘 뱅커에 거는 쪽</b>이었습니다. 위 판정이 대개 기본 추정을 가리키는 것은 그 때문입니다.",
+    en: "This repository already ran 38 models over 1.6M coups. None was profitable, none was significant after correction, and the highest win rate of all belonged to <b>always backing Banker without looking at anything</b>. That is why the verdict above usually points at the base estimate.",
+    "zh-Hant": "本專案已在 160 萬局上測試 38 個模型：沒有一個獲利，校正後沒有一個顯著，而勝率最高的是<b>什麼都不看、永遠押莊</b>。這就是上述判定通常指向基本估計的原因。",
+    "zh-Hans": "本项目已在 160 万局上测试 38 个模型：没有一个盈利，校正后没有一个显著，而胜率最高的是<b>什么都不看、永远押庄</b>。这就是上述判定通常指向基本估计的原因。",
+  },
+  "learn.waiting": {
+    ko: "학습을 시작하려면 판이 더 필요합니다.",
+    en: "There are not enough coups yet to train on.",
+    "zh-Hant": "局數還不足以開始學習。", "zh-Hans": "局数还不足以开始学习。",
+  },
+
   "quick.title": { ko: "빠른 입력", en: "Quick entry", "zh-Hant": "快速輸入", "zh-Hans": "快速输入" },
 
   "live.start": { ko: "화면 공유 시작", en: "Start screen sharing", "zh-Hant": "開始畫面分享", "zh-Hans": "开始画面共享" },
@@ -2217,94 +2294,65 @@ function classifyPixel(r, g, b) {
 }
 
 /**
- * A blob too long to be a mark but shaped like a row of them.
+ * A blob that is several marks run together, judged against the marks that
+ * did come through on their own.
  *
- * Solid, straight, and no wider at its narrow end than a mark -- a column of
- * beads whose gaps closed. Rings and glyph-holed discs are round and never
- * reach here, so the split below never touches them.
+ * Solid, at least two marks across in some direction, and no bigger than a
+ * board -- so a banner or a border, which is neither a whole number of marks
+ * wide nor solid on a grid, is never offered to the split below.
  */
-function looksMerged(b, w, h) {
-  const short = Math.min(b.w, b.h), long = Math.max(b.w, b.h);
-  if (short < 6 || long <= short * 1.62) return false;
-  // A bead plate column holds six marks and a big road's at most six too, so
-  // fourteen marks' worth is already generous; anything longer is a banner or
-  // a border, not a row of beads. The bound is in marks rather than in the
-  // frame's own size, because a bar is a fraction of a shared screen and most
-  // of a cropped one, and it is the same bar either way.
-  if (long > short * 14) return false;
-  return b.n / (b.w * b.h) >= 0.55;
-}
-
-/** Roughly circular, by the same measure `keepMarks` uses. */
-function roundish(b) {
-  const aspect = b.w / b.h;
-  return aspect >= 0.62 && aspect <= 1.62 && b.w >= 6 && b.h >= 6;
+function looksMerged(b, unit) {
+  const cols = Math.round(b.w / unit), rows = Math.round(b.h / unit);
+  if (cols < 1 || rows < 1 || cols * rows < 2) return false;
+  if (cols > 30 || rows > 12) return false;
+  // Its sides have to be whole marks, within a fifth of one.
+  if (Math.abs(b.w - cols * unit) > unit * 0.45) return false;
+  if (Math.abs(b.h - rows * unit) > unit * 0.45) return false;
+  // Loose, because a run of one side is rarely a full rectangle -- six down one
+  // column and four down the next fills two thirds of its own box, and that is
+  // the ordinary case. Which cells are really marks is settled per cell in the
+  // split itself, so this only has to turn away shapes that are not marks at
+  // all: a rule, a border, a strip of chrome.
+  return b.n / (b.w * b.h) >= 0.3;
 }
 
 /**
- * One merged bar, cut back into the marks it was.
+ * One merged block, cut back into the marks it was, on the grid it must be.
  *
- * Marks bleed into one another at the point where they nearly touch, so the
- * bar is wide across each mark's middle and narrow between them: measuring its
- * width along its length gives a row of humps with a dip at every join, and
- * the dips are where to cut. Eroding the whole shape instead does not work --
- * a bridge boxed in by the marks above and below it is interior, and loses
- * only its ends however many times it is eroded.
+ * A board is a regular grid, so a run of marks that has bled into one shape is
+ * as many cells as it is marks wide and tall -- there is no need to find where
+ * one ends and the next begins, which is what softness destroys. Everything in
+ * the block is one colour, because that is why it merged, so every cell it is
+ * cut into carries that colour.
+ *
+ * A cell is only kept where the block actually covers it: a merge is often
+ * ragged rather than a full rectangle, and an empty corner must stay empty.
  */
-function unmerge(codes, w, h, bar) {
-  const vertical = bar.h >= bar.w;
-  const span = vertical ? bar.h : bar.w;
-  const width = new Int32Array(span);
-  for (let y = bar.minY; y <= bar.maxY; y++) {
-    for (let x = bar.minX; x <= bar.maxX; x++) {
-      if (codes[y * w + x] !== bar.code) continue;
-      width[vertical ? y - bar.minY : x - bar.minX] += 1;
-    }
-  }
-
-  let peak = 0;
-  for (const v of width) if (v > peak) peak = v;
-  const dip = peak * 0.75;
-
-  // Each run of narrow sections is one join; the cut goes down its middle.
-  const cuts = [];
-  let from = -1;
-  for (let i = 0; i < span; i++) {
-    const narrow = width[i] < dip;
-    if (narrow && from < 0) from = i;
-    if (!narrow && from >= 0) { cuts.push((from + i - 1) >> 1); from = -1; }
-  }
-  if (from >= 0) cuts.push((from + span - 1) >> 1);
-  // A narrow patch at either end is the bar's own rounded tip, not a join.
-  const joins = cuts.filter((c) => c > 2 && c < span - 3);
-  if (!joins.length) return [];
-
-  const edges = [-1, ...joins, span];
+function unmerge(codes, w, h, blob, unit) {
+  const cols = Math.round(blob.w / unit), rows = Math.round(blob.h / unit);
+  const cw = blob.w / cols, ch = blob.h / rows;
   const out = [];
-  for (let k = 0; k < edges.length - 1; k++) {
-    const lo = edges[k] + 1, hi = edges[k + 1] - 1;
-    if (hi < lo) continue;
-    const y0 = vertical ? bar.minY + lo : bar.minY;
-    const y1 = vertical ? bar.minY + hi : bar.maxY;
-    const x0 = vertical ? bar.minX : bar.minX + lo;
-    const x1 = vertical ? bar.maxX : bar.minX + hi;
-    let n = 0, sx = 0, sy = 0, minX = w, maxX = -1, minY = h, maxY = -1;
-    for (let y = y0; y <= y1; y++) {
-      for (let x = x0; x <= x1; x++) {
-        if (codes[y * w + x] !== bar.code) continue;
-        n += 1; sx += x; sy += y;
-        if (x < minX) minX = x;
-        if (x > maxX) maxX = x;
-        if (y < minY) minY = y;
-        if (y > maxY) maxY = y;
+  for (let c = 0; c < cols; c += 1) {
+    for (let r = 0; r < rows; r += 1) {
+      const x0 = Math.round(blob.minX + c * cw), x1 = Math.round(blob.minX + (c + 1) * cw) - 1;
+      const y0 = Math.round(blob.minY + r * ch), y1 = Math.round(blob.minY + (r + 1) * ch) - 1;
+      let n = 0, sx = 0, sy = 0;
+      for (let y = y0; y <= y1; y += 1) {
+        for (let x = x0; x <= x1; x += 1) {
+          if (codes[y * w + x] !== blob.code) continue;
+          n += 1; sx += x; sy += y;
+        }
       }
+      // Half the cell has to be the mark's own colour to count as one.
+      if (n < (x1 - x0 + 1) * (y1 - y0 + 1) * 0.5) continue;
+      out.push({
+        code: blob.code, n, cx: sx / n, cy: sy / n,
+        minX: x0, minY: y0, maxX: x1, maxY: y1,
+        w: x1 - x0 + 1, h: y1 - y0 + 1,
+      });
     }
-    if (!n) continue;
-    out.push({ code: bar.code, n, cx: sx / n, cy: sy / n,
-               minX, minY, maxX, maxY, w: maxX - minX + 1, h: maxY - minY + 1 });
   }
-  const marks = out.filter(roundish);
-  return marks.length > 1 ? marks : [];
+  return out.length > 1 ? out : [];
 }
 
 /** Connected components over the classified mask, 4-connectivity. */
@@ -2512,11 +2560,19 @@ function detectBoards(imageData, { region = null, minCells = 8 } = {}) {
   // roundness test above, and the streak disappears from the reading. Splitting
   // those bars back apart costs nothing on a clean screenshot, where there are
   // none.
-  const bars = all.filter((b) => looksMerged(b, w, h));
-  if (bars.length) {
+  // Marks that came through alone say how big a mark is here, and that is what
+  // says how many marks are inside a blob that did not. Where a softened
+  // picture leaves none standing alone, the blobs say it themselves: a block
+  // of marks is one mark across at its narrow end, whatever it is along.
+  const unit = marks.length
+    ? median(marks.map(size))
+    : median(all.filter((b) => Math.min(b.w, b.h) >= 6 && b.n / (b.w * b.h) >= 0.5)
+                .map((b) => Math.min(b.w, b.h)));
+  if (unit >= 6) {
+    const merged = all.filter((b) => !marks.includes(b) && looksMerged(b, unit));
     const split = [];
-    for (const bar of bars) split.push(...unmerge(codes, w, h, bar));
-    if (split.length) marks = marks.concat(keepMarks(split, w, h));
+    for (const blob of merged) split.push(...unmerge(codes, w, h, blob, unit));
+    if (split.length) marks = marks.concat(split);
   }
 
   if (marks.length < minCells) return { boards: [], bounds: null, diameter: 0 };
@@ -2935,6 +2991,294 @@ function replayPicks(sequences, { deff = 1, commission = 0.05 } = {}) {
     bankerBets, playerBets,
     winRate: bets ? wins / bets : 0,
     perBet: bets ? units / bets : 0,
+  };
+}
+
+/* ═══ learn.js ═══ */
+/* A network that learns from the table in front of it.
+ *
+ * The estimate this app recommends from is a conjugate posterior over one
+ * number: how often this table's Banker side wins. It cannot express "Banker
+ * after four Players", because it does not look at order at all. A network
+ * can. Whether there is anything in the order to find is a different question,
+ * and this file is built so that the answer it gives is trustworthy either way.
+ *
+ * Three properties make it trustworthy.
+ *
+ * Every prediction is made before the coup it predicts. The pass below walks
+ * the table's coups in order and, at each one, predicts from what came before
+ * and only then learns from what happened. Nothing it reports was scored with
+ * knowledge of its own answer, which is the failure that makes most published
+ * baccarat models look profitable.
+ *
+ * It is scored against the alternative, not against a coin. Beating 50% means
+ * nothing here: always backing Banker wins about 50.7% of decided coups
+ * without looking at anything. The pass therefore settles both wagers on the
+ * same coups and reports both, so "better" means better than the thing it
+ * would replace.
+ *
+ * And it is only believed when the margin is bigger than the noise. Over a few
+ * hundred coups a worthless model beats a good one about half the time. The
+ * gate at the bottom asks for a lead that a fair table would produce less than
+ * about one time in forty, and for enough coups to ask the question at all.
+ *
+ * This repository's own backtest of 38 models over 1.6M coups returned no
+ * model with positive ROI and none significant after correction, and the best
+ * win rate of all of them belonged to always betting Banker. The honest
+ * expectation is that the gate below stays shut.
+ */
+
+
+
+/** Coups of order the network is shown. */
+const CONTEXT = 6;
+/** Inputs: the context one-hot, then the summaries, then a bias. */
+const INPUTS = CONTEXT * 3 + 7;
+/** Hidden units. Small on purpose: a few hundred coups cannot train more. */
+const HIDDEN = 12;
+
+const OUTCOMES = "PBT";
+
+/**
+ * The network's view of the coups before position `i`.
+ *
+ * Order first -- the last six outcomes, as they came -- then what the shoe has
+ * looked like so far. The summaries are centred near zero and scaled to about
+ * a unit, which is what keeps a small network's gradients well behaved.
+ */
+function features(seq, i, out = new Float64Array(INPUTS)) {
+  out.fill(0);
+  for (let k = 0; k < CONTEXT; k += 1) {
+    const at = i - 1 - k;
+    if (at < 0) continue;
+    const code = OUTCOMES.indexOf(seq[at]);
+    if (code >= 0) out[k * 3 + code] = 1;
+  }
+
+  let bankers = 0, decided = 0, ties = 0, alternations = 0;
+  let last = null, streak = 0, streakSide = 0;
+  for (let at = 0; at < i; at += 1) {
+    const o = seq[at];
+    if (o === "T") { ties += 1; continue; }
+    decided += 1;
+    if (o === "B") bankers += 1;
+    if (last !== null && o !== last) alternations += 1;
+    if (o === last) streak += 1; else streak = 1;
+    last = o;
+    streakSide = o === "B" ? 1 : -1;
+  }
+
+  const base = CONTEXT * 3;
+  out[base] = Math.min(streak, 8) / 8;                       // how long the run is
+  out[base + 1] = streakSide;                                // and whose it is
+  out[base + 2] = decided ? (bankers / decided - 0.5) * 4 : 0;
+  out[base + 3] = i ? (ties / i - 0.095) * 8 : 0;
+  out[base + 4] = decided > 1 ? alternations / (decided - 1) - 0.5 : 0;
+  out[base + 5] = Math.min(i, 80) / 80;                      // how deep the shoe is
+  out[base + 6] = 1;                                         // bias
+  return out;
+}
+
+/**
+ * One hidden layer, trained by backpropagation, predicting Player or Banker.
+ *
+ * Ties are not predicted: the wager is settled on the decided coups and a tie
+ * returns the stake, so a tie is not a class to choose between -- it is a coup
+ * the bet sits out. It still enters the network as context, because the order
+ * it appears in is part of what the network is being asked to read.
+ */
+class Net {
+  constructor(seed = 1, { hidden = HIDDEN, decay = 1e-4 } = {}) {
+    const rng = makeRng(seed);
+    this.hidden = hidden;
+    this.decay = decay;
+    // Small symmetric weights, scaled by fan-in so the first outputs are near
+    // even and the network is not saturated before it has seen anything.
+    const spread = (n) => 1 / Math.sqrt(n);
+    this.w1 = new Float64Array(INPUTS * hidden);
+    this.w2 = new Float64Array(hidden * 2);
+    for (let i = 0; i < this.w1.length; i += 1) this.w1[i] = (rng() * 2 - 1) * spread(INPUTS);
+    for (let i = 0; i < this.w2.length; i += 1) this.w2[i] = (rng() * 2 - 1) * spread(hidden);
+    this.b1 = new Float64Array(hidden);
+    this.b2 = new Float64Array(2);
+    this.h = new Float64Array(hidden);
+    this.p = new Float64Array(2);
+  }
+
+  /** P(Player), P(Banker) for one feature vector, remembered for the update. */
+  predict(x) {
+    const { hidden, w1, w2, b1, b2, h, p } = this;
+    for (let j = 0; j < hidden; j += 1) {
+      let sum = b1[j];
+      for (let i = 0; i < INPUTS; i += 1) sum += x[i] * w1[i * hidden + j];
+      h[j] = Math.tanh(sum);
+    }
+    let a = b2[0], b = b2[1];
+    for (let j = 0; j < hidden; j += 1) { a += h[j] * w2[j * 2]; b += h[j] * w2[j * 2 + 1]; }
+    // Softmax over two, written as a logistic on the difference so a large
+    // logit cannot overflow.
+    const pb = 1 / (1 + Math.exp(a - b));
+    p[0] = 1 - pb; p[1] = pb;
+    return p;
+  }
+
+  /** One gradient step on the coup that just happened. `side` is 0 P, 1 B. */
+  learn(x, side, lr) {
+    const { hidden, w1, w2, b1, b2, h, p, decay } = this;
+    const d2 = [p[0] - (side === 0 ? 1 : 0), p[1] - (side === 1 ? 1 : 0)];
+    const dh = new Float64Array(hidden);
+    for (let j = 0; j < hidden; j += 1) {
+      dh[j] = (d2[0] * w2[j * 2] + d2[1] * w2[j * 2 + 1]) * (1 - h[j] * h[j]);
+      w2[j * 2] -= lr * (d2[0] * h[j] + decay * w2[j * 2]);
+      w2[j * 2 + 1] -= lr * (d2[1] * h[j] + decay * w2[j * 2 + 1]);
+    }
+    b2[0] -= lr * d2[0];
+    b2[1] -= lr * d2[1];
+    for (let i = 0; i < INPUTS; i += 1) {
+      const xi = x[i];
+      if (!xi) continue;
+      for (let j = 0; j < hidden; j += 1) {
+        const at = i * hidden + j;
+        w1[at] -= lr * (dh[j] * xi + decay * w1[at]);
+      }
+    }
+    for (let j = 0; j < hidden; j += 1) b1[j] -= lr * dh[j];
+  }
+}
+
+/** What one wager did, settled the way the table settles it. */
+function settleInto(book, pick, outcome, commission) {
+  if (outcome === "T") { book.pushes += 1; return; }
+  book.bets += 1;
+  if (outcome === pick) {
+    book.wins += 1;
+    book.units += pick === "B" ? 1 - commission : 1;
+  } else {
+    book.losses += 1;
+    book.units -= 1;
+  }
+}
+
+const empty = () => ({ bets: 0, wins: 0, losses: 0, pushes: 0, units: 0 });
+const rate = (b) => (b.bets ? b.wins / b.bets : 0);
+const perBet = (b) => (b.bets ? b.units / b.bets : 0);
+
+/**
+ * Walk the table's coups once, learning as it goes, and score the network
+ * against the estimate it would replace.
+ *
+ * At every coup the network predicts from the coups before it, that prediction
+ * is settled, and only then does the coup become training data. The posterior
+ * it is compared against is advanced on exactly the same coups, so the two
+ * books are the same wager placed two ways.
+ *
+ * `replay` extra gradient steps are taken per coup on coups drawn from the
+ * past. A few hundred examples seen once each teach a network almost nothing;
+ * drawing from what has already happened is how it gets to see them enough
+ * times without ever seeing what has not happened yet.
+ */
+function walkForward(sequences, {
+  seed = 7, lr = 0.05, replay = 4, commission = BANKER_COMMISSION, deff = 1,
+} = {}) {
+  const net = new Net(seed);
+  const rng = makeRng(seed ^ 0x5f3759df);
+  const step = 1 / Math.max(1, deff);
+
+  const model = empty(), base = empty();
+  let coups = 0, agree = 0, decided = 0, split = 0;
+  let a = PRIOR_A, b = PRIOR_B, tieA = TIE_PRIOR_A, tieB = TIE_PRIOR_B;
+
+  // The whole table as one stream of coups, with the shoe each one sits in, so
+  // features that mean "how deep into the shoe" stay honest across shoes.
+  const flat = [];
+  for (const seq of sequences) {
+    for (let i = 0; i < seq.length; i += 1) flat.push({ seq, i });
+  }
+
+  const x = new Float64Array(INPUTS);
+  const past = [];                       // features and answers already seen
+  let lastPick = null, lastProbability = null;
+
+  for (const { seq, i } of flat) {
+    coups += 1;
+    features(seq, i, x);
+    const p = net.predict(x);
+    const modelPick = p[1] >= p[0] ? "B" : "P";
+
+    const q = a / (a + b);
+    const tie = tieA / (tieA + tieB);
+    const e = edges(q, tie);
+    const basePick = e.B >= e.P ? "B" : "P";
+
+    if (modelPick === basePick) agree += 1;
+    // Only a settled coup separates them: on a tie both stakes come back
+    // whoever picked what, so it carries no evidence either way.
+    else if (seq[i] !== "T") split += 1;
+    lastPick = modelPick;
+    lastProbability = { P: p[0], B: p[1] };
+
+    const outcome = seq[i];
+    settleInto(model, modelPick, outcome, commission);
+    settleInto(base, basePick, outcome, commission);
+
+    // Only now may the coup be learned from.
+    if (outcome !== "T") {
+      decided += 1;
+      const side = outcome === "B" ? 1 : 0;
+      const snapshot = Float64Array.from(x);
+      net.learn(x, side, lr);
+      past.push({ x: snapshot, side });
+      for (let r = 0; r < replay && past.length > 1; r += 1) {
+        const drawn = past[(rng() * past.length) | 0];
+        net.predict(drawn.x);
+        net.learn(drawn.x, drawn.side, lr);
+      }
+    }
+
+    if (outcome === "T") tieA += step;
+    else { tieB += step; if (outcome === "B") a += step; else b += step; }
+  }
+
+  return {
+    coups, decided,
+    model: { ...model, winRate: rate(model), perBet: perBet(model) },
+    base: { ...base, winRate: rate(base), perBet: perBet(base) },
+    agree, agreement: coups ? agree / coups : 0,
+    split,
+    lastPick, lastProbability,
+    ...verdict(model, base, split),
+  };
+}
+
+/**
+ * Whether the network's lead is bigger than the noise it would show anyway.
+ *
+ * The two bet on the same coups, so the comparison is paired: where they agree
+ * they win and lose together and nothing is learned, and where they disagree
+ * exactly one of them wins. So the evidence is entirely in the `split` coups
+ * they picked differently, and under "the two are equally good" the number the
+ * network takes of those is a fair coin.
+ *
+ * Its win count minus the estimate's is the same thing as heads minus tails
+ * over those coups, which makes the test a plain sign test: divide by the root
+ * of the split. Two and a half is about one time in eighty in the direction
+ * being asked about.
+ *
+ * The floor of 200 is there because below it the test has almost no power, and
+ * a decision made on less is a coin flip wearing a number.
+ */
+function verdict(model, base, split = 0) {
+  const swing = model.wins - base.wins;
+  const z = split > 0 ? swing / Math.sqrt(split) : 0;
+  const ahead = model.units > base.units && z >= 2.5 && split >= 200;
+  return {
+    lead: model.units - base.units,
+    z,
+    trusted: ahead,
+    reason: ahead ? "ahead"
+      : split < 200 ? "tooFew"
+      : model.units <= base.units ? "behind"
+      : "noise",
   };
 }
 
@@ -3690,6 +4034,7 @@ class Store {
 
 
 
+
 const $ = (id) => document.getElementById(id);
 const el = (tag, cls, text) => {
   const n = document.createElement(tag);
@@ -4290,6 +4635,12 @@ function invalidate() {
   observedCache = null;
 }
 
+/** The pick actually shown: the network's, but only where it has earned it. */
+function recommended(p) {
+  const l = learned();
+  return l.trusted && l.lastPick ? l.lastPick : p.pick;
+}
+
 function observed() {
   if (observedCache && observedCache.revision === revision && observedCache.table === state.active) {
     return observedCache.value;
@@ -4368,9 +4719,12 @@ function renderPrediction() {
     bars.appendChild(row);
   }
 
+  // Whichever of the two is actually being followed -- the network only where
+  // its lead over the estimate is bigger than the noise.
+  const chosen = recommended(p);
   const pick = $("aiSide");
-  pick.textContent = side(p.pick);
-  pick.className = "v " + p.pick;
+  pick.textContent = side(chosen);
+  pick.className = "v " + chosen;
 
   const facts = [
     { k: t("ai.ev"), v: pct(p.edge, 3), sub: t("ai.perCoup"), neg: p.edge < 0 },
@@ -4390,6 +4744,7 @@ function renderPrediction() {
   }
 
   renderBetOutcome();
+  renderLearned();
 
   const why = [t("ai.whyBase")];
   if (!p.informed || p.moved < 0.0002) why.push(t("ai.whyThin", { n: p.n }));
@@ -4458,6 +4813,24 @@ function deltaChip(delta) {
 let ledgerCache = null;
 /** The revision this block last flashed for, so a re-render does not re-flash. */
 let ledgerFlash = null;
+let learnCache = null;
+
+/**
+ * The network's walk through this table, and whether it earned the wheel.
+ *
+ * Memoised on the corpus the same way the ledger is: it is one pass over every
+ * coup the table has, and it only changes when they do.
+ */
+function learned() {
+  if (learnCache && learnCache.revision === revision && learnCache.table === state.active) {
+    return learnCache.value;
+  }
+  const o = observed();
+  const deff = Number.isFinite(o.inflate) ? Math.max(1, o.inflate ** 2) : 1;
+  const value = walkForward(shoes().map((s) => s.o).filter(Boolean), { deff });
+  learnCache = { revision, table: state.active, value };
+  return value;
+}
 
 function ledger() {
   if (ledgerCache && ledgerCache.revision === revision && ledgerCache.table === state.active) {
@@ -4591,6 +4964,56 @@ const isTouch = () => typeof matchMedia === "function"
   && matchMedia("(pointer: coarse)").matches;
 
 /** Copy that names a keyboard or a mouse only where there is one. */
+/**
+ * The network's record, beside the estimate's, on the same coups.
+ *
+ * Both numbers are walk-forward: every pick was made from the coups before the
+ * one it was settled on. Printing them side by side is the point -- a win rate
+ * on its own says nothing here, because always backing Banker wins about half
+ * of everything without looking at the board at all.
+ */
+function renderLearned() {
+  const l = learned();
+  const rows = $("learnRows"), verdict = $("learnVerdict"), note = $("learnNote");
+  $("learnTrained").textContent = l.decided
+    ? t("learn.trained", { n: l.decided.toLocaleString() }) : "";
+  rows.innerHTML = "";
+
+  if (!l.model.bets) {
+    verdict.className = "aiverdict";
+    verdict.textContent = t("learn.waiting");
+    note.innerHTML = "";
+    return;
+  }
+
+  const signed = (x) => (x >= 0 ? "+" : "\u2212") + Math.abs(x).toFixed(2);
+  for (const [key, book, picked] of [
+    [t("learn.model"), l.model, l.trusted],
+    [t("learn.base"), l.base, !l.trusted],
+  ]) {
+    const row = el("div", "aifact" + (picked ? " picked" : ""));
+    row.appendChild(el("span", "k", key));
+    const v = el("span", "v" + (book.units < 0 ? " neg" : ""),
+      pct(book.winRate, 2));
+    v.appendChild(el("small", null, signed(book.units) + t("ai.unit")));
+    row.appendChild(v);
+    rows.appendChild(row);
+  }
+  const split = el("div", "aifact");
+  split.appendChild(el("span", "k", t("learn.split")));
+  split.appendChild(el("span", "v", l.split.toLocaleString()));
+  rows.appendChild(split);
+
+  const z = l.z.toFixed(2);
+  verdict.className = "aiverdict" + (l.trusted ? " on" : "");
+  verdict.innerHTML =
+    l.reason === "ahead" ? t("learn.usingModel", { lead: signed(l.lead), z })
+    : l.reason === "noise" ? t("learn.noise", { z })
+    : l.reason === "tooFew" ? t("learn.tooFew", { n: l.split.toLocaleString() })
+    : t("learn.behind");
+  note.innerHTML = t("learn.note");
+}
+
 function renderInputHints() {
   const touch = isTouch();
   $("pasteHint").innerHTML = t(touch ? "paste.hintTouch" : "paste.hint");
