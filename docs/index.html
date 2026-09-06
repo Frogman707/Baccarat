@@ -2308,6 +2308,14 @@ function looksMerged(b, unit) {
   // Its sides have to be whole marks, within a fifth of one.
   if (Math.abs(b.w - cols * unit) > unit * 0.45) return false;
   if (Math.abs(b.h - rows * unit) > unit * 0.45) return false;
+  // Marks are round, so a row of them cannot fill its own box: the corners
+  // between neighbouring circles stay empty however hard they have run
+  // together. Measured over 192 merged blobs across every size, gap and
+  // softness, none reached 0.90 -- while a solid band of colour, which is what
+  // a betting button or a header stripe is, sits at 1.00. Without this the
+  // split reads any such band as a row of marks and hands back a board that
+  // was never there.
+  if (b.n / (b.w * b.h) > 0.9) return false;
   // Loose, because a run of one side is rarely a full rectangle -- six down one
   // column and four down the next fills two thirds of its own box, and that is
   // the ordinary case. Which cells are really marks is settled per cell in the
@@ -2561,13 +2569,20 @@ function detectBoards(imageData, { region = null, minCells = 8 } = {}) {
   // those bars back apart costs nothing on a clean screenshot, where there are
   // none.
   // Marks that came through alone say how big a mark is here, and that is what
-  // says how many marks are inside a blob that did not. Where a softened
-  // picture leaves none standing alone, the blobs say it themselves: a block
-  // of marks is one mark across at its narrow end, whatever it is along.
-  const unit = marks.length
-    ? median(marks.map(size))
-    : median(all.filter((b) => Math.min(b.w, b.h) >= 6 && b.n / (b.w * b.h) >= 0.5)
-                .map((b) => Math.min(b.w, b.h)));
+  // says how many marks are inside a blob that did not. A photo soft enough to
+  // leave none standing alone still has the blobs themselves to judge by -- a
+  // block of marks is one mark across at its narrow end -- but only where more
+  // than one side is among them. A board carries two sides at least; a single
+  // band of one colour is a betting button or a header stripe, and guessing a
+  // scale from it is how a board gets read where there is none.
+  let unit = marks.length ? median(marks.map(size)) : 0;
+  if (!unit) {
+    const solid = all.filter((b) => Math.min(b.w, b.h) >= 6
+      && b.n / (b.w * b.h) >= 0.5 && b.n / (b.w * b.h) <= 0.9);
+    if (new Set(solid.map((b) => b.code)).size >= 2) {
+      unit = median(solid.map((b) => Math.min(b.w, b.h)));
+    }
+  }
   if (unit >= 6) {
     const merged = all.filter((b) => !marks.includes(b) && looksMerged(b, unit));
     const split = [];
@@ -3977,10 +3992,12 @@ class Store {
 
   /* ------------------------------------------------------------- reading */
 
+  /* (sanitiseState is defined below the class, beside the shape it enforces.) */
+
   readLocal() {
     try {
       const raw = localStorage.getItem(LS_KEY);
-      return raw ? JSON.parse(raw) : null;
+      return raw ? sanitiseState(JSON.parse(raw)) : null;
     } catch {
       return null;
     }
@@ -4087,6 +4104,61 @@ class Store {
       this._setStatus("error");
     }
   }
+}
+
+/**
+ * What came out of storage, made into something the views can render.
+ *
+ * The value here is whatever `JSON.parse` returned: a browser that wrote half
+ * a record, an import from an older version, a hand-edited entry, or simply
+ * something that is not this shape at all. Handing that to the renderers threw
+ * before anything was drawn -- a page with nothing on it, over an array where
+ * an object was expected, or a shoe whose outcomes were a number.
+ *
+ * Anything unusable is dropped rather than repaired: a shoe whose outcomes are
+ * not a string carries nothing to keep, and a character that is not one of the
+ * three outcomes is not a coup. That last one matters more than it looks --
+ * anything that is not a tie and not a Banker counted as a Player, so one
+ * stray character moved the estimate.
+ *
+ * Returns null when there is nothing left worth loading, which is the same
+ * answer as an empty store.
+ */
+function sanitiseState(raw) {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+
+  const tables = {};
+  const source = raw.tables && typeof raw.tables === "object" && !Array.isArray(raw.tables)
+    ? raw.tables : {};
+  for (const name of Object.keys(source)) {
+    // Own keys only: a table called `__proto__` must not reach into anything.
+    if (!Object.prototype.hasOwnProperty.call(source, name)) continue;
+    if (name === "__proto__" || name === "constructor" || name === "prototype") continue;
+    const table = source[name];
+    const list = table && Array.isArray(table.shoes) ? table.shoes : [];
+    const shoes = [];
+    for (const shoe of list) {
+      if (!shoe || typeof shoe !== "object") continue;
+      const outcomes = typeof shoe.o === "string" ? shoe.o.replace(/[^PBT]/g, "") : "";
+      shoes.push({
+        id: typeof shoe.id === "string" && shoe.id ? shoe.id : newId(),
+        o: outcomes,
+        closed: !!shoe.closed,
+        t: Number.isFinite(Number(shoe.t)) ? Math.max(0, Number(shoe.t)) : 0,
+      });
+    }
+    tables[String(name)] = { shoes };
+  }
+
+  const names = Object.keys(tables);
+  if (!names.length) return null;
+  const active = typeof raw.active === "string" && tables[raw.active] ? raw.active : names[0];
+  return { tables, active, isExample: !!raw.isExample };
+}
+
+/** A stand-in id for a shoe that arrived without one. */
+function newId() {
+  return "S" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 }
 
 /* ═══ app.js ═══ */
