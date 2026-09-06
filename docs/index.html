@@ -1029,10 +1029,10 @@ const S = {
   /* ------------------------------------------------------------ prediction */
   "ai.h": { ko: "AI 예측", en: "AI prediction", "zh-Hant": "AI 預測", "zh-Hans": "AI 预测" },
   "ai.sub": {
-    ko: "다음 판의 확률 추정과, 두 베팅 중 어느 쪽이 덜 나쁜지.",
-    en: "The next coup's estimated probabilities, and which of the two bets is less bad.",
-    "zh-Hant": "下一局的機率估計，以及兩種下注中哪一邊比較不吃虧。",
-    "zh-Hans": "下一局的概率估计，以及两种下注中哪一边比较不吃亏。",
+    ko: "다음 판의 확률 추정과, 그 추정이 실제로 뒷받침하는 쪽.",
+    en: "The next coup's estimated probabilities, and the side that estimate actually supports.",
+    "zh-Hant": "下一局的機率估計，以及該估計真正支持的一邊。",
+    "zh-Hans": "下一局的概率估计，以及该估计真正支持的一边。",
   },
   "ai.recommend": { ko: "AI 추천", en: "AI pick", "zh-Hant": "AI 推薦", "zh-Hans": "AI 推荐" },
   "ai.ev": { ko: "기댓값", en: "Expected value", "zh-Hant": "期望值", "zh-Hans": "期望值" },
@@ -1068,10 +1068,10 @@ const S = {
     "zh-Hans": "当 P(庄 | 排除和局) 低于 {q} 时庄就不再较优，当前估计值距该线 {z} 个标准误。在估计值低于该线<b>两个标准误</b>之前维持押庄 — 该线距全新牌靴仅 0.05%p，单凭估计误差就会来回穿越数千局。六组 49,000 局的公正牌桌上，跟着当下较优的一边为 45.44%、亏 540 单位；要求证据则为 <b>45.98%、亏 416</b>。",
   },
   "ai.disclaimer": {
-    ko: "바카라는 양쪽 모두 기댓값이 마이너스입니다. 이 추천은 둘 중 덜 나쁜 쪽을 고른 것일 뿐, 수익을 보장하지 않습니다.",
-    en: "Both sides of baccarat have negative expectation. This pick is only the less bad of the two — it does not make money.",
-    "zh-Hant": "百家樂兩邊的期望值皆為負。此推薦只是兩者中較不吃虧的一邊，並不能保證獲利。",
-    "zh-Hans": "百家乐两边的期望值皆为负。此推荐只是两者中较不吃亏的一边，并不能保证盈利。",
+    ko: "바카라는 양쪽 모두 기댓값이 마이너스입니다. 이 추천은 더 자주 이기는 쪽을 지키고 증거가 있을 때만 바꾸는 것일 뿐, 수익을 보장하지 않습니다.",
+    en: "Both sides of baccarat have negative expectation. This pick holds the side that wins more often and changes only on evidence — it does not make money.",
+    "zh-Hant": "百家樂兩邊的期望值皆為負。此推薦只是守住勝率較高的一邊、有證據才改變，並不能保證獲利。",
+    "zh-Hans": "百家乐两边的期望值皆为负。此推荐只是守住胜率较高的一边、有证据才改变，并不能保证盈利。",
   },
   "ai.betH": {
     ko: "AI 추천 배팅 결과", en: "Backing the pick, in full",
