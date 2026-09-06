@@ -3180,22 +3180,46 @@ class Net {
   }
 }
 
-/** What one wager did, settled the way the table settles it. */
+/**
+ * What one wager did, settled the way the table settles it.
+ *
+ * The same shape `replayPicks` keeps, because the panel reads whichever of the
+ * two is being followed and must not care which one that is.
+ */
 function settleInto(book, pick, outcome, commission) {
-  if (outcome === "T") { book.pushes += 1; return; }
+  book.coups += 1;
+  if (outcome === "T") {
+    book.pushes += 1;
+    book.last = { pick, outcome, kind: "push", paid: 0, units: book.units };
+    return;
+  }
   book.bets += 1;
+  if (pick === "B") book.bankerBets += 1; else book.playerBets += 1;
+  let paid;
   if (outcome === pick) {
     book.wins += 1;
-    book.units += pick === "B" ? 1 - commission : 1;
+    paid = pick === "B" ? 1 - commission : 1;
+    book.units += paid;
   } else {
     book.losses += 1;
+    paid = -1;
     book.units -= 1;
   }
+  book.last = { pick, outcome, kind: paid > 0 ? "win" : "lose", paid, units: book.units };
+  book.peak = Math.max(book.peak, book.units);
+  book.drawdown = Math.min(book.drawdown, book.units - book.peak);
+  book.best = Math.max(book.best, book.units);
+  book.worst = Math.min(book.worst, book.units);
 }
 
-const empty = () => ({ bets: 0, wins: 0, losses: 0, pushes: 0, units: 0 });
+const empty = () => ({
+  coups: 0, bets: 0, wins: 0, losses: 0, pushes: 0, units: 0,
+  bankerBets: 0, playerBets: 0,
+  peak: 0, drawdown: 0, best: 0, worst: 0, last: null,
+});
 const rate = (b) => (b.bets ? b.wins / b.bets : 0);
 const perBet = (b) => (b.bets ? b.units / b.bets : 0);
+const finish = (b) => ({ ...b, winRate: rate(b), perBet: perBet(b) });
 
 /**
  * Walk the table's coups once, learning as it goes, and score the network
@@ -3213,6 +3237,7 @@ const perBet = (b) => (b.bets ? b.units / b.bets : 0);
  */
 function walkForward(sequences, {
   seed = 7, lr = 0.05, replay = 4, commission = BANKER_COMMISSION, deff = 1,
+  next = null,
 } = {}) {
   const net = new Net(seed);
   const rng = makeRng(seed ^ 0x5f3759df);
@@ -3232,9 +3257,11 @@ function walkForward(sequences, {
   const x = new Float64Array(INPUTS);
   const past = [];                       // features and answers already seen
   let lastPick = null, lastProbability = null;
+  let lastSeq = "";
 
   for (const { seq, i } of flat) {
     coups += 1;
+    lastSeq = seq;
     features(seq, i, x);
     const p = net.predict(x);
     const modelPick = p[1] >= p[0] ? "B" : "P";
@@ -3272,10 +3299,23 @@ function walkForward(sequences, {
     else { tieB += step; if (outcome === "B") a += step; else b += step; }
   }
 
+  // The coup that has not happened yet, which is what the panel recommends on.
+  // `lastPick` is the pick that was made for the coup at the end of the record
+  // -- a different question, and the one the panel was accidentally asking.
+  const upcoming = next === null ? lastSeq : next;
+  let nextPick = null, nextProbability = null;
+  if (coups) {
+    features(upcoming, upcoming.length, x);
+    const p = net.predict(x);
+    nextPick = p[1] >= p[0] ? "B" : "P";
+    nextProbability = { P: p[0], B: p[1] };
+  }
+
   return {
     coups, decided,
-    model: { ...model, winRate: rate(model), perBet: perBet(model) },
-    base: { ...base, winRate: rate(base), perBet: perBet(base) },
+    nextPick, nextProbability,
+    model: finish(model),
+    base: finish(base),
     agree, agreement: coups ? agree / coups : 0,
     split,
     lastPick, lastProbability,
@@ -4671,7 +4711,7 @@ function invalidate() {
 /** The pick actually shown: the network's, but only where it has earned it. */
 function recommended(p) {
   const l = learned();
-  return l.trusted && l.lastPick ? l.lastPick : p.pick;
+  return l.trusted && l.nextPick ? l.nextPick : p.pick;
 }
 
 function observed() {
@@ -4861,7 +4901,11 @@ function learned() {
   }
   const o = observed();
   const deff = Number.isFinite(o.inflate) ? Math.max(1, o.inflate ** 2) : 1;
-  const value = walkForward(shoes().map((s) => s.o).filter(Boolean), { deff });
+  // The next coup extends the shoe on the table, which may be an empty one --
+  // so it is named rather than taken as "the last sequence walked", which
+  // would give the network the wrong shoe's context to answer from.
+  const value = walkForward(shoes().map((s) => s.o).filter(Boolean),
+                            { deff, next: openShoe().o });
   learnCache = { revision, table: state.active, value };
   return value;
 }
@@ -4869,6 +4913,17 @@ function learned() {
 function ledger() {
   if (ledgerCache && ledgerCache.revision === revision && ledgerCache.table === state.active) {
     return ledgerCache.value;
+  }
+  // The block is the record of backing the recommendation, so it has to settle
+  // whichever pick the recommendation is actually made of. Settling the base
+  // rule while the panel above recommended the network's pick put two
+  // different wagers on one screen: it would say Banker, Banker would win, and
+  // the coup would be recorded as a loss because the rule being settled had
+  // picked Player.
+  const l = learned();
+  if (l.trusted) {
+    ledgerCache = { revision, table: state.active, value: l.model };
+    return l.model;
   }
   const o = observed();
   const deff = Number.isFinite(o.inflate) ? Math.max(1, o.inflate ** 2) : 1;
