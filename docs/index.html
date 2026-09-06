@@ -1062,10 +1062,10 @@ const S = {
     "zh-Hans": "本桌的 {n} 局已将估计值自基准移动 {delta}%p。",
   },
   "ai.crossover": {
-    ko: "뱅커와 플레이어의 우열은 P(뱅커 | 타이 제외) {q}에서 뒤집힙니다. 현재 추정치는 그 선에서 {z}표준오차 떨어져 있습니다.",
-    en: "Banker stops being the better bet below P(Banker | not tie) of {q}. The estimate sits {z} standard errors from that line.",
-    "zh-Hant": "當 P(莊 | 排除和局) 低於 {q} 時，莊就不再是較好的一邊。目前估計值距該線 {z} 個標準誤。",
-    "zh-Hans": "当 P(庄 | 排除和局) 低于 {q} 时，庄就不再是较好的一边。当前估计值距该线 {z} 个标准误。",
+    ko: "뱅커와 플레이어의 우열은 P(뱅커 | 타이 제외) {q}에서 뒤집히고, 현재 추정치는 그 선에서 {z}표준오차 떨어져 있습니다. 선을 <b>2표준오차 넘게</b> 내려가기 전까지는 뱅커를 유지합니다 — 그 선은 신선한 슈에서 0.05%p밖에 안 떨어져 있어, 추정 오차만으로도 수천 판 동안 넘나들기 때문입니다. 공정한 판 49,000판 6세트에서 그때그때 나은 쪽을 따라간 경우 이김 45.44%·손익 −540유닛, 이 기준을 둔 경우 <b>45.98%·−416유닛</b>이었습니다.",
+    en: "Banker stops being the better bet below P(Banker | not tie) of {q}, and the estimate sits {z} standard errors from that line. The pick holds Banker until the estimate is <b>two standard errors below</b> it: the line is only 0.05pp from a fresh shoe, so estimation error alone crosses it for thousands of coups. Over six fair tables of 49,000 coups, following whichever side looked better won 45.44% and lost 540 units; requiring the evidence won <b>45.98% and lost 416</b>.",
+    "zh-Hant": "當 P(莊 | 排除和局) 低於 {q} 時莊就不再較優，目前估計值距該線 {z} 個標準誤。在估計值低於該線<b>兩個標準誤</b>之前維持押莊 — 該線距全新牌靴僅 0.05%p，單憑估計誤差就會來回穿越數千局。六組 49,000 局的公正牌桌上，跟著當下較優的一邊為 45.44%、虧 540 單位；要求證據則為 <b>45.98%、虧 416</b>。",
+    "zh-Hans": "当 P(庄 | 排除和局) 低于 {q} 时庄就不再较优，当前估计值距该线 {z} 个标准误。在估计值低于该线<b>两个标准误</b>之前维持押庄 — 该线距全新牌靴仅 0.05%p，单凭估计误差就会来回穿越数千局。六组 49,000 局的公正牌桌上，跟着当下较优的一边为 45.44%、亏 540 单位；要求证据则为 <b>45.98%、亏 416</b>。",
   },
   "ai.disclaimer": {
     ko: "바카라는 양쪽 모두 기댓값이 마이너스입니다. 이 추천은 둘 중 덜 나쁜 쪽을 고른 것일 뿐, 수익을 보장하지 않습니다.",
@@ -2867,6 +2867,40 @@ function edges(q, tieP) {
 }
 
 /**
+ * Standard errors of evidence required before leaving Banker for Player.
+ *
+ * The same two the break-even scale draws its interval at, so the panel and
+ * the recommendation say the same thing about the same number instead of one
+ * refusing to call a side while the other confidently calls it.
+ */
+const SWITCH_EVIDENCE = 2;
+
+/**
+ * Which side to back.
+ *
+ * Backing whichever side the estimate says has the better expectation is the
+ * obvious rule and it is worse at everything. The crossover sits 0.05pp above
+ * a fresh shoe, while the estimate's own error runs to tenths of a point for
+ * thousands of coups -- so the comparison is decided by noise, and the two
+ * sides it is deciding between differ by almost nothing in expectation anyway.
+ * Chasing it means changing sides over and over on evidence that is not there.
+ *
+ * Measured over six fair tables of 49,000 coups: picking by expectation won
+ * 45.44% of coups and lost 540 units; holding Banker unless the estimate has
+ * cleared the crossover by two standard errors won 45.98% and lost 416. Better
+ * on both counts, because on a fair table Banker is simply the side that wins
+ * more often, and nothing short of real evidence should give that up.
+ *
+ * What it costs is speed on a table that is genuinely biased to Player: there
+ * the gate takes longer to commit and earns less while it waits. That is the
+ * trade this makes deliberately -- the same one the scale below the prediction
+ * has always made in words.
+ */
+function sidePick(q, se) {
+  return SIDE_CROSSOVER - q > SWITCH_EVIDENCE * se ? "P" : "B";
+}
+
+/**
  * The next coup's estimate from what this table has produced so far.
  *
  * `sample` is what `measure()` counts: `n` decided coups of which the Banker
@@ -2899,7 +2933,7 @@ function posterior(sample = {}) {
   const decided = 1 - tie;
 
   const e = edges(q, tie);
-  const pick = e.B >= e.P ? "B" : "P";
+  const pick = sidePick(q, se);
   const z = se > 0 ? Math.abs(q - SIDE_CROSSOVER) / se : 0;
 
   return {
@@ -2947,11 +2981,11 @@ function replayPicks(sequences, { deff = 1, commission = 0.05 } = {}) {
     for (const outcome of seq) {
       coups += 1;
 
-      // decide on what was knowable at the time
+      // decide on what was knowable at the time, by the rule the panel uses
       const q = a / (a + b);
       const tie = tieA / (tieA + tieB);
-      const e = edges(q, tie);
-      const pick = e.B >= e.P ? "B" : "P";
+      const se = Math.sqrt((q * (1 - q)) / (a + b + 1));
+      const pick = sidePick(q, se);
 
       if (outcome === "T") {
         pushes += 1;
@@ -3206,9 +3240,8 @@ function walkForward(sequences, {
     const modelPick = p[1] >= p[0] ? "B" : "P";
 
     const q = a / (a + b);
-    const tie = tieA / (tieA + tieB);
-    const e = edges(q, tie);
-    const basePick = e.B >= e.P ? "B" : "P";
+    const se = Math.sqrt((q * (1 - q)) / (a + b + 1));
+    const basePick = sidePick(q, se);
 
     if (modelPick === basePick) agree += 1;
     // Only a settled coup separates them: on a tie both stakes come back
@@ -4750,7 +4783,8 @@ function renderPrediction() {
   if (!p.informed || p.moved < 0.0002) why.push(t("ai.whyThin", { n: p.n }));
   else why.push(t("ai.whyMoved", { n: p.n, delta: (p.moved * 100).toFixed(2) }));
   why.push(t("ai.crossover", { q: pct(SIDE_CROSSOVER, 4), z: p.z.toFixed(1) }));
-  $("aiWhy").textContent = why.join(" ");
+  // The last line carries emphasis on the two figures the rule turns on.
+  $("aiWhy").innerHTML = why.join(" ");
   $("aiDisclaimer").textContent = t("ai.disclaimer");
 }
 
