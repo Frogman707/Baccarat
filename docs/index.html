@@ -477,12 +477,14 @@ footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
     <p class="sub" data-i18n-html="capture.sub"></p>
 
     <div class="seg" role="tablist">
-      <button class="segbtn on" id="modeLive" role="tab" aria-selected="true" data-i18n="capture.modeLive"></button>
-      <button class="segbtn" id="modePaste" role="tab" aria-selected="false" data-i18n="capture.modePaste"></button>
+      <button class="segbtn on" id="modeLive" role="tab" aria-selected="true"
+              aria-controls="livePane" tabindex="0" data-i18n="capture.modeLive"></button>
+      <button class="segbtn" id="modePaste" role="tab" aria-selected="false"
+              aria-controls="pastePane" tabindex="-1" data-i18n="capture.modePaste"></button>
     </div>
 
     <!-- ── live ────────────────────────────────────────────────────── -->
-    <div id="livePane">
+    <div id="livePane" role="tabpanel" aria-labelledby="modeLive" tabindex="0">
       <div id="liveIdle">
         <div class="livebox">
           <div class="big" id="liveIdleH"></div>
@@ -520,7 +522,7 @@ footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
     </div>
 
     <!-- ── paste ───────────────────────────────────────────────────── -->
-    <div id="pastePane" hidden>
+    <div id="pastePane" role="tabpanel" aria-labelledby="modePaste" tabindex="0" hidden>
       <div id="drop">
         <div id="dropIdle">
           <div class="big" data-i18n="paste.h"></div>
@@ -572,7 +574,9 @@ footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
       <span class="blabel" id="aiOverallH"></span>
       <span class="obssub" id="aiOverallSub"></span>
     </div>
-    <div id="aiLast" class="ailast" hidden></div>
+    <div aria-live="polite" aria-atomic="true">
+      <div id="aiLast" class="ailast" hidden></div>
+    </div>
     <div id="aiOutcomes"></div>
     <div class="aigrid" id="aiLedger"></div>
     <p class="ainote" id="aiOverallNote"></p>
@@ -3237,6 +3241,152 @@ const perBet = (b) => (b.bets ? b.units / b.bets : 0);
 const finish = (b) => ({ ...b, winRate: rate(b), perBet: perBet(b) });
 
 /**
+ * The training half of a walk-forward pass, kept resumable.
+ *
+ * Every value the loop carries -- the network, its replay buffer, the random
+ * stream -- moves forward only, and `features(seq, i)` reads nothing past `i`.
+ * So the state after coup n is exactly the state coup n+1 needs, and a corpus
+ * that has only gained coups can be continued rather than replayed. That
+ * matters because the alternative is what the panel used to do: re-train the
+ * whole network on every single coup, which at eight hundred shoes cost three
+ * quarters of a second per coup and grew from there without bound.
+ *
+ * What it produces is the network's pick for each coup, in order, decided
+ * before that coup was learned from. The books are settled from that
+ * separately, in `settleAll`, because the estimate they are compared against
+ * depends on a clustering discount that moves as the corpus grows -- cheap to
+ * redo in full, and wrong to freeze into a resumed run.
+ */
+function newRun({ seed = 7, lr = 0.05, replay = 4 } = {}) {
+  return {
+    opts: { seed, lr, replay },
+    net: new Net(seed),
+    rng: makeRng(seed ^ 0x5f3759df),
+    past: [],                            // features and answers already seen
+    picks: [],                           // the network's pick for each coup, in order
+    seen: [],                            // the sequences consumed, as consumed
+    lastProbability: null,
+    x: new Float64Array(INPUTS),
+  };
+}
+
+/** True when `sequences` only adds coups to what `run` has already consumed. */
+function extendsRun(run, sequences) {
+  if (sequences.length < run.seen.length) return false;
+  for (let i = 0; i < run.seen.length; i += 1) {
+    const had = run.seen[i];
+    const now = sequences[i];
+    if (typeof now !== "string") return false;
+    // Every shoe but the last is finished and must match exactly; the last one
+    // is the open one, and may have grown.
+    if (i < run.seen.length - 1 ? now !== had : !now.startsWith(had)) return false;
+  }
+  return true;
+}
+
+/** Walk `run` forward over whatever `sequences` has that it has not seen. */
+function advance(run, sequences) {
+  const { lr, replay } = run.opts;
+  const x = run.x;
+  for (let s = 0; s < sequences.length; s += 1) {
+    const seq = sequences[s];
+    const from = s < run.seen.length ? run.seen[s].length : 0;
+    for (let i = from; i < seq.length; i += 1) {
+      features(seq, i, x);
+      const p = run.net.predict(x);
+      run.picks.push(p[1] >= p[0] ? "B" : "P");
+      run.lastProbability = { P: p[0], B: p[1] };
+
+      // Only now may the coup be learned from.
+      const outcome = seq[i];
+      if (outcome !== "T") {
+        const side = outcome === "B" ? 1 : 0;
+        const snapshot = Float64Array.from(x);
+        run.net.learn(x, side, lr);
+        run.past.push({ x: snapshot, side });
+        for (let r = 0; r < replay && run.past.length > 1; r += 1) {
+          const drawn = run.past[(run.rng() * run.past.length) | 0];
+          run.net.predict(drawn.x);
+          run.net.learn(drawn.x, drawn.side, lr);
+        }
+      }
+    }
+    run.seen[s] = seq;
+  }
+  return run;
+}
+
+/**
+ * Settle both books over the record, given the picks the network made.
+ *
+ * The estimate's own pick is recomputed here rather than carried, because the
+ * clustering discount it counts with moves as the corpus grows.
+ */
+function settleAll(sequences, picks, { commission = BANKER_COMMISSION, deff = 1 } = {}) {
+  const step = 1 / Math.max(1, deff);
+  const model = empty(), base = empty();
+  let a = PRIOR_A, b = PRIOR_B;
+  let coups = 0, agree = 0, decided = 0, split = 0;
+
+  for (const seq of sequences) {
+    for (let i = 0; i < seq.length; i += 1) {
+      const modelPick = picks[coups];
+      coups += 1;
+
+      const q = a / (a + b);
+      const se = Math.sqrt((q * (1 - q)) / (a + b + 1));
+      const basePick = sidePick(q, se);
+
+      const outcome = seq[i];
+      if (modelPick === basePick) agree += 1;
+      // Only a settled coup separates them: on a tie both stakes come back
+      // whoever picked what, so it carries no evidence either way.
+      else if (outcome !== "T") split += 1;
+
+      settleInto(model, modelPick, outcome, commission);
+      settleInto(base, basePick, outcome, commission);
+
+      if (outcome !== "T") {
+        decided += 1;
+        if (outcome === "B") a += step; else b += step;
+      }
+    }
+  }
+  return { model, base, coups, agree, decided, split };
+}
+
+/** What the panel reads: both books, the comparison, and the coup to come. */
+function report(run, sequences, { commission = BANKER_COMMISSION, deff = 1, next = null } = {}) {
+  const { model, base, coups, agree, decided, split } =
+    settleAll(sequences, run.picks, { commission, deff });
+
+  // The coup that has not happened yet, which is what the panel recommends on.
+  // The last pick in the record is the pick that was made for the coup at the
+  // end of it -- a different question, and the one the panel was accidentally
+  // asking.
+  const upcoming = next === null ? (run.seen[run.seen.length - 1] || "") : next;
+  let nextPick = null, nextProbability = null;
+  if (coups) {
+    features(upcoming, upcoming.length, run.x);
+    const p = run.net.predict(run.x);
+    nextPick = p[1] >= p[0] ? "B" : "P";
+    nextProbability = { P: p[0], B: p[1] };
+  }
+
+  return {
+    coups, decided,
+    nextPick, nextProbability,
+    model: finish(model),
+    base: finish(base),
+    agree, agreement: coups ? agree / coups : 0,
+    split,
+    lastPick: run.picks.length ? run.picks[run.picks.length - 1] : null,
+    lastProbability: run.lastProbability,
+    ...verdict(model, base, split),
+  };
+}
+
+/**
  * Walk the table's coups once, learning as it goes, and score the network
  * against the estimate it would replace.
  *
@@ -3254,89 +3404,35 @@ function walkForward(sequences, {
   seed = 7, lr = 0.05, replay = 4, commission = BANKER_COMMISSION, deff = 1,
   next = null,
 } = {}) {
-  const net = new Net(seed);
-  const rng = makeRng(seed ^ 0x5f3759df);
-  const step = 1 / Math.max(1, deff);
-
-  const model = empty(), base = empty();
-  let coups = 0, agree = 0, decided = 0, split = 0;
-  let a = PRIOR_A, b = PRIOR_B, tieA = TIE_PRIOR_A, tieB = TIE_PRIOR_B;
-
-  // The whole table as one stream of coups, with the shoe each one sits in, so
-  // features that mean "how deep into the shoe" stay honest across shoes.
-  const flat = [];
-  for (const seq of sequences) {
-    for (let i = 0; i < seq.length; i += 1) flat.push({ seq, i });
-  }
-
-  const x = new Float64Array(INPUTS);
-  const past = [];                       // features and answers already seen
-  let lastPick = null, lastProbability = null;
-  let lastSeq = "";
-
-  for (const { seq, i } of flat) {
-    coups += 1;
-    lastSeq = seq;
-    features(seq, i, x);
-    const p = net.predict(x);
-    const modelPick = p[1] >= p[0] ? "B" : "P";
-
-    const q = a / (a + b);
-    const se = Math.sqrt((q * (1 - q)) / (a + b + 1));
-    const basePick = sidePick(q, se);
-
-    if (modelPick === basePick) agree += 1;
-    // Only a settled coup separates them: on a tie both stakes come back
-    // whoever picked what, so it carries no evidence either way.
-    else if (seq[i] !== "T") split += 1;
-    lastPick = modelPick;
-    lastProbability = { P: p[0], B: p[1] };
-
-    const outcome = seq[i];
-    settleInto(model, modelPick, outcome, commission);
-    settleInto(base, basePick, outcome, commission);
-
-    // Only now may the coup be learned from.
-    if (outcome !== "T") {
-      decided += 1;
-      const side = outcome === "B" ? 1 : 0;
-      const snapshot = Float64Array.from(x);
-      net.learn(x, side, lr);
-      past.push({ x: snapshot, side });
-      for (let r = 0; r < replay && past.length > 1; r += 1) {
-        const drawn = past[(rng() * past.length) | 0];
-        net.predict(drawn.x);
-        net.learn(drawn.x, drawn.side, lr);
-      }
-    }
-
-    if (outcome === "T") tieA += step;
-    else { tieB += step; if (outcome === "B") a += step; else b += step; }
-  }
-
-  // The coup that has not happened yet, which is what the panel recommends on.
-  // `lastPick` is the pick that was made for the coup at the end of the record
-  // -- a different question, and the one the panel was accidentally asking.
-  const upcoming = next === null ? lastSeq : next;
-  let nextPick = null, nextProbability = null;
-  if (coups) {
-    features(upcoming, upcoming.length, x);
-    const p = net.predict(x);
-    nextPick = p[1] >= p[0] ? "B" : "P";
-    nextProbability = { P: p[0], B: p[1] };
-  }
-
-  return {
-    coups, decided,
-    nextPick, nextProbability,
-    model: finish(model),
-    base: finish(base),
-    agree, agreement: coups ? agree / coups : 0,
-    split,
-    lastPick, lastProbability,
-    ...verdict(model, base, split),
-  };
+  const run = advance(newRun({ seed, lr, replay }), sequences);
+  return report(run, sequences, { commission, deff, next });
 }
+
+/**
+ * A walk-forward pass that is kept between calls.
+ *
+ * `update` continues the run when the corpus has only gained coups, and starts
+ * over when it has not -- a coup undone, a table switched to, a pile of
+ * screenshots imported. The result is the same object `walkForward` returns,
+ * because it is built by the same two functions; the test suite pins that by
+ * feeding a `Learner` one coup at a time and comparing.
+ */
+class Learner {
+  constructor(options = {}) {
+    this.options = options;
+    this.run = newRun(options);
+    this.restarts = 0;
+    this.resumes = 0;
+  }
+
+  update(sequences, { commission = BANKER_COMMISSION, deff = 1, next = null } = {}) {
+    if (extendsRun(this.run, sequences)) this.resumes += 1;
+    else { this.run = newRun(this.options); this.restarts += 1; }
+    advance(this.run, sequences);
+    return report(this.run, sequences, { commission, deff, next });
+  }
+}
+
 
 /**
  * Whether the network's lead is bigger than the noise it would show anyway.
@@ -4031,8 +4127,16 @@ class Store {
 
       if (!Object.keys(tables).length) return local;
       const m = meta.exists ? meta.data() : {};
+      // Through the same sieve as localStorage. The shared store is durable
+      // state written by earlier versions of this page and readable by other
+      // views; a document carrying a character that is not an outcome, or a
+      // `active` naming a table that is no longer there, is exactly as likely
+      // here as in the local mirror -- and a stray character is not harmless,
+      // since anything that is neither a tie nor a Banker counts as a Player.
+      const state = sanitiseState({ tables, active: m.active, isExample: false });
+      if (!state) return local;
       this._setStatus("synced");
-      return { tables, active: String(m.active || Object.keys(tables)[0]), isExample: false };
+      return state;
     } catch {
       this._setStatus("error");
       return local;
@@ -4605,12 +4709,18 @@ function renderLiveError(code, source) {
   $("liveToPaste").onclick = () => setMode("paste");
 }
 
-function setMode(mode) {
+function setMode(mode, focus = false) {
   const isLive = mode === "live";
-  $("modeLive").classList.toggle("on", isLive);
-  $("modePaste").classList.toggle("on", !isLive);
-  $("modeLive").setAttribute("aria-selected", String(isLive));
-  $("modePaste").setAttribute("aria-selected", String(!isLive));
+  for (const [id, on] of [["modeLive", isLive], ["modePaste", !isLive]]) {
+    const tab = $(id);
+    tab.classList.toggle("on", on);
+    tab.setAttribute("aria-selected", String(on));
+    // Roving tabindex: a tablist is one stop, and the arrow keys move inside
+    // it. Leaving both tabs tabbable is what makes a declared tablist behave
+    // unlike every other one a screen-reader user has met.
+    tab.tabIndex = on ? 0 : -1;
+    if (on && focus) tab.focus();
+  }
   $("livePane").hidden = !isLive;
   $("pastePane").hidden = isLive;
   if (!isLive && live?.active) live.stop();
@@ -4960,6 +5070,8 @@ let ledgerCache = null;
 /** The revision this block last flashed for, so a re-render does not re-flash. */
 let ledgerFlash = null;
 let learnCache = null;
+/** The walk itself, kept across coups so it is continued and not re-run. */
+const learner = new Learner();
 
 /**
  * The network's walk through this table, and whether it earned the wheel.
@@ -4976,8 +5088,12 @@ function learned() {
   // The next coup extends the shoe on the table, which may be an empty one --
   // so it is named rather than taken as "the last sequence walked", which
   // would give the network the wrong shoe's context to answer from.
-  const value = walkForward(shoes().map((s) => s.o).filter(Boolean),
-                            { deff, next: openShoe().o });
+  // Kept between coups rather than re-trained from scratch each time: the pass
+  // only ever moves forward, so a corpus that has gained a coup is continued.
+  // Re-training cost three quarters of a second per coup at eight hundred
+  // shoes, and got worse with every shoe collected.
+  const value = learner.update(shoes().map((s) => s.o).filter(Boolean),
+                               { deff, next: openShoe().o });
   learnCache = { revision, table: state.active, value };
   return value;
 }
@@ -5749,6 +5865,19 @@ function bindControls() {
 
   $("modeLive").onclick = () => setMode("live");
   $("modePaste").onclick = () => setMode("paste");
+  for (const id of ["modeLive", "modePaste"]) {
+    $(id).addEventListener("keydown", (e) => {
+      const next = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[e.key];
+      if (next === undefined && e.key !== "Home" && e.key !== "End") return;
+      e.preventDefault();
+      const order = ["live", "paste"];
+      const at = order.indexOf(id === "modeLive" ? "live" : "paste");
+      const to = e.key === "Home" ? 0
+               : e.key === "End" ? order.length - 1
+               : (at + next + order.length) % order.length;
+      setMode(order[to], true);
+    });
+  }
 
   live = new LiveWatcher({
     onRead: onLiveRead,
