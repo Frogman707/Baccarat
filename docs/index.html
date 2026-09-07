@@ -1,4 +1,4 @@
-<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style>*{box-sizing:border-box}body{margin:0;font:14px system-ui}img{max-width:100%}[hidden]{display:none!important}</style></head><body><title>바카라 슈 판독기</title>
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style>*{box-sizing:border-box}body{margin:0;font:14px system-ui}img{max-width:100%}[hidden]{display:none!important}</style><link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2032%2032%22%3E%3Crect%20width%3D%2232%22%20height%3D%2232%22%20rx%3D%227%22%20fill%3D%22%230e1620%22%2F%3E%3Ccircle%20cx%3D%2216%22%20cy%3D%228.5%22%20r%3D%224%22%20fill%3D%22%231e6fd9%22%2F%3E%3Ccircle%20cx%3D%2216%22%20cy%3D%2216%22%20r%3D%224%22%20fill%3D%22%23cf3b34%22%2F%3E%3Ccircle%20cx%3D%2216%22%20cy%3D%2223.5%22%20r%3D%224%22%20fill%3D%22%230a8f70%22%2F%3E%3C%2Fsvg%3E"><title>바카라 슈 판독기</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- A stylesheet blocks the first paint until it answers, and this one is a
@@ -66,7 +66,12 @@ header{position:sticky; top:0; z-index:20; background:var(--surface);
        border-bottom:1px solid var(--line)}
 .hin{max-width:1220px; margin:0 auto; padding:11px 20px;
      display:flex; align-items:center; gap:16px; flex-wrap:wrap}
-.brand{display:flex; align-items:center; gap:9px; font-weight:600; letter-spacing:-.01em}
+/* The page's one top-level heading. It is the app's name in the header rather
+   than a title block, so it takes the header's size and no margin -- but it has
+   to be an h1: with only h2s below it the document had no top-level heading at
+   all, and heading order is how a screen reader's user moves around a page. */
+.brand{display:flex; align-items:center; gap:9px; font-weight:600; letter-spacing:-.01em;
+       font-size:inherit; margin:0}
 .pips{display:flex; gap:4px}
 .pips i{width:9px; height:9px; border-radius:50%}
 .pips i:nth-child(1){background:var(--player)}
@@ -441,10 +446,11 @@ footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
   .qb:active{transform:scale(.97)}
 }
 </style>
+</head><body>
 
 <header>
   <div class="hin">
-    <span class="brand"><span class="pips"><i></i><i></i><i></i></span><span data-i18n="app.title"></span></span>
+    <h1 class="brand"><span class="pips"><i></i><i></i><i></i></span><span data-i18n="app.title"></span></h1>
     <select id="tableSel" data-i18n-aria="header.tableAria"></select>
     <button class="btn ghost" id="addTable" data-i18n="header.addTable"></button>
     <span id="exampleBadge" class="badge" data-i18n="header.example" hidden></span>
@@ -4159,8 +4165,14 @@ class Store {
     this.status = "local";            // local | syncing | synced | error
     this.onStatus = () => {};
     this._pending = new Map();        // shoeId -> record
+    this._deletes = new Set();        // shoeIds emptied or undone away
+    // What the shared store is believed to hold. A shoe is only worth deleting
+    // if it was ever written: without this every new shoe -- which starts
+    // empty -- would spend a round trip removing a document that never existed.
+    this._remote = new Set();
     this._metaDirty = false;
     this._timer = null;
+    this._retried = false;
   }
 
   /** Resolve the db capability if this view has it. Never throws. */
@@ -4210,6 +4222,7 @@ class Store {
       ]);
       const tables = {};
       snap.docs.forEach((d) => {
+        this._remote.add(d.id);
         const v = d.data();
         // An empty shoe carries nothing and would just accumulate; earlier
         // versions wrote them, so they are skipped on the way in as well.
@@ -4251,18 +4264,28 @@ class Store {
     if (!this.db) return;
 
     for (const id of changedShoeIds) {
+      let found = null;
       for (const [table, entry] of Object.entries(state.tables)) {
         const shoe = entry.shoes.find((s) => s.id === id);
-        if (!shoe) continue;
-        // A shoe with no coups is not written: it says nothing, an artifact's
-        // database is capped at five thousand documents, and undo can drop one
-        // locally at any time -- which would leave the document orphaned.
-        if (shoe.o.length) {
-          this._pending.set(id, { table, outcomes: shoe.o, closed: shoe.closed, started: shoe.t });
-        } else {
-          this._pending.delete(id);
-        }
-        break;
+        if (shoe) { found = { table, shoe }; break; }
+      }
+      // A shoe with no coups is not written: it says nothing, and an artifact's
+      // database is capped at five thousand documents. But cancelling the write
+      // is not enough once one has already gone out. Undo empties a shoe a coup
+      // at a time, and each step flushes, so by the last one the store holds
+      // the shoe one coup long -- and a reload brought those coups back. The
+      // same is true of a shoe undone away entirely, which leaves the state
+      // without ever being mentioned again. Both are deletions, so they are
+      // sent as deletions.
+      if (found && found.shoe.o.length) {
+        this._deletes.delete(id);
+        this._pending.set(id, {
+          table: found.table, outcomes: found.shoe.o,
+          closed: found.shoe.closed, started: found.shoe.t,
+        });
+      } else {
+        this._pending.delete(id);
+        if (this._remote.has(id)) this._deletes.add(id);
       }
     }
     this._metaDirty = true;
@@ -4278,20 +4301,56 @@ class Store {
     if (!this.db) return;
     const writes = [...this._pending.entries()];
     this._pending.clear();
+    const removals = [...this._deletes];
+    this._deletes.clear();
     const metaDirty = this._metaDirty;
     this._metaDirty = false;
-    if (!writes.length && !metaDirty) return;
+    if (!writes.length && !removals.length && !metaDirty) return;
 
     this._setStatus("syncing");
+    // Deletions go first: a shoe that was emptied and then started again under
+    // the same id must not have its removal applied on top of the new write.
+    const sentRemovals = [];
+    const sentWrites = [];
     try {
+      for (const id of removals) {
+        await this.db.collection(SHOE_COLLECTION).doc(id).delete();
+        sentRemovals.push(id);
+      }
       for (const [id, body] of writes) {
         await this.db.collection(SHOE_COLLECTION).doc(id).set(body);
+        sentWrites.push(id);
       }
       if (metaDirty) await this.db.doc(META_DOC).set({ active: state.active, updated: Date.now() });
+      this._retried = false;
       this._setStatus("synced");
     } catch (e) {
+      // The queues were drained before the first call, so whatever had not
+      // gone out is now only here. Dropping it is how the bug this delete
+      // queue exists for comes back: a removal lost to one failed round trip
+      // leaves the document behind, and the next reload restores the coups the
+      // person undid. Put back what did not land, skipping anything a later
+      // save has already superseded.
+      for (const id of removals) {
+        if (!sentRemovals.includes(id) && !this._pending.has(id)) this._deletes.add(id);
+      }
+      for (const [id, body] of writes) {
+        if (!sentWrites.includes(id) && !this._pending.has(id) && !this._deletes.has(id)) {
+          this._pending.set(id, body);
+        }
+      }
+      this._metaDirty = this._metaDirty || metaDirty;
       // quota_exceeded is not transient: surface it rather than retrying.
       this._setStatus(e?.code === "quota_exceeded" ? "full" : "error");
+      // One retry, so a single dropped connection does not need another coup
+      // to be entered before the queue moves again.
+      if (e?.code !== "quota_exceeded" && !this._retried) {
+        this._retried = true;
+        this._schedule(state);
+      }
+    } finally {
+      for (const id of sentRemovals) this._remote.delete(id);
+      for (const id of sentWrites) this._remote.add(id);
     }
   }
 
@@ -4299,7 +4358,10 @@ class Store {
   async deleteShoes(ids) {
     if (!this.db) return;
     try {
-      for (const id of ids) await this.db.collection(SHOE_COLLECTION).doc(id).delete();
+      for (const id of ids) {
+        await this.db.collection(SHOE_COLLECTION).doc(id).delete();
+        this._remote.delete(id);
+      }
     } catch {
       this._setStatus("error");
     }
