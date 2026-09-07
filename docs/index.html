@@ -1669,7 +1669,7 @@ function profit(side, result, stake = 1.0, commission = BANKER_COMMISSION) {
 
 /**
  * Deal a coup from the front of `values` (point values, dealt in order).
- * Returns {player, banker, outcome, used}. Throws if fewer than four cards.
+ * Returns {player, banker, outcome}. Throws if fewer than four cards.
  */
 function playOut(values) {
   if (values.length < 4) throw new Error("a coup needs at least four cards");
@@ -1682,7 +1682,7 @@ function playOut(values) {
   let bTotal = (banker[0] + banker[1]) % 10;
 
   if (isNatural(pTotal) || isNatural(bTotal)) {
-    return { player, banker, outcome: settle(pTotal, bTotal), used: 4 };
+    return { player, banker, outcome: settle(pTotal, bTotal) };
   }
 
   let playerThird = null;
@@ -1700,10 +1700,29 @@ function playOut(values) {
     bTotal = (bTotal + third) % 10;
   }
 
-  return { player, banker, outcome: settle(pTotal, bTotal), used: player.length + banker.length };
+  return { player, banker, outcome: settle(pTotal, bTotal) };
 }
 
 /* -------------------------------------------------------------------- rng */
+
+/**
+ * Fisher-Yates, in place.
+ *
+ * Extracted so it can be checked on its own. Every permutation has to be
+ * reachable and equally likely: this is what stands between the simulated
+ * corpus and the table it is the null hypothesis for, and a shuffle that is
+ * merely *nearly* uniform produces a corpus that is subtly not random -- which
+ * is the exact property the seventeen statistics are looking for. `i + 1` is
+ * the whole of it. `i` alone can never leave an element where it started, and
+ * anything smaller cannot reach the top of the range at all.
+ */
+function shuffleInPlace(array, rng) {
+  for (let i = array.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    const t = array[i]; array[i] = array[j]; array[j] = t;
+  }
+  return array;
+}
 
 /** sfc32: small, fast, and statistically adequate for shuffling a shoe. */
 function makeRng(seed) {
@@ -1742,10 +1761,7 @@ class Shoe {
       const n = 4 * nDecks * RANKS_PER_VALUE[v];
       for (let i = 0; i < n; i++) pack.push(v);
     }
-    for (let i = pack.length - 1; i > 0; i--) {          // Fisher-Yates
-      const j = Math.floor(rng() * (i + 1));
-      const t = pack[i]; pack[i] = pack[j]; pack[j] = t;
-    }
+    shuffleInPlace(pack, rng);
 
     this.cards = pack;
     this.pos = 0;
@@ -3089,7 +3105,7 @@ function posterior(sample = {}) {
  */
 function replayPicks(sequences, { deff = 1, commission = 0.05 } = {}) {
   const step = 1 / Math.max(1, deff);
-  let a = PRIOR_A, b = PRIOR_B, tieA = TIE_PRIOR_A, tieB = TIE_PRIOR_B;
+  let a = PRIOR_A, b = PRIOR_B;
 
   let bets = 0, wins = 0, losses = 0, pushes = 0, coups = 0;
   // The coup this replay settled last, so a reader can see what the pick just
@@ -3104,7 +3120,6 @@ function replayPicks(sequences, { deff = 1, commission = 0.05 } = {}) {
 
       // decide on what was knowable at the time, by the rule the panel uses
       const q = a / (a + b);
-      const tie = tieA / (tieA + tieB);
       const se = Math.sqrt((q * (1 - q)) / (a + b + 1));
       const pick = sidePick(q, se);
 
@@ -3132,9 +3147,8 @@ function replayPicks(sequences, { deff = 1, commission = 0.05 } = {}) {
       }
 
       // and only then learn from it
-      if (outcome === "T") tieA += step;
-      else {
-        tieB += step;
+      // A tie decides nothing, so it moves neither side of the Banker share.
+      if (outcome !== "T") {
         if (outcome === "B") a += step; else b += step;
       }
     }
