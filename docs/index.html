@@ -2533,6 +2533,74 @@ function buildBoard(marks, diameter) {
 }
 
 /**
+ * Undo glare before anything is classified.
+ *
+ * A screen photographed with a window behind it comes back lifted toward
+ * white: every channel is squeezed into the top of its range. Hue survives
+ * that, but saturation does not -- and the grey gate above is relative
+ * (`d / max`). Green is the least saturated of the three marks to begin with
+ * (0.58, against red's 0.77 and blue's 0.87), so under glare the ties fall
+ * through the gate first, while red and blue still pass. A dropped tie is not
+ * reported as unreadable; it simply is not in the board, and every coup after
+ * it shifts up one. That is the one failure worse than reading nothing: it
+ * puts a record into the corpus that never happened, and it moves the tie rate,
+ * which is one of the seventeen statistics the integrity battery tests.
+ *
+ * Glare is an affine map on every channel at once (`v -> a + b·v`), so its
+ * inverse is one too, and applying the same stretch to all three channels
+ * leaves hue exactly where it was. The ends come from percentiles rather than
+ * the extremes, so one blown highlight cannot set the scale, and the stretch
+ * is skipped unless the range is genuinely squeezed -- a screen capture
+ * already fills it, and passes through untouched.
+ */
+const GLARE_RANGE = 190;     // a spread wider than this needs no help
+const GLARE_FLOOR = 80;      // glare leaves nothing dark; a dark board is all dark
+const GLARE_MAX_GAIN = 3;    // beyond this the picture is noise, not glare
+const GLARE_MIN_MARKS = 4;   // only help a board that is already partly there
+
+function glareStretch(data, stride, x0, y0, w, h) {
+  const hist = new Uint32Array(256);
+  let n = 0;
+  // Every fourth pixel each way: enough for a percentile, a sixteenth of the work.
+  const step = 4;
+  for (let y = 0; y < h; y += step) {
+    for (let x = 0; x < w; x += step) {
+      const p = ((y + y0) * stride + (x + x0)) * 4;
+      if (data[p + 3] < 128) continue;
+      hist[data[p]] += 1; hist[data[p + 1]] += 1; hist[data[p + 2]] += 1;
+      n += 3;
+    }
+  }
+  if (n < 300) return null;
+
+  const at = (frac) => {
+    let seen = 0, target = frac * n;
+    for (let v = 0; v < 256; v += 1) {
+      seen += hist[v];
+      if (seen >= target) return v;
+    }
+    return 255;
+  };
+  const lo = at(0.02), hi = at(0.98);
+  const spread = hi - lo;
+  if (spread >= GLARE_RANGE || spread < 20) return null;
+  // The tell is a lifted *floor*. Glare adds light, so nothing in the picture
+  // is dark any more. A board on a dark theme has a squeezed range too, but
+  // for the opposite reason -- its background is near black -- and stretching
+  // that lifts the background through the gate's absolute terms (`max < 55`,
+  // `d < 38`) and invents marks out of it. Measured: a twelve-coup dark board
+  // came back as PBTTBPPPPPPP instead of PBTPBTPBTPBT.
+  if (lo < GLARE_FLOOR) return null;
+
+  const gain = Math.min(255 / spread, GLARE_MAX_GAIN);
+  const lut = new Uint8Array(256);
+  for (let v = 0; v < 256; v += 1) {
+    lut[v] = Math.max(0, Math.min(255, Math.round((v - lo) * gain)));
+  }
+  return lut;
+}
+
+/**
  * Find every board-shaped grid of coloured marks in an ImageData.
  *
  * Returns `{boards, bounds, diameter}` with boards ordered best-first.
@@ -2554,16 +2622,44 @@ function detectBoards(imageData, { region = null, minCells = 8 } = {}) {
   if (w < 20 || h < 20) return { boards: [], bounds: null, diameter: 0 };
 
   const codes = new Uint8Array(w * h);
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      const p = ((y + y0) * W + (x + x0)) * 4;
-      if (data[p + 3] < 128) continue;
-      codes[y * w + x] = classifyPixel(data[p], data[p + 1], data[p + 2]);
+  const classify = (lut) => {
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const p = ((y + y0) * W + (x + x0)) * 4;
+        codes[y * w + x] = data[p + 3] < 128 ? NONE
+          : lut ? classifyPixel(lut[data[p]], lut[data[p + 1]], lut[data[p + 2]])
+                : classifyPixel(data[p], data[p + 1], data[p + 2]);
+      }
+    }
+  };
+
+  classify(null);
+  let all = labelBlobs(codes, w, h);
+  let marks = keepMarks(all, w, h);
+
+  // Undo glare only where there is already a board to help. Under glare the
+  // reds and blues still classify and only the greens fall through, so a washed
+  // board arrives here with most of its marks and its ties missing -- while a
+  // bright noisy patch of screen (a dealer photo, a lit panel) arrives with
+  // none. Stretching the first is the fix; stretching the second amplifies its
+  // noise until a mark condenses out of it, which is the failure this is
+  // supposed to prevent, not cause. Measured: a warm bright panel that read as
+  // nothing came back as a one-mark board reading "B".
+  if (marks.length >= GLARE_MIN_MARKS) {
+    const lut = glareStretch(data, W, x0, y0, w, h);
+    if (lut) {
+      classify(lut);
+      const relabelled = labelBlobs(codes, w, h);
+      const recovered = keepMarks(relabelled, w, h);
+      if (recovered.length > marks.length) {
+        all = relabelled;
+        marks = recovered;
+      } else {
+        classify(null);                       // nothing gained: keep the picture as it came
+        all = labelBlobs(codes, w, h);
+      }
     }
   }
-
-  const all = labelBlobs(codes, w, h);
-  let marks = keepMarks(all, w, h);
 
   // A run of one outcome is the most common thing on a baccarat board and the
   // easiest to lose: screen sharing and camera photos both carry colour at
