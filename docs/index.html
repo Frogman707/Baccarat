@@ -572,6 +572,7 @@ footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
       <span class="obssub" data-i18n="ai.deltaLabel"></span>
     </div>
     <div id="aiBars"></div>
+    <p class="ainote" id="aiEstimate"></p>
     <div class="airec">
       <span class="k" data-i18n="ai.recommend"></span>
       <span class="v" id="aiSide"></span>
@@ -1072,17 +1073,23 @@ const S = {
     "zh-Hant": "上方 <b>{lead}</b> 高出 {gap}%p，推薦卻是{pick}。莊在交叉點 {cross} 之上即使扣佣仍較優，要換邊須估計值低於該線兩個標準誤 — 目前尚差 <b>{need}%p</b>。",
     "zh-Hans": "上方 <b>{lead}</b> 高出 {gap}%p，推荐却是{pick}。庄在交叉点 {cross} 之上即使扣佣仍较优，要换边须估计值低于该线两个标准误 — 目前尚差 <b>{need}%p</b>。",
   },
-  "ai.weight": {
-    ko: "한 판이 추정치를 움직이는 폭이 천분의 몇 %p인 것은 정상입니다: 사전분포가 약 6,950판어치 무게를 갖고 있어, 이 테이블의 {n}판은 추정치의 <b>{share}%</b>만 차지합니다. 실제로 관측된 비율은 아래 <b>뱅커 실측</b> 타일에 있고, 그쪽은 훨씬 크게 움직입니다.",
-    en: "Moving by thousandths of a point per coup is correct: the prior is worth about 6,950 coups, so this table's {n} decided coups carry <b>{share}%</b> of the estimate. What was actually observed is the <b>Banker share</b> tile below, and that one moves far more.",
-    "zh-Hant": "每局只移動千分之幾個百分點是正常的：先驗約值 6,950 局，因此本桌的 {n} 局僅占估計值的 <b>{share}%</b>。實際觀測到的比率在下方<b>莊家佔比</b>方塊，那個變動大得多。",
-    "zh-Hans": "每局只移动千分之几个百分点是正常的：先验约值 6,950 局，因此本桌的 {n} 局仅占估计值的 <b>{share}%</b>。实际观测到的比率在下方<b>庄家占比</b>方块，那个变动大得多。",
-  },
   "ai.holdNetwork": {
     ko: "위에서는 <b>{lead}</b>가 {gap}%p 높은데 추천은 {pick}입니다 — 이 추천은 기본 추정이 아니라 아래 <b>학습 모델</b>이 고른 값입니다. 모델이 기본 추정을 앞선다고 판정됐을 때만 그 값을 씁니다.",
     en: "<b>{lead}</b> reads {gap}pp higher above, yet the pick is {pick} — this pick comes from the <b>network</b> below, not the base estimate. It is only followed where it has been judged to be ahead of the base estimate.",
     "zh-Hant": "上方 <b>{lead}</b> 高出 {gap}%p，推薦卻是{pick} — 此推薦來自下方的<b>神經網路</b>，而非基本估計。只有在判定其領先基本估計時才會採用。",
     "zh-Hans": "上方 <b>{lead}</b> 高出 {gap}%p，推荐却是{pick} — 此推荐来自下方的<b>神经网络</b>，而非基本估计。只有在判定其领先基本估计时才会采用。",
+  },
+  "ai.estimateLine": {
+    ko: "위는 이 테이블이 실제로 낸 {n}판의 집계입니다. 다음 판 추정은 <b>뱅커 {b} · 플레이어 {p} · 타이 {t}</b> — 공정한 8덱 슈 쪽으로 수축시킨 값이라 실측과 다르고, 실측이 차지하는 비중은 {share}%입니다.",
+    en: "Above is what this table actually produced, over {n} coups. The estimate for the next one is <b>Banker {b} · Player {p} · Tie {t}</b> — shrunk toward a fair 8-deck shoe, which is why it differs, and the count carries {share}% of it.",
+    "zh-Hant": "上方是本桌實際產生的 {n} 局統計。下一局的估計為 <b>莊 {b} · 閒 {p} · 和 {t}</b> — 已朝公正的 8 副牌靴收縮，故與實測不同，實測佔其中 {share}%。",
+    "zh-Hans": "上方是本桌实际产生的 {n} 局统计。下一局的估计为 <b>庄 {b} · 闲 {p} · 和 {t}</b> — 已朝公正的 8 副牌靴收缩，故与实测不同，实测占其中 {share}%。",
+  },
+  "ai.estimateFresh": {
+    ko: "아직 판이 없습니다. 위는 공정한 8덱 슈의 값이고, 판이 들어오는 대로 이 테이블의 집계로 바뀝니다.",
+    en: "No coups yet. Above are a fair 8-deck shoe's figures; they become this table's counts as results arrive.",
+    "zh-Hant": "尚無局數。上方為公正 8 副牌靴的數值，待結果進來後即改為本桌的統計。",
+    "zh-Hans": "尚无局数。上方为公正 8 副牌靴的数值，待结果进来后即改为本桌的统计。",
   },
   "ai.whyBase": {
     ko: "남은 카드 구성을 알 수 없어 기본 확률을 씁니다. 결과만으로는 카드를 셀 수 없습니다.",
@@ -1169,7 +1176,10 @@ const S = {
     ko: "마지막 판으로 {n}%p 움직였습니다", en: "moved {n}pp on the last coup",
     "zh-Hant": "最後一局移動了 {n}%p", "zh-Hans": "最后一局移动了 {n}%p",
   },
-  "ai.next": { ko: "다음 판 예측", en: "Next coup", "zh-Hant": "下一局預測", "zh-Hans": "下一局预测" },
+  "ai.next": {
+    ko: "이 테이블 실측", en: "This table, counted",
+    "zh-Hant": "本桌實測", "zh-Hans": "本桌实测",
+  },
   "ai.perCoup": { ko: "판당", en: "per coup", "zh-Hant": "每局", "zh-Hans": "每局" },
 
   /* ---------------------------------------------------------- state tiles */
@@ -5416,10 +5426,34 @@ function predict() {
   };
 }
 
+/** The three shares a fresh 8-deck shoe produces, for a table with no coups. */
+const FRESH_SHARES = {
+  T: BASE_TIE,
+  B: (1 - BASE_TIE) * BASE_BANKER_SHARE,
+  P: (1 - BASE_TIE) * (1 - BASE_BANKER_SHARE),
+};
+
+/**
+ * What this table has actually produced, as three shares of every coup.
+ *
+ * These are counts, not an estimate: `banker / coups` and its two companions,
+ * which is what "the results on screen" means. Before the first coup there is
+ * nothing to count, and the fresh-shoe figures stand in.
+ */
+function observedShares(o) {
+  if (!o.coups) return { ...FRESH_SHARES, measured: false };
+  return {
+    P: o.player / o.coups, B: o.banker / o.coups, T: o.ties / o.coups,
+    measured: true,
+  };
+}
+
 function renderPrediction() {
   const p = predict();
+  const o = observed();
+  const shares = observedShares(o);
 
-  const { moves, fresh } = trackPrediction(p);
+  const { moves, fresh } = trackPrediction(shares);
   const bars = $("aiBars");
   bars.innerHTML = "";
   for (const code of ["P", "B", "T"]) {
@@ -5428,14 +5462,14 @@ function renderPrediction() {
     const track = el("div", "track");
     const fill = el("i");
     // Scaled against the largest share so the three bars stay readable.
-    fill.style.width = Math.min(100, (p.probability[code] / 0.5) * 100) + "%";
+    fill.style.width = Math.min(100, (shares[code] / 0.5) * 100) + "%";
     track.appendChild(fill);
     row.appendChild(track);
-    // Three decimals, because that is the scale the estimate actually moves
-    // at: one coup shifts it by about seven thousandths of a point, and a
-    // number rounded to one decimal sits still for a hundred hands.
+    // Two decimals: this is a count over the coups collected, and it moves by
+    // a tenth of a point at five hundred of them. The estimate below moves by
+    // thousandths, and says so in its own line.
     const d = moves ? moves[code] : 0;
-    const value = el("span", "p" + (d && fresh ? " bump" : ""), pct(p.probability[code], 3));
+    const value = el("span", "p" + (d && fresh ? " bump" : ""), pct(shares[code], 2));
     row.appendChild(value);
     row.appendChild(deltaChip(d));
     bars.appendChild(row);
@@ -5471,6 +5505,15 @@ function renderPrediction() {
         });
   }
 
+  // The bars are counts; this is what they imply about the coup about to be
+  // dealt, and it is a different number for a reason worth stating.
+  $("aiEstimate").innerHTML = shares.measured
+    ? t("ai.estimateLine", {
+        b: pct(p.decided * p.q, 2), p: pct(p.decided * (1 - p.q), 2), t: pct(p.tie, 2),
+        n: o.coups.toLocaleString(), share: (p.weight * 100).toFixed(1),
+      })
+    : t("ai.estimateFresh");
+
   const facts = [
     { k: t("ai.ev"), v: pct(p.edge, 3), sub: t("ai.perCoup"), neg: p.edge < 0 },
     { k: t("ai.confidence"), v: t("ai.conf." + p.confidence) },
@@ -5494,12 +5537,7 @@ function renderPrediction() {
   const why = [t("ai.whyBase")];
   if (!p.informed || p.moved < 0.0002) why.push(t("ai.whyThin", { n: p.n }));
   else why.push(t("ai.whyMoved", { n: p.n, delta: (p.moved * 100).toFixed(2) }));
-  // Why one coup barely moves it, and where to look for a figure that does.
-  if (p.informed) {
-    why.push(t("ai.weight", {
-      n: p.n.toLocaleString(), share: (p.weight * 100).toFixed(1),
-    }));
-  }
+
   why.push(t("ai.crossover", { q: pct(SIDE_CROSSOVER, 4), z: p.z.toFixed(1) }));
   // The last line carries emphasis on the two figures the rule turns on.
   $("aiWhy").innerHTML = why.join(" ");
@@ -5510,14 +5548,14 @@ function renderPrediction() {
 let predHistory = null;
 
 /**
- * How far each probability moved when the last result landed.
+ * How far each share moved when the last result landed.
  *
  * Keyed on the corpus revision, so switching language or re-rendering for any
  * other reason keeps showing the move that a coup actually caused rather than
  * blanking it or inventing a new one. A different table starts over: its
  * estimate has nothing to do with the one on screen a moment ago.
  */
-function trackPrediction(p) {
+function trackPrediction(shares) {
   const same = predHistory
     && predHistory.revision === revision
     && predHistory.table === state.active;
@@ -5528,12 +5566,11 @@ function trackPrediction(p) {
   if (same) return { moves: predHistory.moves, fresh: false };
 
   const prior = predHistory && predHistory.table === state.active
-    ? predHistory.probability : null;
+    ? predHistory.shares : null;
   const moves = prior
-    ? { P: p.probability.P - prior.P, B: p.probability.B - prior.B,
-        T: p.probability.T - prior.T }
+    ? { P: shares.P - prior.P, B: shares.B - prior.B, T: shares.T - prior.T }
     : null;
-  predHistory = { revision, table: state.active, probability: { ...p.probability }, moves };
+  predHistory = { revision, table: state.active, shares: { ...shares }, moves };
   return { moves, fresh: !!prior };
 }
 
