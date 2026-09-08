@@ -2251,6 +2251,29 @@ function quantile(sorted, q) {
 }
 
 /**
+ * Whether a verdict already on screen still describes what is on screen.
+ *
+ * A verdict is about one table's corpus at one moment, and the panel that
+ * prints it -- the wording, the seventeen findings, the shoes it covered --
+ * names neither. So the question has four answers, not two:
+ *
+ *   "none"     nothing has been measured yet
+ *   "running"  a run is in progress and owns the panel; putting the previous
+ *              verdict back would answer the question being asked right now
+ *   "other"    measured on a different table: not stale, just not about this
+ *              one, and it comes back if that table is selected again
+ *   "stale"    this table, further along -- still true of the corpus it
+ *              covered, so it is kept and labelled rather than thrown away
+ *   "current"  this table, unchanged since
+ */
+function verdictStanding(shown, activeTable, revision, running) {
+  if (!shown) return "none";
+  if (running) return "running";
+  if (shown.table !== activeTable) return "other";
+  return shown.revision === revision ? "current" : "stale";
+}
+
+/**
  * Test a corpus against honestly simulated shoes of the same shape.
  * `shoes` is an array of "PBT" strings, one per shoe.
  */
@@ -5923,33 +5946,20 @@ function renderMilestones() {
 function renderIntegrityStanding() {
   const stale = $("intStale");
   const panel = $("intResult");
-  // A run in progress owns the panel: it cleared it deliberately, and putting
-  // the previous verdict back while the next one is being measured would be
-  // showing an answer to the question currently being asked.
-  if (!integrityShown || integrityRun) { if (stale) stale.hidden = true; return; }
+  const standing = verdictStanding(integrityShown, state.active, revision, !!integrityRun);
 
-  // Another table's verdict is not stale, it is simply not about this table.
-  if (integrityShown.table !== state.active) {
-    panel.hidden = true;
-    if (stale) stale.hidden = true;
-    return;
-  }
+  if (standing === "none" || standing === "running") { stale.hidden = true; return; }
+  if (standing === "other") { panel.hidden = true; stale.hidden = true; return; }
 
   // Back on the table it was measured for, so it is worth seeing again.
   panel.hidden = false;
-
-  // The same table, further along: the verdict still stands for the corpus it
-  // was measured over, and the panel has to say which corpus that was.
-  const grown = integrityShown.revision !== revision;
-  if (stale) {
-    stale.hidden = !grown;
-    if (grown) {
-      stale.innerHTML = t("int.stale", {
-        shoes: integrityShown.shoes.toLocaleString(),
-        coups: integrityShown.coups.toLocaleString(),
-        now: shoes().reduce((a, sh) => a + sh.o.length, 0).toLocaleString(),
-      });
-    }
+  stale.hidden = standing !== "stale";
+  if (standing === "stale") {
+    stale.innerHTML = t("int.stale", {
+      shoes: integrityShown.shoes.toLocaleString(),
+      coups: integrityShown.coups.toLocaleString(),
+      now: shoes().reduce((a, sh) => a + sh.o.length, 0).toLocaleString(),
+    });
   }
 }
 
