@@ -2265,12 +2265,18 @@ function quantile(sorted, q) {
  *   "stale"    this table, further along -- still true of the corpus it
  *              covered, so it is kept and labelled rather than thrown away
  *   "current"  this table, unchanged since
+ *
+ * Staleness is measured against the table's own corpus, not against a counter
+ * of everything the page has done. Those are not the same question: looking at
+ * another table and coming back changes the second and not the first, and a
+ * verdict marked stale on the way back is telling the viewer their table has
+ * moved on when it has not.
  */
-function verdictStanding(shown, activeTable, revision, running) {
+function verdictStanding(shown, activeTable, coups, running) {
   if (!shown) return "none";
   if (running) return "running";
   if (shown.table !== activeTable) return "other";
-  return shown.revision === revision ? "current" : "stale";
+  return shown.coups === coups ? "current" : "stale";
 }
 
 /**
@@ -6066,7 +6072,8 @@ function renderMilestones() {
 function renderIntegrityStanding() {
   const stale = $("intStale");
   const panel = $("intResult");
-  const standing = verdictStanding(integrityShown, state.active, revision, !!integrityRun);
+  const now = shoes().reduce((a, sh) => a + sh.o.length, 0);
+  const standing = verdictStanding(integrityShown, state.active, now, !!integrityRun);
 
   if (standing === "none" || standing === "running") { stale.hidden = true; return; }
   if (standing === "other") { panel.hidden = true; stale.hidden = true; return; }
@@ -6078,7 +6085,7 @@ function renderIntegrityStanding() {
     stale.innerHTML = t("int.stale", {
       shoes: integrityShown.shoes.toLocaleString(),
       coups: integrityShown.coups.toLocaleString(),
-      now: shoes().reduce((a, sh) => a + sh.o.length, 0).toLocaleString(),
+      now: now.toLocaleString(),
     });
   }
 }
@@ -6144,7 +6151,7 @@ async function runIntegrity() {
 let integrityShown = null;
 
 function renderIntegrityResult(rep) {
-  integrityShown = { table: state.active, revision, shoes: rep.n_shoes, coups: rep.n_games };
+  integrityShown = { table: state.active, shoes: rep.n_shoes, coups: rep.n_games };
   $("intResult").hidden = false;
   const v = $("intVerdict");
   v.className = "verdict " + (rep.verdict_kind === "flag" ? "flag" : rep.verdict_kind === "clean" ? "ok" : "neutral");
