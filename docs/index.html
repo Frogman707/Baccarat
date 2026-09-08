@@ -520,6 +520,7 @@ footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
           <button class="btn ghost" id="liveRelock" data-i18n="live.relock"></button>
           <button class="btn" id="liveStop" data-i18n="live.stop"></button>
         </div>
+        <div id="liveBinding" class="warn" hidden></div>
         <div id="liveWarn" class="warn" hidden></div>
         <div id="liveLog" class="livelog"></div>
       </div>
@@ -575,6 +576,7 @@ footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
       <span class="k" data-i18n="ai.recommend"></span>
       <span class="v" id="aiSide"></span>
     </div>
+    <p class="aiverdict" id="aiHold" hidden></p>
     <div class="aigrid" id="aiFacts"></div>
     <div class="obshead">
       <span class="blabel" id="aiOverallH"></span>
@@ -877,6 +879,16 @@ const S = {
 
   "quick.title": { ko: "빠른 입력", en: "Quick entry", "zh-Hant": "快速輸入", "zh-Hans": "快速输入" },
 
+  "live.otherTable": {
+    ko: "<b>{table}</b> 테이블을 읽고 있습니다 — 지금 보고 있는 테이블이 아닙니다. 판독된 결과는 계속 그쪽으로 들어갑니다.",
+    en: "Reading <b>{table}</b> — not the table you are looking at. Coups keep going there.",
+    "zh-Hant": "正在讀取 <b>{table}</b> — 並非您正在檢視的桌台。判讀結果會繼續進入該桌。",
+    "zh-Hans": "正在读取 <b>{table}</b> — 并非您正在查看的桌台。判读结果会继续进入该桌。",
+  },
+  "live.goToTable": {
+    ko: "그 테이블 보기", en: "Show that table",
+    "zh-Hant": "檢視該桌台", "zh-Hans": "查看该桌台",
+  },
   "live.start": { ko: "화면 공유 시작", en: "Start screen sharing", "zh-Hant": "開始畫面分享", "zh-Hans": "开始画面共享" },
   "live.privacy": {
     ko: "브라우저가 어느 화면을 공유할지 직접 묻습니다. 영상은 이 페이지 밖으로 나가지 않고, 녹화되지도 않습니다.",
@@ -1053,6 +1065,24 @@ const S = {
   "ai.conf.low": { ko: "낮음", en: "Low", "zh-Hant": "低", "zh-Hans": "低" },
   "ai.conf.medium": { ko: "보통", en: "Medium", "zh-Hant": "中", "zh-Hans": "中" },
   "ai.conf.high": { ko: "높음", en: "High", "zh-Hant": "高", "zh-Hans": "高" },
+  "ai.holdWhy": {
+    ko: "위에서는 <b>{lead}</b>가 {gap}%p 높은데 추천은 {pick}입니다. 뱅커는 커미션을 물고도 교차점 {cross} 위에서는 더 나은 쪽이고, 갈아타려면 추정치가 그 선보다 2표준오차 아래여야 합니다 — 아직 <b>{need}%p</b> 모자랍니다.",
+    en: "<b>{lead}</b> reads {gap}pp higher above, yet the pick is {pick}. Banker is the better bet above the crossover at {cross} even after commission, and switching needs the estimate two standard errors below that line — it is still <b>{need}pp</b> short.",
+    "zh-Hant": "上方 <b>{lead}</b> 高出 {gap}%p，推薦卻是{pick}。莊在交叉點 {cross} 之上即使扣佣仍較優，要換邊須估計值低於該線兩個標準誤 — 目前尚差 <b>{need}%p</b>。",
+    "zh-Hans": "上方 <b>{lead}</b> 高出 {gap}%p，推荐却是{pick}。庄在交叉点 {cross} 之上即使扣佣仍较优，要换边须估计值低于该线两个标准误 — 目前尚差 <b>{need}%p</b>。",
+  },
+  "ai.weight": {
+    ko: "한 판이 추정치를 움직이는 폭이 천분의 몇 %p인 것은 정상입니다: 사전분포가 약 6,950판어치 무게를 갖고 있어, 이 테이블의 {n}판은 추정치의 <b>{share}%</b>만 차지합니다. 실제로 관측된 비율은 아래 <b>뱅커 실측</b> 타일에 있고, 그쪽은 훨씬 크게 움직입니다.",
+    en: "Moving by thousandths of a point per coup is correct: the prior is worth about 6,950 coups, so this table's {n} decided coups carry <b>{share}%</b> of the estimate. What was actually observed is the <b>Banker share</b> tile below, and that one moves far more.",
+    "zh-Hant": "每局只移動千分之幾個百分點是正常的：先驗約值 6,950 局，因此本桌的 {n} 局僅占估計值的 <b>{share}%</b>。實際觀測到的比率在下方<b>莊家佔比</b>方塊，那個變動大得多。",
+    "zh-Hans": "每局只移动千分之几个百分点是正常的：先验约值 6,950 局，因此本桌的 {n} 局仅占估计值的 <b>{share}%</b>。实际观测到的比率在下方<b>庄家占比</b>方块，那个变动大得多。",
+  },
+  "ai.holdNetwork": {
+    ko: "위에서는 <b>{lead}</b>가 {gap}%p 높은데 추천은 {pick}입니다 — 이 추천은 기본 추정이 아니라 아래 <b>학습 모델</b>이 고른 값입니다. 모델이 기본 추정을 앞선다고 판정됐을 때만 그 값을 씁니다.",
+    en: "<b>{lead}</b> reads {gap}pp higher above, yet the pick is {pick} — this pick comes from the <b>network</b> below, not the base estimate. It is only followed where it has been judged to be ahead of the base estimate.",
+    "zh-Hant": "上方 <b>{lead}</b> 高出 {gap}%p，推薦卻是{pick} — 此推薦來自下方的<b>神經網路</b>，而非基本估計。只有在判定其領先基本估計時才會採用。",
+    "zh-Hans": "上方 <b>{lead}</b> 高出 {gap}%p，推荐却是{pick} — 此推荐来自下方的<b>神经网络</b>，而非基本估计。只有在判定其领先基本估计时才会采用。",
+  },
   "ai.whyBase": {
     ko: "남은 카드 구성을 알 수 없어 기본 확률을 씁니다. 결과만으로는 카드를 셀 수 없습니다.",
     en: "The remaining card composition is unknown, so these are the base probabilities. Results alone cannot count cards.",
@@ -3076,6 +3106,12 @@ function posterior(sample = {}) {
   return {
     q, se, tie, decided, z, pick, edge: e[pick],
     informed: n > 0,
+    // How much of the estimate is this table's own data rather than the prior.
+    // The prior is deliberately heavy -- it is worth about seven thousand
+    // coups -- which is why one result moves the number by thousandths of a
+    // point. That is the estimate behaving as designed, but on screen it reads
+    // as a stuck figure unless the weight behind it is stated.
+    weight: nEff / (PRIOR_STRENGTH + nEff),
     n, coups,
     probability: { P: decided * (1 - q), B: decided * q, T: tie },
     confidence: z >= 2 ? "high" : z >= 1 ? "medium" : "low",
@@ -3650,6 +3686,27 @@ const RECHECK_EVERY = 12;
  * bar of eight -- which is where losing the lock lands -- drops the first seven.
  */
 const COLD_CELLS = 8, LOCKED_CELLS = 3, FRESH_CELLS = 1;
+
+/**
+ * Which table a reading belongs to.
+ *
+ * The reader watches one table's screen. Changing the table selector changes
+ * what the page shows; it does not change what the camera sees, so a reading
+ * belongs to the table the reader was started on for as long as that table
+ * still exists. Filing it under whichever table happens to be selected put one
+ * table's board into another's corpus as a new shoe, and every figure that
+ * table reports -- its statistics, its integrity verdict, its ledger -- was
+ * then computed over two tables mixed together.
+ *
+ * A table that has been deleted out from under the reader falls back to the
+ * selected one, because writing into a table that is not there would lose the
+ * reading entirely.
+ */
+function readingTable(startedOn, tables, active) {
+  return startedOn && tables && Object.prototype.hasOwnProperty.call(tables, startedOn)
+    ? startedOn
+    : active;
+}
 
 class LiveWatcher {
   /**
@@ -4510,12 +4567,29 @@ function exampleState() {
   return { tables: { "Demo": { shoes } }, active: "Demo", isExample: true };
 }
 
-const table = () => state.tables[state.active] || (state.tables[state.active] = { shoes: [] });
-const shoes = () => table().shoes;
+const tableNamed = (name) => state.tables[name] || (state.tables[name] = { shoes: [] });
+const table = () => tableNamed(state.active);
+const shoes = (name = state.active) => tableNamed(name).shoes;
+
+/**
+ * The table the live reader was started on, or null when it is not running.
+ *
+ * The reader is pointed at one table's screen. Changing the selector changes
+ * which table the page *shows*; it does not change what the camera sees. So
+ * every write out of the reader belongs to the table it was started on, not
+ * to whichever one is being looked at -- without this, glancing at another
+ * table mid-session filed the watched board there as a new shoe, and that
+ * table's statistics, integrity verdict and ledger were all computed from a
+ * corpus that mixed two tables together.
+ */
+let liveTable = null;
+
+/** The table the last commit wrote to, so a flash can tell whose coup it was. */
+let lastWrite = null;
 
 /** The shoe in progress, opening one if the last is closed. Mutates. */
-function currentShoe() {
-  const list = shoes();
+function currentShoe(name = state.active) {
+  const list = shoes(name);
   let last = list[list.length - 1];
   if (!last || last.closed) {
     last = { id: newShoeId(), o: "", closed: false, t: Date.now() };
@@ -4525,13 +4599,14 @@ function currentShoe() {
 }
 
 /** The same shoe for reading only -- render paths must not open one. */
-function openShoe() {
-  const list = shoes();
+function openShoe(name = state.active) {
+  const list = shoes(name);
   const last = list[list.length - 1];
   return !last || last.closed ? { id: null, o: "", closed: false, t: 0 } : last;
 }
 
-function commit(changedIds) {
+function commit(changedIds, writtenTable = state.active) {
+  lastWrite = writtenTable;
   invalidate();
   store.save(state, changedIds);
   render();
@@ -4572,17 +4647,27 @@ function newShoe() {
   commit([shoe.id, fresh.id]);
 }
 
-/** Replace the shoe in progress with what a screenshot says it contains. */
-function replaceCurrentShoe(seq) {
+/**
+ * Replace the shoe in progress with what a screenshot says it contains.
+ *
+ * `boundTo` is the table the live reader was started on, or null for "the one
+ * being looked at". It is resolved *after* `clearExample`, never as a default
+ * argument: a default is evaluated before the body runs, so it would capture
+ * the example table that `clearExample` is about to remove -- and writing to a
+ * name that is gone recreates it, filing the coups into a table nothing shows.
+ */
+function replaceCurrentShoe(seq, boundTo = null) {
   clearExample();
-  const shoe = currentShoe();
+  const name = readingTable(boundTo, state.tables, state.active);
+  const shoe = currentShoe(name);
   shoe.o = seq;
-  commit([shoe.id]);
+  commit([shoe.id], name);
 }
 
-function loadAsNewShoe(seq) {
+function loadAsNewShoe(seq, boundTo = null) {
   clearExample();
-  const list = shoes();
+  const name = readingTable(boundTo, state.tables, state.active);
+  const list = shoes(name);
   const last = list[list.length - 1];
   const changed = [];
   if (last && !last.o.length) list.pop();
@@ -4590,7 +4675,7 @@ function loadAsNewShoe(seq) {
   const fresh = { id: newShoeId(), o: seq, closed: false, t: Date.now() };
   list.push(fresh);
   changed.push(fresh.id);
-  commit(changed);
+  commit(changed, name);
 }
 
 /** The seeded example exists so the page opens showing what it does. The
@@ -4727,7 +4812,11 @@ function liveLog(text, kind) {
 }
 
 function onLiveRead(seq, board, repeats, { afterClear = false } = {}) {
-  const current = openShoe().o;
+  // Whatever the selector says now, this reading came off the table the
+  // reader was started on. The binding itself is handed to the writers, which
+  // resolve it after the example has been cleared out of the way.
+  const into = liveTable;
+  const current = openShoe(readingTable(into, state.tables, state.active)).o;
   const verdict = diagnose(current, seq);
   // Reading the big road is not a failure -- it is the same coups -- but it
   // loses ties and folds long runs, so it must never pass unremarked.
@@ -4750,7 +4839,7 @@ function onLiveRead(seq, board, repeats, { afterClear = false } = {}) {
         {
           label: t("live.shortSwap", { n: seq.length }),
           run: () => {
-            replaceCurrentShoe(seq);
+            replaceCurrentShoe(seq, into);
             liveHolds = 0;
             setLiveWarn(null);
             liveLog(t("live.logManual", { n: seq.length }));
@@ -4771,15 +4860,40 @@ function onLiveRead(seq, board, repeats, { afterClear = false } = {}) {
 
   if (verdict === "grow" && repeats >= CONFIRM_GROWTH) {
     const added = seq.length - current.length;
-    replaceCurrentShoe(seq);
+    replaceCurrentShoe(seq, into);
     liveLog(t("live.logGrow", {
       n: added, total: seq.length,
       sides: [...seq.slice(current.length)].map(side).join(" "),
     }));
   } else if ((restart || verdict === "reset") && repeats >= enough) {
-    loadAsNewShoe(seq);
+    loadAsNewShoe(seq, into);
     liveLog(t("live.logNewShoe", { n: seq.length }), "new");
   }
+}
+
+/**
+ * Say which table the reader is filling, whenever that is not the one on
+ * screen. Without this the coups simply appear somewhere else, and the table
+ * being looked at sits still for no visible reason.
+ */
+function renderLiveBinding() {
+  const bar = $("liveBinding");
+  if (!bar) return;
+  const elsewhere = liveTable && state.tables[liveTable] && liveTable !== state.active;
+  bar.hidden = !elsewhere;
+  if (!elsewhere) return;
+  bar.innerHTML = "";
+  bar.appendChild(el("span", null, t("live.otherTable", { table: liveTable })));
+  const go = el("button", "btn ghost", t("live.goToTable"));
+  go.style.marginLeft = "8px";
+  go.onclick = () => {
+    state.active = liveTable;
+    $("tableSel").value = liveTable;
+    invalidate();
+    store.save(state, []);
+    render();
+  };
+  bar.appendChild(go);
 }
 
 function setLiveWarn(text, action) {
@@ -4826,8 +4940,13 @@ function onLiveState(st) {
   $("liveActive").hidden = !st.active;
   $("liveError").hidden = !st.error;
 
-  if (st.error) { renderLiveError(st.error, st.source); return; }
-  if (!st.active) { renderLiveSources(); return; }
+  if (st.error) { liveTable = null; renderLiveBinding(); renderLiveError(st.error, st.source); return; }
+  if (!st.active) { liveTable = null; renderLiveBinding(); renderLiveSources(); return; }
+
+  // A reader that is running owns a table; one that has just started owns the
+  // one that was selected when it did.
+  if (!liveTable || !state.tables[liveTable]) liveTable = state.active;
+  renderLiveBinding();
 
   live.drawPreview($("liveCanvas"));
 
@@ -5153,6 +5272,29 @@ function renderPrediction() {
   pick.textContent = side(chosen);
   pick.className = "v " + chosen;
 
+  // The bars and the pick can disagree, and where they do it reads as a fault
+  // rather than a decision. Banker holds until the estimate is two standard
+  // errors below the crossover, so a Player share that is merely higher is not
+  // yet a reason to move -- which belongs here, beside the disagreement,
+  // rather than only in the paragraph at the foot of the panel.
+  const leader = p.probability.P > p.probability.B ? "P" : "B";
+  const hold = $("aiHold");
+  hold.hidden = chosen === leader;
+  if (!hold.hidden) {
+    const gap = (Math.abs(p.probability.P - p.probability.B) * 100).toFixed(3);
+    // Which rule is actually driving decides which answer is the true one.
+    // The crossover is why the *base* rule holds Banker; it says nothing
+    // about a pick the network made, and quoting it there would be an
+    // explanation of the wrong decision.
+    hold.innerHTML = chosen !== p.pick
+      ? t("ai.holdNetwork", { lead: side(leader), pick: side(chosen), gap })
+      : t("ai.holdWhy", {
+          lead: side(leader), pick: side(chosen), gap,
+          cross: pct(SIDE_CROSSOVER, 3),
+          need: Math.max(0, (p.q - (SIDE_CROSSOVER - 2 * p.se)) * 100).toFixed(3),
+        });
+  }
+
   const facts = [
     { k: t("ai.ev"), v: pct(p.edge, 3), sub: t("ai.perCoup"), neg: p.edge < 0 },
     { k: t("ai.confidence"), v: t("ai.conf." + p.confidence) },
@@ -5176,6 +5318,12 @@ function renderPrediction() {
   const why = [t("ai.whyBase")];
   if (!p.informed || p.moved < 0.0002) why.push(t("ai.whyThin", { n: p.n }));
   else why.push(t("ai.whyMoved", { n: p.n, delta: (p.moved * 100).toFixed(2) }));
+  // Why one coup barely moves it, and where to look for a figure that does.
+  if (p.informed) {
+    why.push(t("ai.weight", {
+      n: p.n.toLocaleString(), share: (p.weight * 100).toFixed(1),
+    }));
+  }
   why.push(t("ai.crossover", { q: pct(SIDE_CROSSOVER, 4), z: p.z.toFixed(1) }));
   // The last line carries emphasis on the two figures the rule turns on.
   $("aiWhy").innerHTML = why.join(" ");
@@ -5300,7 +5448,10 @@ function renderBetOutcome() {
   // at a table whose last coup happened an hour ago.
   const moved = ledgerFlash !== null
     && ledgerFlash.table === state.active
-    && ledgerFlash.revision !== revision;
+    && ledgerFlash.revision !== revision
+    // A coup the reader filed on the table it is watching moves that table,
+    // not this one; the revision is global, so it has to be asked whose.
+    && (lastWrite === null || lastWrite === state.active);
   ledgerFlash = { revision, table: state.active };
   const grid = $("aiLedger"), note = $("aiOverallNote"), sub = $("aiOverallSub");
   grid.innerHTML = "";
@@ -5491,6 +5642,7 @@ function renderAll() {
 
 function render() {
   renderHeader();
+  renderLiveBinding();
   renderPrediction();
   renderKpis();
   renderScale();
@@ -6088,6 +6240,7 @@ function bindControls() {
   $("resetBtn").onclick = async () => {
     if (!confirm(t("tools.resetConfirm", { table: state.active }))) return;
     const ids = shoes().map((s) => s.id);
+    if (liveTable === state.active) { live.stop(); liveLog(t("live.logStopped")); }
     delete state.tables[state.active];
     if (!Object.keys(state.tables).length) state.tables["Table 1"] = { shoes: [] };
     state.active = Object.keys(state.tables)[0];
