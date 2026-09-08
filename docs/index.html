@@ -4712,6 +4712,26 @@ function rerunDetection(region) {
   renderShot();
 }
 
+/**
+ * Throw away a capture that has been read but not applied.
+ *
+ * A reading sits on screen with its Apply buttons live and a line saying how
+ * it lines up with the shoe in progress -- both worked out against the table
+ * it was read on. Left there across a table change, the buttons would file one
+ * table's board into another, and the line would be describing a shoe that is
+ * no longer on screen. The image is gone from nowhere but the page: pasting it
+ * again takes a moment, and applying it to the wrong table does not.
+ */
+function discardPendingReadings() {
+  shot = null;
+  renderShot();
+  if (batchShoes) {
+    batchShoes = null;
+    batchRun += 1;                 // an import still decoding stands down
+    $("batch").hidden = true;
+  }
+}
+
 function renderShot() {
   const wrap = $("shotWrap"), idle = $("dropIdle");
   if (!shot) { wrap.hidden = true; idle.hidden = false; $("readout").hidden = true; return; }
@@ -6189,7 +6209,13 @@ function bindPaste() {
 }
 
 function bindControls() {
-  $("tableSel").onchange = (e) => { state.active = e.target.value; invalidate(); store.save(state, []); render(); };
+  $("tableSel").onchange = (e) => {
+    state.active = e.target.value;
+    discardPendingReadings();
+    invalidate();
+    store.save(state, []);
+    render();
+  };
   $("addTable").onclick = () => {
     const name = cleanTableName(prompt(t("header.newTablePrompt")));
     if (!name) return;
