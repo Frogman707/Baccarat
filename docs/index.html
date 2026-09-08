@@ -3685,6 +3685,27 @@ const CONFIRM_RESET = 3;
  * searched once, and a strip found elsewhere means the window moved.
  */
 const CLEAR_PATIENCE = 3;
+
+/**
+ * How long a strip that has gone quiet is still the strip.
+ *
+ * A shoe change empties every road at once and the shuffle that follows runs
+ * for minutes. For all of that time the watched strip reads nothing, and
+ * anything else on screen with marks in it -- the table beside this one, a
+ * second board in the lobby view -- outscores an empty strip trivially. Left
+ * to a score comparison the reader walks off to that other board partway
+ * through every shuffle and reads its coups as this table's.
+ *
+ * So an empty strip is not evidence for this long. Past it, a strip that has
+ * stayed silent really has been left behind, and the search opens up again.
+ *
+ * Two minutes covers a shoe change and the shuffle after it with room to
+ * spare, and is what a window that really did move costs to recover from --
+ * or nothing at all, if the viewer presses the button the status bar offers.
+ * The trade is deliberate: a wrong board read as this table's puts another
+ * table's coups in the corpus, and that is worse than a wait.
+ */
+const MEMORY_HOLD_MS = 2 * 60 * 1000;
 /**
  * How far below the best board on the frame the one being followed may fall
  * before the anchor stops protecting it.
@@ -3738,6 +3759,31 @@ function readingTable(startedOn, tables, active) {
     : active;
 }
 
+/**
+ * Where to look for the board next, and how little will do.
+ *
+ * Three situations, and they want three different bars:
+ *
+ *   locked        the strip is known; three marks in it are coups, not
+ *                 coincidence -- one, once it has been watched going empty,
+ *                 because a shoe change is exactly when the next mark matters
+ *   remembered    the lock was let go but a board was read here not long ago,
+ *                 so it is still a known place and one mark is enough
+ *   cold          nothing known: the whole screen, and eight marks before
+ *                 anything is called a board, because at this bar a video
+ *                 feed and a betting panel are full of red and blue
+ *
+ * The middle one is what makes a new shoe readable. Without it, letting go of
+ * the lock drops the search to the cold bar, and a shoe that has just started
+ * is invisible until its eighth coup -- most of the way through the first
+ * column, and every one of those coups lost.
+ */
+function searchPlan(region, memory, cleared) {
+  if (region) return { where: region, minCells: cleared ? FRESH_CELLS : LOCKED_CELLS };
+  if (memory) return { where: memory, minCells: FRESH_CELLS };
+  return { where: null, minCells: COLD_CELLS };
+}
+
 class LiveWatcher {
   /**
    * @param {object} opts
@@ -3755,8 +3801,25 @@ class LiveWatcher {
     this.canvas = null;
     this.timer = null;
     this.region = null;
+    /**
+     * Where the strip was, kept after the lock is let go.
+     *
+     * A new shoe deals one mark at a time into the place the last one filled.
+     * With no lock the search is the cold one, which needs eight marks before
+     * it will call anything a board -- so a shoe that has just started is
+     * invisible until its eighth coup, which is most of the way through the
+     * first column. Inside a strip a board has already been read in, one mark
+     * is enough, and that is the same reasoning the locked bar rests on. So
+     * the place is remembered, and it is looked at before the whole screen.
+     *
+     * Dropped the moment the evidence says the board is somewhere else, so a
+     * remembered strip cannot keep the search away from where the board went.
+     */
+    this.memory = null;
+    this.memoryAt = 0;       // when a board was last actually read in it
     this.bounds = null;      // the whole result strip, in frame pixels
     this.anchor = null;      // centre of the board being read, to keep the pick stable
+    this.lastBox = null;     // and its box, so a neighbour is not mistaken for it
     this.empties = 0;        // consecutive samples with nothing in the strip
     this.cleared = false;    // the strip went empty: the next reading is a new shoe
     this.candidate = null;
@@ -3894,6 +3957,9 @@ class LiveWatcher {
   /** Forget the locked position, e.g. after switching tables. */
   relock() {
     this.region = null;
+    this.memory = null;              // being told the lock is wrong
+    this.memoryAt = 0;
+    this.lastBox = null;
     this.bounds = null;
     this.anchor = null;
     this.empties = 0;
@@ -3953,22 +4019,41 @@ class LiveWatcher {
     // full-screen search keeps the higher bar, where anything red or blue can
     // turn up.
     this.samples += 1;
-    const bar = !this.region ? COLD_CELLS : this.cleared ? FRESH_CELLS : LOCKED_CELLS;
-    let { boards, bounds } = detectBoards(frame, { region: this.region, minCells: bar });
+    const remembering = !this.region && !!this.memory;
+    const plan = searchPlan(this.region, this.memory, this.cleared);
+    let { boards, bounds } = detectBoards(frame, { region: plan.where, minCells: plan.minCells });
+
+    // Inside a lock, only what carries on from the board being read is this
+    // table's. Filtered here rather than at the pick, so a strip holding
+    // nothing but a neighbour reads as empty and takes the path an emptied
+    // strip already takes.
+    if (this.region && this.lastBox) boards = boardsCarryingOn(boards, this.lastBox);
+
+    // A remembered strip is given up on time, not on emptiness: emptiness is
+    // what a shoe change looks like, and it lasts for the whole shuffle.
+    if (remembering && !boards.length && Date.now() - this.memoryAt > MEMORY_HOLD_MS) {
+      this.memory = null;
+    }
 
     // Every so often, look at the whole screen again. If the strip is clearly
     // elsewhere -- the window moved, or the first lock landed on the wrong
     // thing -- this is what lets go of it. Counted in samples rather than
     // readings: a strip reading nothing is exactly when this is needed, and
     // counting readings meant it never ran then.
-    if (this.region && this.samples % RECHECK_EVERY === 0) {
+    // While the remembered strip is still within its hold, an empty reading
+    // there says "between shoes", not "wrong place", and nothing found
+    // elsewhere is allowed to argue with it.
+    const holding = this.memory && Date.now() - this.memoryAt <= MEMORY_HOLD_MS;
+    if (this.region && this.samples % RECHECK_EVERY === 0 && !(holding && !boards.length)) {
       const full = detectBoards(frame, { minCells: COLD_CELLS });
       const here = boards.length ? boards[0].score : 0;
       if (full.boards.length && full.boards[0].score > here * 1.25) {
         boards = full.boards;
         bounds = full.bounds;
         this.region = null;
+        this.memory = null;          // the board is over there, not here
         this.anchor = null;
+        this.lastBox = null;
         this.cleared = false;
       }
     }
@@ -3980,12 +4065,20 @@ class LiveWatcher {
       // their screen sharing was broken while it did. The lock is kept and the
       // emptiness reported instead.
       if (this.empties === CLEAR_PATIENCE) {
-        const full = detectBoards(frame, { minCells: COLD_CELLS });
+        const full = holding ? { boards: [] } : detectBoards(frame, { minCells: COLD_CELLS });
         if (full.boards.length) {
-          // The strip is still on screen, just not where it was: the window
-          // moved. Let go and take it from the top.
+          // Something is on screen that is not in the strip. That may be the
+          // window having moved -- or it may be another table's board, or the
+          // panel beside the one being watched, which was always there and is
+          // only visible now because this strip went quiet. The lock is let go
+          // so the reader can follow a window that really did move, but the
+          // place is remembered: at a shoe change every road clears together,
+          // and the next mark is far more likely to land where the last shoe
+          // was than anywhere else. Remembering it is what lets that mark be
+          // read as the first coup instead of the eighth.
           this.region = null;
           this.anchor = null;
+          this.lastBox = null;
           this.cleared = false;
         } else {
           this.cleared = true;
@@ -4007,6 +4100,7 @@ class LiveWatcher {
     // outlive the reason for it.
     const board = pickBoard(boards, this.anchor);
     this.anchor = centreOf(board.box);
+    this.lastBox = board.box;
     this.bounds = bounds;
     this.lastBoard = { ...board, frameWidth: w, frameHeight: h };
     this.lastReadAt = Date.now();
@@ -4026,6 +4120,8 @@ class LiveWatcher {
         w: bounds.x2 - bounds.x + pad * 2, h: bounds.y2 - bounds.y + pad * 2,
       };
     }
+    // Whatever strip is being read from, that is the place worth remembering.
+    if (this.region) { this.memory = this.region; this.memoryAt = Date.now(); }
 
     // The flag rides with the reading and is dropped on the one that carries
     // it far enough to be acted on, so the caller sees it exactly once.
@@ -4035,7 +4131,7 @@ class LiveWatcher {
     // cannot see what it is cutting off -- it reads a clipped board and stays
     // that way. So a board that comes within a cell or two of its own edge
     // pushes that edge out, keeping headroom ahead of where the shoe is going.
-    if (this.region) this.region = widenFor(this.region, board, w, h);
+    if (this.region) this.region = this.memory = widenFor(this.region, board, w, h);
 
     this.onRead(board.sequence, this.lastBoard, this.repeats, { afterClear });
     if (afterClear && this.repeats >= CONFIRM_GROWTH) this.cleared = false;
@@ -4181,7 +4277,31 @@ function pickBoard(boards, anchor) {
   if (!anchor) return boards[0];
   const floor = boards[0].score * PICK_TOLERANCE;
   const credible = boards.filter((b) => b.score >= floor);
-  return nearestTo(credible.length ? credible : boards, anchor);
+  const pool = credible.length ? credible : boards;
+
+  return nearestTo(pool, anchor);
+}
+
+/**
+ * The boards that could be the one last read in `lastBox`, still carrying on.
+ *
+ * A locked strip is the whole result band. Beside the roads a table screen
+ * puts its video, and a lobby view puts other tables -- all in the same band,
+ * all full of the same red and blue, so the strip can hold more than the board
+ * being watched. While that board has marks in it, "nearest to where we were
+ * reading" picks it and the rest are ignored. The moment it clears for a shoe
+ * change, the neighbour is the only thing left, and nearest-to hands it over:
+ * its coups are read as this table's, in a shoe of their own.
+ *
+ * A shoe refills where the last one was, so the board carrying on is the one
+ * still overlapping the box just read. Sharing no ground with it makes it a
+ * different board, and a strip holding only those is, from here, empty --
+ * which is what a shoe change is, and is already handled as one.
+ */
+function boardsCarryingOn(found, lastBox) {
+  if (!lastBox) return found;
+  return found.filter((b) => b.box.x < lastBox.x2 && lastBox.x < b.box.x2
+                          && b.box.y < lastBox.y2 && lastBox.y < b.box.y2);
 }
 
 /** The board whose centre is closest to `point`, falling back to the best. */
