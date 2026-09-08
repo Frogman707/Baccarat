@@ -647,6 +647,7 @@ footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
     </div>
     <div id="intResult" hidden>
       <div id="intVerdict" class="verdict"></div>
+      <p class="warn" id="intStale" hidden></p>
       <div id="intFindings" style="margin-top:14px"></div>
       <div id="intMeta"></div>
     </div>
@@ -1324,6 +1325,12 @@ const S = {
     en: "{shoes} shoes · {coups} coups · {stats} statistics · {reps} null replicates · Benjamini-Hochberg correction",
     "zh-Hant": "{shoes} 靴 · {coups} 局 · {stats} 項統計量 · {reps} 次虛無重複 · Benjamini-Hochberg 多重檢定校正",
     "zh-Hans": "{shoes} 靴 · {coups} 局 · {stats} 项统计量 · {reps} 次零分布重复 · Benjamini-Hochberg 多重检验校正",
+  },
+  "int.stale": {
+    ko: "이 판정은 <b>{shoes}슈 · {coups}판</b>을 기준으로 나온 것입니다. 그 뒤로 이 테이블은 {now}판이 되었습니다 — 지금 기준으로 보려면 다시 실행하세요.",
+    en: "This verdict was measured over <b>{shoes} shoes · {coups} coups</b>. The table has since reached {now} — run it again for a verdict on what is there now.",
+    "zh-Hant": "此判定是以 <b>{shoes} 靴 · {coups} 局</b>為基準得出的。此後本桌已達 {now} 局 — 若要依現況判定請重新執行。",
+    "zh-Hans": "此判定是以 <b>{shoes} 靴 · {coups} 局</b>为基准得出的。此后本桌已达 {now} 局 — 若要依现况判定请重新执行。",
   },
   "int.headFlag": { ko: "이상 발견", en: "Deviation found", "zh-Hant": "發現異常", "zh-Hans": "发现异常" },
   "int.headClean": { ko: "이상 없음 — 결론 가능", en: "No deviation — and conclusive", "zh-Hant": "無異常 — 可下結論", "zh-Hans": "无异常 — 可下结论" },
@@ -5892,7 +5899,42 @@ function renderMilestones() {
 
 /* ------------------------------------------------------------- integrity */
 
+/** Keep a verdict only where it still describes what is on screen. */
+function renderIntegrityStanding() {
+  const stale = $("intStale");
+  const panel = $("intResult");
+  // A run in progress owns the panel: it cleared it deliberately, and putting
+  // the previous verdict back while the next one is being measured would be
+  // showing an answer to the question currently being asked.
+  if (!integrityShown || integrityRun) { if (stale) stale.hidden = true; return; }
+
+  // Another table's verdict is not stale, it is simply not about this table.
+  if (integrityShown.table !== state.active) {
+    panel.hidden = true;
+    if (stale) stale.hidden = true;
+    return;
+  }
+
+  // Back on the table it was measured for, so it is worth seeing again.
+  panel.hidden = false;
+
+  // The same table, further along: the verdict still stands for the corpus it
+  // was measured over, and the panel has to say which corpus that was.
+  const grown = integrityShown.revision !== revision;
+  if (stale) {
+    stale.hidden = !grown;
+    if (grown) {
+      stale.innerHTML = t("int.stale", {
+        shoes: integrityShown.shoes.toLocaleString(),
+        coups: integrityShown.coups.toLocaleString(),
+        now: shoes().reduce((a, sh) => a + sh.o.length, 0).toLocaleString(),
+      });
+    }
+  }
+}
+
 function renderIntegrityAvailability() {
+  renderIntegrityStanding();
   const n = shoes().filter((s) => s.o.length).length;
   const btn = $("runIntegrity");
   btn.disabled = n < 3 || !!integrityRun;
@@ -5939,7 +5981,20 @@ async function runIntegrity() {
   renderIntegrityAvailability();
 }
 
+/**
+ * The corpus a verdict on screen was measured over.
+ *
+ * The panel prints a verdict, a findings table and the shoes it covered, and
+ * none of it says which table. So a result left up after the selector moved
+ * read as a verdict about the table now on screen -- a run over nine shoes
+ * sat above a table with four. A different table gets it cleared; the same
+ * table that has since collected more coups keeps it, with a line saying what
+ * it was actually measured over.
+ */
+let integrityShown = null;
+
 function renderIntegrityResult(rep) {
+  integrityShown = { table: state.active, revision, shoes: rep.n_shoes, coups: rep.n_games };
   $("intResult").hidden = false;
   const v = $("intVerdict");
   v.className = "verdict " + (rep.verdict_kind === "flag" ? "flag" : rep.verdict_kind === "clean" ? "ok" : "neutral");
