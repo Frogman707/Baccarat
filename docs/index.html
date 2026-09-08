@@ -6340,6 +6340,31 @@ function bindControls() {
     commit([]);
   };
 
+  /*
+   * No context menu on the page.
+   *
+   * Two carve-outs, because blocking those would take away a way in rather
+   * than a menu nobody asked for. A text field keeps its menu: paste is what
+   * that menu is for, and the results box is meant to be pasted into. And a
+   * long press on a touch screen is left alone -- on a phone that gesture *is*
+   * the paste, and the hint under the drop zone says so in as many words.
+   *
+   * Which pointer opened it is not on the event, so the last one down is
+   * remembered. A keyboard menu key never touches a pointer, so it inherits
+   * whatever came last, which is the harmless way round.
+   */
+  let lastPointerWasMouse = true;
+  document.addEventListener("pointerdown", (e) => {
+    lastPointerWasMouse = e.pointerType === "mouse";
+  }, true);
+
+  document.addEventListener("contextmenu", (e) => {
+    if (!lastPointerWasMouse) return;
+    const el = e.target;
+    if (el && typeof el.closest === "function" && el.closest("input, textarea")) return;
+    e.preventDefault();
+  });
+
   document.addEventListener("keydown", (e) => {
     if (e.metaKey || e.ctrlKey || e.altKey) return;
     const tag = (e.target.tagName || "").toLowerCase();
