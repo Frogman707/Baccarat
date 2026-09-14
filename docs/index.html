@@ -2008,6 +2008,12 @@ const S = {
     "zh-Hant": "尚未登入該伺服器。請在瀏覽器開啟其位址登入後再試。",
     "zh-Hans": "尚未登录该服务器。请在浏览器打开其地址登录后再试。",
   },
+  "pooled.authTls": {
+    ko: "그 서버에 로그인되어 있지 않습니다. 로그인했는데도 계속 이렇게 나온다면 주소가 <b>http</b> 이기 때문입니다 — 다른 사이트로는 세션이 가지 않고, 평문 서버는 갈 수 있는 쿠키를 가질 수 없습니다. 기록 서버를 <b>https</b> 로 서비스하세요.",
+    en: "Not signed in to that server. If you did sign in and this keeps coming back, it is because the address is <b>http</b>: a session is not sent to another site, and a server without TLS cannot hold the cookie that would be. Serve the record over <b>https</b>.",
+    "zh-Hant": "尚未登入該伺服器。若已登入仍持續出現，原因是位址為 <b>http</b> — 工作階段不會送往另一個網站，而未加密的伺服器也無法持有能跨站的 Cookie。請以 <b>https</b> 提供紀錄伺服器。",
+    "zh-Hans": "尚未登录该服务器。若已登录仍持续出现，原因是地址为 <b>http</b> — 会话不会送往另一个网站，而未加密的服务器也无法持有能跨站的 Cookie。请以 <b>https</b> 提供记录服务器。",
+  },
   "pooled.network": {
     ko: "서버에 닿지 못했습니다: {why}",
     en: "Could not reach the server: {why}",
@@ -6237,6 +6243,30 @@ function normaliseServer(raw) {
   return (url.origin + url.pathname).replace(/\/+$/, "");
 }
 
+/**
+ * Whether a session could even reach this address from this page.
+ *
+ * A session cookie is not sent to another *site*, and a record on plain HTTP
+ * cannot hold the relaxed cookie that would be -- browsers discard it. So an
+ * address like `http://my-box:8000` opened from the published page is a dead
+ * end that looks exactly like being signed out: the reader signs in, comes
+ * back, and is a stranger again, for ever, with nothing to say why.
+ *
+ * Same-machine addresses are fine over plain HTTP and are the ordinary way to
+ * try this out, so they are not warned about.
+ */
+function needsTls(base) {
+  if (!base || !base.startsWith("http://")) return false;
+  let host;
+  try {
+    host = new URL(base).hostname;
+  } catch {
+    return false;
+  }
+  return !(host === "localhost" || host === "127.0.0.1" || host === "[::1]"
+           || host.endsWith(".localhost"));
+}
+
 function readServer() {
   try {
     return normaliseServer(localStorage.getItem(SHARE_KEY) || "");
@@ -10170,7 +10200,13 @@ async function showSignedInAs() {
   $("whoBox").hidden = false;
   $("whoOut").onclick = async () => {
     try {
-      await fetch("/api/logout", { method: "POST", credentials: "same-origin" });
+      // The content type is not decoration: every write demands it, because a
+      // request that can be made without one can be made by another site's
+      // page with the reader's cookie attached.
+      await fetch("/api/logout", {
+        method: "POST", credentials: "same-origin",
+        headers: { "Content-Type": "application/json" }, body: "{}",
+      });
     } catch { /* going to the door anyway */ }
     location.href = "/login";
   };
@@ -10979,8 +11015,8 @@ function bindSharedScore() {
       renderSharedScore(await fetchScore(base));
       note.textContent = "";
     } catch (e) {
-      note.textContent = e instanceof ShareError && e.kind === "auth"
-        ? t("pooled.auth")
+      note.innerHTML = e instanceof ShareError && e.kind === "auth"
+        ? t(authKey())
         : t("pooled.server", { why: String((e && e.message) || e) });
     } finally {
       button.disabled = false;
@@ -11049,6 +11085,11 @@ let pooledShown = null;
 /** The minimum both batteries take. Said here because the note names it. */
 const POOLED_MIN_SHOES = 3;
 
+/** "Not signed in", or the reason signing in will not help. */
+function authKey() {
+  return needsTls(readServer()) ? "pooled.authTls" : "pooled.auth";
+}
+
 function pooledSay(key, vars) {
   $("pooledNote").innerHTML = key ? t(key, vars) : "";
 }
@@ -11106,7 +11147,7 @@ async function runPooledIntegrity() {
   } catch (e) {
     if (e && e.name === "AbortError") { pooledSay(null); return; }
     if (e instanceof ShareError) {
-      if (e.kind === "auth") pooledSay("pooled.auth");
+      if (e.kind === "auth") pooledSay(authKey());
       else if (e.kind === "network") pooledSay("pooled.network", { why: e.message });
       // The battery refuses below three shoes with a 422. `/tables` above
       // should have caught that already; this is here for the case where
