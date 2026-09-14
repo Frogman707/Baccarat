@@ -171,7 +171,9 @@ h2{font-size:14px; font-weight:600; margin:0 0 3px; letter-spacing:-.005em}
 .livebox .small,#liveIdle .small{font-size:12.5px; color:var(--ink-3); line-height:1.55;
         max-width:46ch; margin:0 auto}
 #liveCanvas{width:100%; height:auto; display:block; border-radius:9px;
-            background:var(--surface-3); border:1px solid var(--line)}
+            background:var(--surface-3); border:1px solid var(--line); touch-action:none}
+#liveCanvas.picking{cursor:crosshair; border-color:var(--accent)}
+#livePickHint{margin-top:8px; color:var(--accent); font-size:12px}
 .livebar{display:flex; align-items:center; gap:9px; flex-wrap:wrap; margin-top:11px}
 .livebar select{font-size:12.5px; padding:4px 8px}
 .livebar .btn{padding:5px 12px; font-size:12.5px}
@@ -624,6 +626,7 @@ footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
 
       <div id="liveActive" hidden>
         <canvas id="liveCanvas"></canvas>
+        <p class="small" id="livePickHint" hidden data-i18n="live.pickHint"></p>
         <div class="livebar">
           <span class="livedot" id="liveDot"></span>
           <span id="liveStatus"></span>
@@ -634,6 +637,7 @@ footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
             <option value="3000"></option>
             <option value="6000"></option>
           </select>
+          <button class="btn ghost" id="livePick" data-i18n="live.pick"></button>
           <button class="btn ghost" id="liveRelock" data-i18n="live.relock"></button>
           <button class="btn" id="liveStop" data-i18n="live.stop"></button>
         </div>
@@ -963,10 +967,10 @@ const S = {
   /* ---------------------------------------------------------------- live */
   "live.idleH": { ko: "브라우저 화면을 실시간으로 읽습니다", en: "Read your browser screen as it changes", "zh-Hant": "即時讀取瀏覽器畫面", "zh-Hans": "实时读取浏览器画面" },
   "live.idleBody": {
-    ko: "화면 공유를 시작하면 어느 창을 공유할지 묻는 창이 뜹니다. 테이블이 열린 탭을 고른 뒤에는 캡처도 붙여넣기도 필요 없습니다 — 몇 초마다 육매를 다시 읽어 새 판이 나오는 대로 알아서 들어옵니다.",
-    en: "Starting screen sharing opens your browser's own picker. Choose the tab with the table, and that is the last step — the bead plate is re-read every few seconds and new coups arrive on their own.",
-    "zh-Hant": "開始畫面分享後，瀏覽器會請您選擇要分享的視窗。選擇開著桌台的分頁之後就不必再截圖或貼上 — 每隔數秒重新讀取珠盤路，新的一局會自動進來。",
-    "zh-Hans": "开始画面共享后，浏览器会请您选择要共享的窗口。选择开着桌台的标签页之后就不必再截图或粘贴 — 每隔数秒重新读取珠盘路，新的一局会自动进来。",
+    ko: "화면 공유를 시작하면 어느 창을 공유할지 묻는 창이 뜹니다. 테이블이 열린 탭을 고른 뒤에는 캡처도 붙여넣기도 필요 없습니다 — 몇 초마다 육매를 다시 읽어 새 판이 나오는 대로 알아서 들어옵니다. 결과판은 <b>칸(격자) 자체로</b> 찾기 때문에 판이 하나도 없어도 영역이 잡히고, 슈가 바뀌어도 그대로 고정됩니다. 그래도 엉뚱한 곳을 잡으면 <b>영역 직접 지정</b>으로 드래그해서 정해 주세요 — 그 뒤로는 그 자리만 읽습니다.",
+    en: "Starting screen sharing opens your browser's own picker. Choose the tab with the table, and that is the last step — the bead plate is re-read every few seconds and new coups arrive on their own. The roads are found by <b>their own cells</b>, so the region is pinned before a single coup has been dealt and stays pinned through a shoe change. If it still settles on the wrong place, <b>draw the region</b> yourself and only that box is read from then on.",
+    "zh-Hant": "開始畫面分享後，瀏覽器會請您選擇要分享的視窗。選擇開著桌台的分頁之後就不必再截圖或貼上 — 每隔數秒重新讀取珠盤路，新的一局會自動進來。路單是靠<b>格線本身</b>找到的，所以一局都還沒開出時就能鎖定區域，換靴也不會鬆開。若仍然框錯地方，請用<b>自行框選區域</b>拖曳指定 — 之後只會讀取該處。",
+    "zh-Hans": "开始画面共享后，浏览器会请您选择要共享的窗口。选择开着桌台的标签页之后就不必再截图或粘贴 — 每隔数秒重新读取珠盘路，新的一局会自动进来。路单是靠<b>格线本身</b>找到的，所以一局都还没开出时就能锁定区域，换靴也不会松开。若仍然框错地方，请用<b>自行框选区域</b>拖曳指定 — 之后只会读取该处。",
   },
   "live.idleHCamera": {
     ko: "카메라로 테이블 화면을 읽습니다", en: "Read the table's screen with the camera",
@@ -1081,12 +1085,50 @@ const S = {
   "live.intervalAria": { ko: "읽는 간격", en: "Reading interval", "zh-Hant": "讀取間隔", "zh-Hans": "读取间隔" },
   "live.every": { ko: "{n}초마다", en: "Every {n}s", "zh-Hant": "每 {n} 秒", "zh-Hans": "每 {n} 秒" },
   "live.relock": { ko: "영역 다시 찾기", en: "Find the board again", "zh-Hant": "重新尋找區域", "zh-Hans": "重新寻找区域" },
+  "live.pick": { ko: "영역 직접 지정", en: "Draw the region", "zh-Hant": "自行框選區域", "zh-Hans": "自行框选区域" },
+  "live.picking": { ko: "지정 취소", en: "Cancel", "zh-Hant": "取消框選", "zh-Hans": "取消框选" },
+  "live.unpin": { ko: "자동으로 되돌리기", en: "Back to automatic", "zh-Hant": "恢復自動", "zh-Hans": "恢复自动" },
+  "live.pickHint": {
+    ko: "아래 화면에서 육매·본매가 있는 부분을 드래그해서 감싸세요. 비어 있어도 괜찮습니다 — 지정한 곳만 계속 읽습니다.",
+    en: "Drag a box around the roads in the picture below. Empty is fine — from then on only that box is read.",
+    "zh-Hant": "在下方畫面中拖曳框住路單區域。空的也沒關係 — 之後只會讀取框內。",
+    "zh-Hans": "在下方画面中拖曳框住路单区域。空的也没关系 — 之后只会读取框内。",
+  },
   "live.stop": { ko: "멈춤", en: "Stop", "zh-Hant": "停止", "zh-Hans": "停止" },
   "live.reading": {
     ko: "{n}판 읽음 · {lock} · {ago}초 전", en: "{n} read · {lock} · {ago}s ago",
     "zh-Hant": "已讀 {n} 局 · {lock} · {ago} 秒前", "zh-Hans": "已读 {n} 局 · {lock} · {ago} 秒前",
   },
   "live.locked": { ko: "영역 고정", en: "board locked", "zh-Hant": "區域已鎖定", "zh-Hans": "区域已锁定" },
+  "live.lockedGrid": { ko: "칸 기준 고정", en: "pinned to the cells", "zh-Hant": "依格線鎖定", "zh-Hans": "依格线锁定" },
+  "live.lockedManual": { ko: "직접 지정", en: "your region", "zh-Hant": "自行框選", "zh-Hans": "自行框选" },
+  "live.waitingGrid": {
+    ko: "영역 고정 — 결과를 기다리는 중 ({cols}×{rows}칸)",
+    // "grid", not "cells": the noun follows the pair, and after a pair it is
+    // the grid that is one thing. "6×6 cells" also reads as a count of cells,
+    // which is not what the figure is.
+    en: "Region pinned — waiting for a result ({cols}×{rows} grid)",
+    "zh-Hant": "區域已鎖定 — 等待結果（{cols}×{rows} 格）",
+    "zh-Hans": "区域已锁定 — 等待结果（{cols}×{rows} 格）",
+  },
+  "live.waitingManual": {
+    ko: "지정한 영역을 읽는 중 — 결과를 기다립니다",
+    en: "Reading your region — waiting for a result",
+    "zh-Hant": "讀取您框選的區域 — 等待結果",
+    "zh-Hans": "读取您框选的区域 — 等待结果",
+  },
+  "live.logPinned": {
+    ko: "결과판 칸을 찾아 영역을 고정했습니다 ({cols}×{rows})",
+    en: "Found the roads by their cells and pinned the region ({cols}×{rows})",
+    "zh-Hant": "已依格線找到路單並鎖定區域（{cols}×{rows}）",
+    "zh-Hans": "已依格线找到路单并锁定区域（{cols}×{rows}）",
+  },
+  "live.logPinnedManual": {
+    ko: "영역을 직접 지정했습니다 — 이제 이 부분만 읽습니다",
+    en: "Region set by hand — only this part is read from now on",
+    "zh-Hant": "已自行框選區域 — 之後只讀取此處",
+    "zh-Hans": "已自行框选区域 — 之后只读取此处",
+  },
   "live.cleared": {
     ko: "슈 종료 — 새 슈를 기다리는 중", en: "Shoe finished — waiting for the next one",
     "zh-Hant": "牌靴結束 — 等待下一靴", "zh-Hans": "牌靴结束 — 等待下一靴",
@@ -3561,6 +3603,580 @@ function toWorkingImage(source, canvas) {
   return { imageData: ctx.getImageData(0, 0, w, h), width: w, height: h, scale };
 }
 
+/* ------------------------------------------------------------ empty grid */
+
+/*
+ * Finding the roads before a single coup has been dealt.
+ *
+ * Everything above this line finds the board by finding its marks, which is
+ * the right way round while there are marks. It is exactly the wrong way round
+ * at a shoe change, when there are none -- and a shoe change is when the reader
+ * has the most to lose, because the region it is holding is the only thing that
+ * tells the next coup apart from the table next door.
+ *
+ * But the roads do not disappear when they empty. The bead plate, the big road
+ * and the three derived roads are a printed lattice of cells, drawn on the page
+ * whether or not anything has been dealt into them -- that is what the operator
+ * clears *to*. So the panel is findable with nothing in it, by its own ruling
+ * rather than by its contents, and a region pinned to the ruling stays pinned
+ * through a shuffle, a wipe, and the first coup of the next shoe.
+ *
+ * What is being looked for is periodicity: a run of evenly spaced edges across
+ * the frame, and another down it, at the same spacing, because road cells are
+ * square. Almost nothing else on a casino screen is periodic in both axes at
+ * once -- a betting panel is five wide boxes, a chip tray is one row, and the
+ * felt is curves -- which is what makes the test specific enough to act on.
+ */
+
+/** Cell spacings worth looking for, in working pixels. */
+const GRID_MIN_PITCH = 7;
+const GRID_MAX_PITCH = 90;
+
+/**
+ * The smallest lattice that is a road rather than a coincidence.
+ *
+ * A bead plate is six rows deep and runs a dozen columns or more; the big road
+ * is six deep and wider still. Four rows is below every layout there is, and
+ * demanding six columns of a thing that also has to be periodic down the frame
+ * is what keeps a row of buttons and a strip of chrome out.
+ */
+const GRID_MIN_COLS = 6;
+const GRID_MIN_ROWS = 4;
+
+/**
+ * How far above the background a rule has to stand to count as one.
+ *
+ * A share of the profile's own range, so it means the same thing on a dark
+ * panel with hairline rules and on a light one with heavy ones. Low, because
+ * the run test below is what does the discriminating -- this only has to let
+ * the rules through without flooding the list with noise.
+ */
+const PEAK_FLOOR = 0.22;
+
+/**
+ * And the least a rule may be in absolute terms: a share of the line it
+ * crosses.
+ *
+ * The relative floor above ranks lines against the lines around them, which is
+ * two kinds of wrong on its own. Where there is one very long edge -- the
+ * border of the panel itself -- it sets the bar by that edge and puts the
+ * road's own rules, a sixth as long, underneath it: measured, a bead plate
+ * covering a seventh of the frame's width produced exactly one peak, its own
+ * border. And where there is no structure at all it ranks grain, which always
+ * has a first place to give.
+ *
+ * A floor under both, low enough that a road filling a fifteenth of the frame
+ * still clears it.
+ */
+const PEAK_MIN_SHARE = 0.06;
+
+/**
+ * How much of a run has to be rules that are really there.
+ *
+ * A run is allowed to step over a missing rule, which is what lets a bead
+ * sitting on one not break the panel in half. Allowed without limit, that same
+ * licence would chain four unrelated bright spots into a "lattice", so most of
+ * the run has to be present rather than assumed.
+ */
+const GRID_MIN_SOLIDITY = 0.75;
+
+/** Luma of a box of the frame, row-major. */
+function lumaBox(imageData, x0, y0, w, h) {
+  const { width: W, data } = imageData;
+  const out = new Float32Array(w * h);
+  for (let j = 0; j < h; j += 1) {
+    for (let i = 0; i < w; i += 1) {
+      const p = ((y0 + j) * W + (x0 + i)) * 4;
+      out[j * w + i] = data[p] * 0.299 + data[p + 1] * 0.587 + data[p + 2] * 0.114;
+    }
+  }
+  return out;
+}
+
+/**
+ * Spread each peak one pixel either way.
+ *
+ * A rule one pixel wide answers on the two pixels that bound it and nothing in
+ * between, and a rule two wide answers on three with a hole in the middle. The
+ * comb below samples whole pixels at a whole-pixel spacing, so it would step
+ * straight into those holes -- and a real layout makes it worse, because a
+ * spacing of 16.8 drifts a pixel every sixth cell and no integer comb can
+ * follow it. Widening each answer is what lets one comb match all of them.
+ */
+function dilate(profile) {
+  const n = profile.length, out = new Float32Array(n);
+  for (let i = 0; i < n; i += 1) {
+    let peak = profile[i];
+    if (i > 0 && profile[i - 1] > peak) peak = profile[i - 1];
+    if (i < n - 1 && profile[i + 1] > peak) peak = profile[i + 1];
+    out[i] = peak;
+  }
+  return out;
+}
+
+/**
+ * The luma step that counts as an edge at all, in levels out of 255.
+ *
+ * Deliberately low. What separates a rule from noise below is not how strong
+ * the step is but how far it runs in one direction, so setting this high buys
+ * nothing and loses the faint hairline rules some operators draw.
+ */
+const STEP_FLOOR = 3;
+
+/**
+ * How many pixels of nothing a rule may cross and still be one rule.
+ *
+ * Wide enough for the rules it meets at right angles, which are a pixel or two
+ * each and match their own colour above and below, and narrow enough that two
+ * unrelated edges are not chained into one.
+ */
+const RUN_SLACK = 4;
+
+/**
+ * How much of a row, and of a column, is one unbroken edge.
+ *
+ * The statistic is the length of the longest run of consecutive pixels
+ * stepping the same way, as a share of the line. That is what a printed rule
+ * is -- a step in one direction, held for the whole width of the road -- and
+ * it is what almost nothing else on a casino screen is.
+ *
+ * Summing the edge energy instead, which is the obvious thing and was the
+ * first thing tried, fails twice over. It divides a rule by however much of
+ * the line is not road, so a bead plate on its own scored below the noise
+ * floor while the same plate beside three derived roads passed. And it counts
+ * video grain, which has plenty of energy and no direction: measured on a
+ * drawn screen, the felt's noise reached 15 where the rules reached 9.7.
+ *
+ * A run cannot be faked by grain. Four hundred pixels stepping the same way in
+ * a row is a rule; random steps agree on a direction for two or three. So the
+ * floor above can sit low enough to catch a hairline, and the run length is
+ * left to do the discriminating.
+ */
+function longestRun(read, count, step) {
+  let best = 0, sign = 0, from = 0, gap = 0;
+  for (let i = 0; i < count; i += 1) {
+    const d = read(i);
+    const s = d >= step ? 1 : d <= -step ? -1 : 0;
+    if (s === 0) {
+      // Neutral, and a rule is full of it: every vertical rule the horizontal
+      // one crosses matches its own colour above and below, so the step there
+      // is nothing at all. Left to break the run, that alone capped every
+      // reading at one cell -- measured, a rule running 578 pixels scored 16.
+      // So a short neutral stretch is stepped over and a long one is the end.
+      gap += 1;
+      if (gap > RUN_SLACK) { sign = 0; gap = 0; }
+      continue;
+    }
+    if (s === sign) { gap = 0; if (i - from + 1 > best) best = i - from + 1; continue; }
+    sign = s; from = i; gap = 0;
+    if (best < 1) best = 1;
+  }
+  return best;
+}
+
+function rowProfile(L, w, h, i0 = 0, i1 = w) {
+  const row = new Float32Array(h);
+  const span = Math.max(1, i1 - i0);
+  for (let j = 0; j < h - 1; j += 1) {
+    row[j] = longestRun((i) => L[(j + 1) * w + i0 + i] - L[j * w + i0 + i],
+                        span, STEP_FLOOR) / span;
+  }
+  return dilate(row);
+}
+
+function colProfile(L, w, j0, j1) {
+  const col = new Float32Array(w);
+  const rows = Math.max(1, j1 - j0);
+  for (let i = 0; i < w - 1; i += 1) {
+    col[i] = longestRun((j) => L[(j0 + j) * w + i + 1] - L[(j0 + j) * w + i],
+                        rows, STEP_FLOOR) / rows;
+  }
+  return dilate(col);
+}
+
+/**
+ * Where the rules are: every run of pixels standing clear of the background.
+ *
+ * A threshold rather than a strict local maximum, because a rule two pixels
+ * wide has no single maximum and a rule under a bead has a flat top. Each run
+ * is reported at its centre, which is the rule's own position to within half a
+ * pixel.
+ */
+function rulePeaks(profile) {
+  const n = profile.length;
+  const sorted = Float32Array.from(profile).sort();
+  const median = sorted[Math.floor(n / 2)];
+  // A high quantile rather than the maximum, so one very long edge cannot set
+  // the bar for every rule beneath it.
+  const high = sorted[Math.min(n - 1, Math.floor(n * 0.98))];
+  const floor = Math.max(PEAK_MIN_SHARE, median + (high - median) * PEAK_FLOOR);
+  const out = [];
+  let i = 0;
+  while (i < n) {
+    if (profile[i] < floor) { i += 1; continue; }
+    let j = i;
+    while (j + 1 < n && profile[j + 1] >= floor) j += 1;
+    out.push((i + j) / 2);
+    i = j + 1;
+  }
+  return out;
+}
+
+/**
+ * The longest evenly spaced run of rules, and the spacing it runs at.
+ *
+ * This is the whole test, and it is deliberately local. A comb fitted across
+ * the entire frame was the first thing tried and it does not work: the roads
+ * cover a fifth of the screen, so most of the comb's teeth land on the betting
+ * panel either way, and the fundamental spacing scored *below* three times
+ * itself -- a sparser comb has more phases to choose from and fewer teeth to
+ * be wrong about, so it wins by overfitting. Measured on a drawn screen the
+ * true spacing of 17 came fourth, behind 51, 68 and 34.
+ *
+ * A run has no such freedom. Twenty rules in a row at one spacing is a ruled
+ * panel and nothing else on a casino screen is that, however much else is
+ * bright. One missing rule is stepped over -- a bead sitting on a rule hides
+ * it -- and counts as the two cells it spans.
+ */
+function ruledRuns(peaks, minPitch, maxPitch, keep = 5) {
+  const found = [];
+  const offer = (chain, cells, links) => {
+    if (chain.length < 3) return;
+    found.push({
+      pitch: (chain[chain.length - 1] - chain[0]) / cells,
+      from: chain[0], to: chain[chain.length - 1], cells, chain,
+      // What share of the rules this run expects are actually there. A panel
+      // drawn with every rule scores 1; a run held together by stepping over
+      // gaps scores lower, and is worth less.
+      solidity: chain.length / (cells + 1),
+      links,
+    });
+  };
+
+  for (let a = 0; a < peaks.length; a += 1) {
+    for (let b = a + 1; b < peaks.length && b <= a + 3; b += 1) {
+      const pitch = peaks[b] - peaks[a];
+      if (pitch < minPitch || pitch > maxPitch) continue;
+      const tol = Math.max(1.5, pitch * 0.14);
+      const chain = [peaks[a], peaks[b]];
+      const links = [1];                       // cells spanned by each link
+      let cells = 1, at = peaks[b];
+      for (;;) {
+        const next = nearestPeak(peaks, at + pitch, tol);
+        if (next !== null) { chain.push(next); links.push(1); cells += 1; at = next; continue; }
+        const skip = nearestPeak(peaks, at + 2 * pitch, tol);
+        if (skip !== null) { chain.push(skip); links.push(2); cells += 2; at = skip; continue; }
+        break;
+      }
+      at = peaks[a];
+      for (;;) {
+        const prev = nearestPeak(peaks, at - pitch, tol);
+        if (prev !== null) { chain.unshift(prev); links.unshift(1); cells += 1; at = prev; continue; }
+        const skip = nearestPeak(peaks, at - 2 * pitch, tol);
+        if (skip !== null) { chain.unshift(skip); links.unshift(2); cells += 2; at = skip; continue; }
+        break;
+      }
+      offer(chain, cells, links);
+
+      // And every unbroken stretch of it, as a candidate in its own right.
+      //
+      // Stepping over a missing rule is what lets a bead sitting on one not
+      // break a road in half. It is also what lets two roads printed a cell
+      // apart -- the bead plate and the big road, side by side at the same
+      // spacing -- chain into one run that spans the gap between them. That
+      // run passes every test the columns can be given, because both roads
+      // really are ruled; it is the *rows* that then fail, because no row rule
+      // crosses the gap. Measured on a drawn screen: fourteen columns, a gap,
+      // fourteen more, and a lattice reported over all thirty that read
+      // nothing.
+      //
+      // The stretches have no gaps in them by construction, so whichever road
+      // is really there is among them.
+      if (links.some((n) => n > 1)) {
+        let from = 0;
+        for (let i = 0; i <= links.length; i += 1) {
+          if (i < links.length && links[i] === 1) continue;
+          if (i - from >= 2) offer(chain.slice(from, i + 1), i - from, links.slice(from, i));
+          from = i + 1;
+        }
+      }
+    }
+  }
+
+  // Longest first, and one entry per distinct lattice: the same run is
+  // rediscovered from every pair of rules inside it.
+  found.sort((x, y) => y.cells - x.cells);
+  const out = [];
+  for (const run of found) {
+    if (run.cells < 3 || run.solidity < GRID_MIN_SOLIDITY) continue;
+    const same = out.some((o) => Math.abs(o.pitch - run.pitch) < 1
+      && Math.abs(o.from - run.from) < run.pitch && Math.abs(o.to - run.to) < run.pitch);
+    if (same) continue;
+    out.push(run);
+    if (out.length >= keep) break;
+  }
+  return out;
+}
+
+/** The peak nearest `want`, if one is within `tol`. */
+function nearestPeak(peaks, want, tol) {
+  let found = null, gap = tol;
+  for (const p of peaks) {
+    const d = Math.abs(p - want);
+    if (d <= gap) { gap = d; found = p; }
+    else if (p > want + tol) break;
+  }
+  return found;
+}
+
+/**
+ * How much of the box a rule has to actually cross.
+ *
+ * The two searches above are relative: each measures a line against the other
+ * lines around it, which is what lets a hairline rule on a dark panel be found
+ * at all. Relative tests have no opinion about whether the thing they ranked
+ * first is *anything*, and over a few hundred lines of video grain, one of
+ * them always ranks first -- measured, white noise with no structure in it
+ * produced a 22-by-12 "lattice" that passed every test above.
+ *
+ * This is the absolute one, and it is only askable at the end, once the box is
+ * known: a rule crosses its own panel. Grain does not cross anything.
+ */
+const GRID_LINE_SPAN = 0.5;
+
+/** The longest run along one line, allowing for the profile's own widening. */
+function runAt(read, at, span) {
+  let best = 0;
+  for (let d = -1; d <= 1; d += 1) {
+    const run = longestRun(read(at + d), span, STEP_FLOOR);
+    if (run > best) best = run;
+  }
+  return best;
+}
+
+/**
+ * Cut a chain back to the part whose rules really do cross the box.
+ *
+ * Two jobs, and they are the same job. It throws out a lattice that was never
+ * there -- grain, which crosses nothing -- and it cuts a chain that ran from
+ * one road straight into the next one beside it, which is what the licence to
+ * step over a missing rule buys when two roads sit a cell apart. Measured, the
+ * bead plate and the big road chained into a single 68-wide "road" whose rules
+ * crossed neither of them.
+ *
+ * A single failing line in the middle is kept: that is a rule under a column of
+ * beads, not the end of the panel.
+ */
+function trimToCrossing(chain, measure) {
+  const ok = chain.map((at) => measure(Math.round(at)) >= GRID_LINE_SPAN);
+  for (let i = 1; i < ok.length - 1; i += 1) {
+    if (!ok[i] && ok[i - 1] && ok[i + 1]) ok[i] = true;
+  }
+  let best = null, from = -1;
+  for (let i = 0; i <= ok.length; i += 1) {
+    if (i < ok.length && ok[i]) { if (from < 0) from = i; continue; }
+    if (from >= 0 && (!best || i - from > best[1] - best[0])) best = [from, i];
+    from = -1;
+  }
+  return best ? chain.slice(best[0], best[1]) : [];
+}
+
+/**
+ * How near two colours have to be to count as the same panel, and how much of
+ * a line has to be that colour for the line to be inside it.
+ */
+const PANEL_TOLERANCE = 34;
+const PANEL_SHARE = 0.5;
+/**
+ * A line made almost entirely of mark colours is not a panel.
+ *
+ * Marks themselves are skipped when judging a line -- a row through a full
+ * bead plate is mostly marks, and it is plainly inside the panel -- but a line
+ * with almost nothing else left in it is not a road with beads on it. It is
+ * the felt, or a betting box: a wall of one saturated colour, which is exactly
+ * what a road panel is not.
+ */
+const PANEL_MIN_PLAIN = 0.25;
+/** Lines of something else to cross before deciding the panel has ended. */
+const PANEL_PATIENCE = 4;
+
+/**
+ * The colour a lattice is drawn on.
+ *
+ * Taken over the pixels that are not marks, so a bead plate with every cell
+ * filled reports the colour of its ruling and its gaps rather than the colour
+ * of whichever side happened to win more -- which is what a median over the
+ * whole box gives once the board is full, and it would then grow the panel out
+ * along everything else red on the screen.
+ */
+function panelColour(imageData, box, pitch) {
+  const { width: W, data } = imageData;
+  const step = Math.max(1, Math.round(pitch / 4));
+  const r = [], g = [], b = [];
+  for (let y = box.y; y <= box.y2; y += step) {
+    for (let x = box.x; x <= box.x2; x += step) {
+      const p = (y * W + x) * 4;
+      if (classifyPixel(data[p], data[p + 1], data[p + 2]) !== NONE) continue;
+      r.push(data[p]); g.push(data[p + 1]); b.push(data[p + 2]);
+    }
+  }
+  if (r.length < 8) return null;
+  const mid = (xs) => xs.sort((a, c) => a - c)[Math.floor(xs.length / 2)];
+  return [mid(r), mid(g), mid(b)];
+}
+
+/**
+ * Grow a lattice out to the panel it is drawn on, within the region searched.
+ *
+ * A found lattice is one road. The region worth watching is the whole result
+ * strip -- bead plate, big road, and the three small ones -- and on every
+ * layout there is they are printed together on one panel of one colour. So the
+ * panel is the thing to grow to, and its colour is already known: it is what
+ * lies between the marks in the lattice's own cells.
+ *
+ * Without this the reader pinned whichever single road it happened to find. On
+ * a drawn screen that was the cockroach strip, fifty pixels tall, with the
+ * bead plate a hundred pixels above it and outside the region entirely.
+ *
+ * Bounded by the region it was searched in, because the alternative is growing
+ * up into the video: a panel that keeps matching for another four hundred rows
+ * is not a panel, it is a test that has stopped discriminating.
+ */
+function growToPanel(imageData, box, pitch, bounds) {
+  const { width: W, data } = imageData;
+  const colour = panelColour(imageData, box, pitch);
+  if (!colour) return box;
+  const [cr, cg, cb] = colour;
+  const stride = Math.max(1, Math.round(pitch / 3));
+
+  /** How much of one line is panel, ignoring the marks printed on it. */
+  const share = (fixed, from, to, horizontal) => {
+    let plain = 0, hit = 0, seen = 0;
+    for (let v = from; v <= to; v += stride) {
+      const x = horizontal ? v : fixed, y = horizontal ? fixed : v;
+      const p = (y * W + x) * 4;
+      seen += 1;
+      if (classifyPixel(data[p], data[p + 1], data[p + 2]) !== NONE) continue;
+      plain += 1;
+      const dr = data[p] - cr, dg = data[p + 1] - cg, db = data[p + 2] - cb;
+      if (dr * dr + dg * dg + db * db <= PANEL_TOLERANCE * PANEL_TOLERANCE) hit += 1;
+    }
+    if (!seen || plain < seen * PANEL_MIN_PLAIN) return 0;
+    return hit / plain;
+  };
+
+  const walk = (start, step, limit, test) => {
+    let edge = start, patience = PANEL_PATIENCE;
+    for (let v = start + step; step < 0 ? v >= limit : v <= limit; v += step) {
+      if (test(v) >= PANEL_SHARE) { edge = v; patience = PANEL_PATIENCE; continue; }
+      patience -= 1;
+      if (patience <= 0) break;
+    }
+    return edge;
+  };
+
+  const out = { ...box };
+  out.y = walk(box.y, -1, bounds.y, (y) => share(y, box.x, box.x2, true));
+  out.y2 = walk(box.y2, 1, bounds.y2, (y) => share(y, box.x, box.x2, true));
+  out.x = walk(box.x, -1, bounds.x, (x) => share(x, out.y, out.y2, false));
+  out.x2 = walk(box.x2, 1, bounds.x2, (x) => share(x, out.y, out.y2, false));
+  return out;
+}
+
+/**
+ * Find a road's cell lattice, with or without anything dealt into it.
+ *
+ * Returns the box the ruling covers, the cell pitch, and how many cells across
+ * and down -- or null where the frame has no lattice specific enough to act on.
+ * The box is the ruling itself; callers that want a region to search widen it,
+ * because the derived roads sit beside the bead plate rather than inside it.
+ */
+function detectGrid(imageData, { region = null } = {}) {
+  const { width: W, height: H } = imageData;
+  const x0 = region ? Math.max(0, Math.round(region.x)) : 0;
+  const y0 = region ? Math.max(0, Math.round(region.y)) : 0;
+  const x1 = region ? Math.min(W, Math.round(region.x + region.w)) : W;
+  const y1 = region ? Math.min(H, Math.round(region.y + region.h)) : H;
+  const w = x1 - x0, h = y1 - y0;
+  if (w < 40 || h < 30) return null;
+
+  const L = lumaBox(imageData, x0, y0, w, h);
+
+  const maxPitch = Math.min(GRID_MAX_PITCH,
+    Math.floor(w / GRID_MIN_COLS), Math.floor(h / GRID_MIN_ROWS));
+  if (maxPitch < GRID_MIN_PITCH) return null;
+
+  // Candidates rather than an answer, on both axes. The longest run is usually
+  // the road and sometimes is not -- on a strip where the bead plate, the big
+  // road and the small roads are all ruled at once, the longest run across is
+  // the one that chains straight through the gaps between them. Verifying each
+  // in turn costs a few milliseconds and is the difference between finding the
+  // roads and finding the space between them.
+  const rowRuns = ruledRuns(rulePeaks(rowProfile(L, w, h)), GRID_MIN_PITCH, maxPitch);
+
+  for (const first of rowRuns) {
+    if (first.cells < GRID_MIN_ROWS) continue;
+
+    // Across, at the same spacing, because road cells are square. Given a
+    // quarter either way: a layout that rounds its cell height and its cell
+    // width to different whole pixels is common, a layout that makes them
+    // different shapes is not -- and leaving the spacing free here let the
+    // columns fit themselves to whatever else was periodic on the screen.
+    const col = colProfile(L, w, Math.floor(first.from), Math.ceil(first.to) + 1);
+    const colRuns = ruledRuns(rulePeaks(col), first.pitch * 0.78, first.pitch * 1.28, 3);
+
+    for (const across of colRuns) {
+      if (across.cells < GRID_MIN_COLS) continue;
+
+      // The rows again, over the columns' own width. Two runs found separately
+      // are not a lattice: the first pass reads each row across the whole
+      // region, so it is satisfied by a row with a long edge *somewhere*, and
+      // the second is then fitted inside rows that may have nothing to do with
+      // the columns it finds.
+      const down = ruledRuns(
+        rulePeaks(rowProfile(L, w, h, Math.floor(across.from), Math.ceil(across.to) + 1)),
+        across.pitch * 0.82, across.pitch * 1.22, 1)[0];
+      if (!down || down.cells < GRID_MIN_ROWS) continue;
+
+      // And now the absolute test. Everything above ranked lines against their
+      // neighbours; this asks whether they are lines at all, and cuts the box
+      // back to the part where they are. Twice, because each axis is judged
+      // over the other's extent and the first cut moves it.
+      let cols = across.chain, rows = down.chain, ok = true;
+      for (let pass = 0; pass < 2 && ok; pass += 1) {
+        const jFrom = Math.max(0, Math.round(rows[0]));
+        const tall = Math.max(1, Math.min(h - 1 - jFrom, Math.round(rows[rows.length - 1]) - jFrom));
+        cols = trimToCrossing(cols, (i) => (i < 1 || i >= w - 2 ? 0
+          : runAt((x) => (j) => L[(jFrom + j) * w + x + 1] - L[(jFrom + j) * w + x], i, tall) / tall));
+        if (cols.length < GRID_MIN_COLS + 1) { ok = false; break; }
+
+        const iFrom = Math.max(0, Math.round(cols[0]));
+        const wide = Math.max(1, Math.min(w - 1 - iFrom, Math.round(cols[cols.length - 1]) - iFrom));
+        rows = trimToCrossing(rows, (j) => (j < 1 || j >= h - 2 ? 0
+          : runAt((y) => (i) => L[(y + 1) * w + iFrom + i] - L[y * w + iFrom + i], j, wide) / wide));
+        if (rows.length < GRID_MIN_ROWS + 1) { ok = false; break; }
+      }
+      if (!ok) continue;
+
+      const pitch = (across.pitch + down.pitch) / 2;
+      const lattice = {
+        x: x0 + Math.round(cols[0]), y: y0 + Math.round(rows[0]),
+        x2: x0 + Math.round(cols[cols.length - 1]), y2: y0 + Math.round(rows[rows.length - 1]),
+      };
+      return {
+        box: lattice,
+        panel: growToPanel(imageData, lattice, pitch,
+          { x: x0, y: y0, x2: x1 - 1, y2: y1 - 1 }),
+        pitch,
+        cols: Math.round((cols[cols.length - 1] - cols[0]) / across.pitch),
+        rows: Math.round((rows[rows.length - 1] - rows[0]) / down.pitch),
+        solidity: Math.min(across.solidity, down.solidity),
+      };
+    }
+  }
+  return null;
+}
+
 /* ------------------------------------------------------------ text input */
 
 /** Every spelling of an outcome this parser accepts, longest match first. */
@@ -4611,6 +5227,18 @@ function verdict(model, base, split = 0) {
  * 2. Once the board is found its position is locked, and later frames are only
  *    searched there. That is faster, and it stops the detector wandering onto a
  *    different grid on the same screen between frames.
+ *
+ * The lock is taken from the roads themselves rather than from the coups in
+ * them. A road is a ruled lattice of cells, printed on the page whether or not
+ * anything has been dealt into it -- it is what the table clears *to* between
+ * shoes -- so the region can be pinned to it before the first coup and held
+ * through the wipe that ends a shoe. Finding the region by finding marks, which
+ * is what this did, cannot work at exactly the moment it matters most: the
+ * board is empty, the region goes with it, and the first coup of the new shoe
+ * arrives with nowhere to be read.
+ *
+ * And where neither way of looking gets it right, the viewer can draw the
+ * region themselves, which nothing here is allowed to move.
  */
 
 
@@ -4672,6 +5300,15 @@ const PICK_TOLERANCE = 0.5;
  */
 const RECHECK_EVERY = 12;
 /**
+ * Re-checks that find no ruling before a grid pin is given up.
+ *
+ * One miss is a frame caught mid-repaint, or a dialog over the strip. Three in
+ * a row, a minute apart at the usual sampling rate, is the panel really being
+ * gone -- a different tab, a closed window -- and the mark-led search takes
+ * over again.
+ */
+const GRID_PATIENCE = 3;
+/**
  * Marks needed to call something a board: fewer once the strip is located, and
  * one is enough in a strip just watched go empty.
  *
@@ -4716,6 +5353,13 @@ function clippedBy(bounds, region, diameter) {
   return bounds.y <= region.y + Math.max(2, diameter);
 }
 
+/** Whether a box lies inside a region. */
+function within(box, region) {
+  if (!region) return false;
+  return box.x >= region.x && box.x2 <= region.x + region.w
+      && box.y >= region.y && box.y2 <= region.y + region.h;
+}
+
 /** The bottom band of a frame, as a region to search. */
 function bottomBand(frameW, frameH, fraction = BAND_FRACTION) {
   const h = Math.round(frameH * fraction);
@@ -4738,6 +5382,49 @@ function bandLock(bounds, frameW, frameH) {
   const y = Math.max(0, Math.round(bounds.y - pad));
   const y2 = Math.min(frameH, Math.round(bounds.y2 + pad));
   return { x: 0, y, w: frameW, h: y2 - y };
+}
+
+/**
+ * Where the result strip is, found by its ruling rather than by its marks.
+ *
+ * The bottom band first, because that is where every casino layout puts the
+ * roads and looking there costs a quarter of what looking everywhere costs.
+ * Then the whole frame, for the two cases the band gets wrong: a window shrunk
+ * until the strip fills most of it, where the band cuts the strip in half, and
+ * an operator who puts the roads beside the table rather than under it.
+ *
+ * Whichever finds the taller panel wins, because a strip cut off by the band's
+ * own edge is shorter than the same strip found whole.
+ */
+function findStrip(frame, frameW, frameH) {
+  const band = bottomBand(frameW, frameH);
+  const inBand = detectGrid(frame, { region: band });
+  // A panel that starts exactly at the band's top edge is a panel the band may
+  // have cut. One that starts below it was not cut, and there is nothing the
+  // wider search can add.
+  if (inBand && inBand.panel.y > band.y + 2) return inBand;
+  const whole = detectGrid(frame);
+  if (!whole) return inBand;
+  if (!inBand) return whole;
+  const tall = (g) => g.panel.y2 - g.panel.y;
+  return tall(whole) > tall(inBand) ? whole : inBand;
+}
+
+/**
+ * The region to watch, given a strip found by its ruling.
+ *
+ * Full width, like every other lock here, and padded by a cell so a road that
+ * grows a row -- the derived roads appear a few columns into a shoe -- is not
+ * cut off by a box drawn before it arrived.
+ */
+function gridLock(grid, frameW, frameH) {
+  const pad = Math.max(4, Math.round(grid.pitch));
+  return {
+    x: 0, w: frameW,
+    y: Math.max(0, Math.round(grid.panel.y - pad)),
+    h: Math.min(frameH, Math.round(grid.panel.y2 + pad))
+       - Math.max(0, Math.round(grid.panel.y - pad)),
+  };
 }
 
 /**
@@ -4787,8 +5474,15 @@ function readingTable(startedOn, tables, active) {
  * a list because it is an attempt rather than an answer: if the strip is not
  * under the table on this screen, the whole-screen search still runs.
  */
-function searchPlan(region, memory, cleared, frameW = 0, frameH = 0) {
-  if (region) return [{ where: region, minCells: cleared ? FRESH_CELLS : LOCKED_CELLS }];
+function searchPlan(region, memory, cleared, frameW = 0, frameH = 0, trusted = false) {
+  // A region pinned to the ruling is not a guess about where a board might be.
+  // It is the roads panel, found as the roads panel, so one mark in it is a
+  // coup and there is nothing to be cautious about. The three-mark bar exists
+  // for a region inferred from marks, which can be inferred from the wrong
+  // ones.
+  if (region) {
+    return [{ where: region, minCells: (cleared || trusted) ? FRESH_CELLS : LOCKED_CELLS }];
+  }
   if (memory) return [{ where: memory, minCells: FRESH_CELLS }];
   const cold = { where: null, minCells: COLD_CELLS };
   if (!frameW || !frameH) return [cold];
@@ -4828,6 +5522,21 @@ class LiveWatcher {
      */
     this.memory = null;
     this.memoryAt = 0;       // when a board was last actually read in it
+    /**
+     * How the region came to be where it is, and the ruling it was pinned to.
+     *
+     *   "manual"  the viewer drew it. Nothing here ever moves it.
+     *   "grid"    found by its own ruling, which is on screen whether or not a
+     *             coup has been dealt -- so it is re-checked against the
+     *             ruling rather than against the marks, and an empty strip is
+     *             no reason at all to let go.
+     *   "marks"   inferred from a board that was read. The old behaviour, and
+     *             still the fallback where no ruling can be made out.
+     */
+    this.pinned = null;
+    this.grid = null;        // the lattice the region was pinned to
+    this.gridBox = null;     // and the lock it gave, before any widening
+    this.gridMisses = 0;     // consecutive re-checks that could not find it
     this.bounds = null;      // the whole result strip, in frame pixels
     this.anchor = null;      // centre of the board being read, to keep the pick stable
     this.lastBox = null;     // and its box, so a neighbour is not mistaken for it
@@ -4968,6 +5677,10 @@ class LiveWatcher {
   /** Forget the locked position, e.g. after switching tables. */
   relock() {
     this.region = null;
+    this.pinned = null;
+    this.grid = null;
+    this.gridBox = null;
+    this.gridMisses = 0;
     this.memory = null;              // being told the lock is wrong
     this.memoryAt = 0;
     this.lastBox = null;
@@ -4977,6 +5690,43 @@ class LiveWatcher {
     this.cleared = false;
     this.candidate = null;
     this.repeats = 0;
+  }
+
+  /**
+   * Watch this box and nothing else, until told otherwise.
+   *
+   * The one thing that cannot fail. Everything else here is the reader working
+   * out where the roads are -- from their marks, and now from their ruling --
+   * and both are inferences about a screen it has never seen before. A box the
+   * viewer drew around their own table's strip is not an inference, so nothing
+   * in the sampler is allowed to move it, widen it, or hand it over to a
+   * better-looking board somewhere else.
+   *
+   * Given in frame pixels at working resolution, which is what the preview
+   * canvas is drawn at, so the caller can pass a box read straight off it.
+   */
+  pinRegion(box) {
+    if (!box || box.w < 8 || box.h < 8) return false;
+    this.region = this.memory = { x: box.x, y: box.y, w: box.w, h: box.h };
+    this.memoryAt = Date.now();
+    this.pinned = "manual";
+    this.grid = null;
+    this.gridBox = null;
+    this.gridMisses = 0;
+    this.lastBox = null;
+    this.anchor = null;
+    this.candidate = null;
+    this.repeats = 0;
+    this.empties = 0;
+    this.cleared = false;
+    this._emit();
+    return true;
+  }
+
+  /** Give the region back to the reader. */
+  unpin() {
+    this.relock();
+    this._emit();
   }
 
   /** Named apart from the global `setInterval` it calls, to stay readable. */
@@ -5003,6 +5753,9 @@ class LiveWatcher {
       source: this.source,
       bounds: this.bounds,
       locked: !!this.region,
+      pinned: this.pinned,
+      grid: this.grid && { cols: this.grid.cols, rows: this.grid.rows,
+                           pitch: Math.round(this.grid.pitch) },
       cleared: this.cleared,
       lastReadAt: this.lastReadAt,
       reads: this.reads,
@@ -5030,9 +5783,32 @@ class LiveWatcher {
     // full-screen search keeps the higher bar, where anything red or blue can
     // turn up.
     this.samples += 1;
+
+    // Before looking for marks, look for the panel they are dealt into.
+    //
+    // This is the whole change. Everything below finds the board by finding
+    // its marks, which cannot work at a shoe change, when there are none --
+    // and a shoe change is when it matters most, because the region is the
+    // only thing that tells the next coup apart from the table next door. The
+    // ruling of the roads is on screen either way: it is what the operator
+    // clears *to*. So the region is pinned to the ruling, and an empty strip
+    // stops being a reason to go looking anywhere else.
+    if (!this.region && this.pinned !== "manual") {
+      const grid = findStrip(frame, w, h);
+      if (grid) {
+        this.grid = grid;
+        this.gridMisses = 0;
+        this.pinned = "grid";
+        this.gridBox = gridLock(grid, w, h);
+        this.region = this.memory = this.gridBox;
+        this.memoryAt = Date.now();
+      }
+    }
+
+    const trusted = this.pinned === "grid" || this.pinned === "manual";
     const remembering = !this.region && !!this.memory;
     let boards = [], bounds = null;
-    for (const attempt of searchPlan(this.region, this.memory, this.cleared, w, h)) {
+    for (const attempt of searchPlan(this.region, this.memory, this.cleared, w, h, trusted)) {
       const got = detectBoards(frame, { region: attempt.where, minCells: attempt.minCells });
       if (!got.boards.length) continue;
       if (!boards.length || got.boards[0].cells.length > boards[0].cells.length) {
@@ -5070,7 +5846,67 @@ class LiveWatcher {
     // there says "between shoes", not "wrong place", and nothing found
     // elsewhere is allowed to argue with it.
     const holding = this.memory && Date.now() - this.memoryAt <= MEMORY_HOLD_MS;
-    if (this.region && this.samples % RECHECK_EVERY === 0) {
+
+    // A region pinned to the ruling is re-checked against the ruling. That is
+    // a question about the panel, which is always there, rather than about the
+    // coups in it, which are not -- so the answer does not change at a shoe
+    // change, and the lock does not move at one either.
+    if (this.pinned === "grid" && this.samples % RECHECK_EVERY === 0) {
+      const grid = findStrip(frame, w, h);
+      if (grid) {
+        this.gridMisses = 0;
+        this.grid = grid;
+        const want = gridLock(grid, w, h);
+        // Measured against the lock the ruling last gave rather than against
+        // the region in force, because the region in force has been widened
+        // since -- a shoe growing to the right pushes its edges out. Comparing
+        // with that would read the reader's own widening as the window having
+        // moved, and re-pin every time, undoing it.
+        const was = this.gridBox || want;
+        if (Math.abs(want.y - was.y) > grid.pitch || Math.abs(want.h - was.h) > grid.pitch) {
+          this.region = this.memory = want;
+          this.lastBox = null;
+          this.anchor = null;
+        }
+        this.gridBox = want;
+        // A lattice that has never produced a coup is a lattice, not
+        // necessarily *the* roads. Something else ruled into cells -- a
+        // spreadsheet, a schedule, the wrong window entirely -- keeps
+        // answering the re-check above, so the miss counter never fires and
+        // the pin would sit there for the rest of the session. So while a grid
+        // pin has read nothing at all, the screen outside it is still looked
+        // at, and a real board found out there takes the pin away.
+        //
+        // Only while it has read nothing. Once a coup has come out of it the
+        // pin has proved itself, and an empty strip is a shoe change rather
+        // than a mistake -- which is the whole thing this was built to stop
+        // being confused about.
+        if (!this.reads) {
+          const elsewhere = detectBoards(frame, { minCells: COLD_CELLS });
+          const best = elsewhere.boards[0];
+          if (best && !boards.length && !within(best.box, this.region)) {
+            boards = elsewhere.boards;
+            bounds = elsewhere.bounds;
+            this.pinned = null;
+            this.grid = null;
+            this.gridBox = null;
+            this.region = this.memory = null;
+            this.lastBox = null;
+            this.anchor = null;
+          }
+        }
+      } else if ((this.gridMisses += 1) >= GRID_PATIENCE) {
+        // The ruling is not there any more, several looks running. The panel
+        // really has gone -- a different tab, a closed window -- so the pin
+        // goes with it and the mark-led search takes over again.
+        this.pinned = null;
+        this.grid = null;
+        this.gridMisses = 0;
+      }
+    }
+
+    // A region the viewer drew is theirs, and neither re-check touches it.
+    if (this.region && !this.pinned && this.samples % RECHECK_EVERY === 0) {
       const full = detectBoards(frame, { minCells: COLD_CELLS });
       const here = boards.length ? boards[0].score : 0;
       // The lock only moves off a strip that has been silent long enough to
@@ -5185,7 +6021,11 @@ class LiveWatcher {
     // cannot see what it is cutting off -- it reads a clipped board and stays
     // that way. So a board that comes within a cell or two of its own edge
     // pushes that edge out, keeping headroom ahead of where the shoe is going.
-    if (this.region) this.region = this.memory = widenFor(this.region, board, w, h);
+    // Not a region the viewer drew. Widening it would be the reader deciding
+    // it knows better about the one thing it was told outright.
+    if (this.region && this.pinned !== "manual") {
+      this.region = this.memory = widenFor(this.region, board, w, h);
+    }
 
     this.onRead(board.sequence, this.lastBoard, this.repeats, { afterClear });
     if (afterClear && this.repeats >= CONFIRM_GROWTH) this.cleared = false;
@@ -5269,6 +6109,10 @@ class LiveWatcher {
 
     const ctx = target.getContext("2d");
     ctx.drawImage(v, 0, 0, w, h);
+    // The region first, so it is visible with nothing in it -- which is the
+    // whole point of pinning to the ruling, and the only way to see that the
+    // reader is watching the right place before a coup has been dealt.
+    if (this.region && this.pinned) drawRegion(ctx, this.region, this.pinned);
     const board = this.lastBoard;
     if (board) drawStrip(ctx, target, this.bounds || board.box, board);
     return true;
@@ -5408,6 +6252,24 @@ function nearestTo(boards, point) {
  * Shared by the live preview and the pasted-capture view so both show the same
  * thing: the strip being watched, and the board being counted.
  */
+/**
+ * Outline the region being watched.
+ *
+ * Dashed and unfilled, so it reads as "this is where I am looking" rather than
+ * "this is what I found" -- the solid box `drawStrip` draws is the second. The
+ * two are different claims and they need to look different, most of all when
+ * there is no board yet and only this one is on screen.
+ */
+function drawRegion(ctx, region, how) {
+  ctx.save();
+  ctx.setLineDash(how === "manual" ? [] : [7, 5]);
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = how === "manual" ? "rgba(120, 200, 255, 0.95)"
+                                     : "rgba(120, 200, 255, 0.6)";
+  ctx.strokeRect(region.x + 1, region.y + 1, region.w - 2, region.h - 2);
+  ctx.restore();
+}
+
 function drawStrip(ctx, source, bounds, board) {
   const css = getComputedStyle(document.documentElement);
   const w = source.width, h = source.height;
@@ -6356,6 +7218,11 @@ function renderLiveSources() {
   $("liveCameraTip").hidden = !camera;
 }
 
+/** The last pin reported, so the log says it once rather than every sample. */
+let livePinned = null;
+/** Whether the preview is waiting for a box to be dragged on it. */
+let livePicking = false;
+
 function onLiveState(st) {
   $("liveIdle").hidden = st.active || !!st.error;
   $("liveActive").hidden = !st.active;
@@ -6380,13 +7247,37 @@ function onLiveState(st) {
   dot.className = "livedot " + (found ? "on" : st.cleared ? "waiting" : "searching");
   const ago = st.lastReadAt ? Math.round((Date.now() - st.lastReadAt) / 1000) : null;
   const via = t(st.source === "camera" ? "live.sourceCamera" : "live.sourceScreen");
+  // What the status said before: "finding the region", whenever nothing had
+  // been read. That was true of a reader with no idea where to look and of one
+  // pinned to the right strip waiting for the first coup of a shoe -- and the
+  // second is the ordinary state of a table between shoes. Being told the app
+  // is still hunting, while it is not, is what "it is not recognising it" looks
+  // like from the outside.
+  const pinWord = st.pinned === "manual" ? "live.lockedManual"
+    : st.pinned === "grid" ? "live.lockedGrid"
+    : st.locked ? "live.locked" : "live.locking";
+  const waiting = st.pinned === "manual" ? t("live.waitingManual")
+    : st.pinned === "grid" && st.grid
+      ? t("live.waitingGrid", { cols: st.grid.cols, rows: st.grid.rows })
+      : null;
   $("liveStatus").textContent = found
-    ? t("live.reading", {
-        n: st.board.sequence.length,
-        lock: t(st.locked ? "live.locked" : "live.locking"),
-        ago,
-      }) + " · " + via
-    : st.cleared ? t("live.cleared") + " · " + via : t("live.searching");
+    ? t("live.reading", { n: st.board.sequence.length, lock: t(pinWord), ago }) + " · " + via
+    : st.cleared ? t("live.cleared") + " · " + via
+    : waiting ? waiting + " · " + via
+    : t("live.searching");
+
+  // Said once, when it happens, because it is the answer to "is it looking at
+  // the right place" and the preview outline alone is easy to miss.
+  if (st.pinned !== livePinned) {
+    if (st.pinned === "grid" && st.grid) {
+      liveLog(t("live.logPinned", { cols: st.grid.cols, rows: st.grid.rows }));
+    } else if (st.pinned === "manual") {
+      liveLog(t("live.logPinnedManual"));
+    }
+    livePinned = st.pinned;
+  }
+  $("livePick").textContent = t(st.pinned === "manual" ? "live.unpin"
+    : livePicking ? "live.picking" : "live.pick");
 
   // The gap between a shoe ending and the next one being readable can run to
   // minutes, so the moment itself goes in the log rather than only the status.
@@ -7452,6 +8343,69 @@ function renderStake() {
   $("stakeNote").textContent = t("stake.note");
 }
 
+/**
+ * Let the viewer draw the region themselves.
+ *
+ * The reader has two ways of finding the roads on its own -- by their marks,
+ * and by the ruling they are printed on -- and both are inferences about a
+ * screen neither the code nor its author has ever seen. This is the one that
+ * is not an inference. Drag a box around the strip and that is the region,
+ * permanently: no search, no re-check, nothing to lose at a shoe change.
+ *
+ * The preview is a canvas painted at the reader's own working resolution and
+ * then scaled by CSS to fit the page, so a box drawn in page pixels has to be
+ * carried back through that scale. Getting it wrong is invisible on a screen
+ * shared at the same size as the canvas and badly wrong on any other, which is
+ * why the ratio is taken from the canvas itself every time rather than cached.
+ */
+function bindRegionPicker() {
+  const canvas = $("liveCanvas"), hint = $("livePickHint"), button = $("livePick");
+  let from = null;
+
+  const toFrame = (event) => {
+    const rect = canvas.getBoundingClientRect();
+    if (!rect.width || !rect.height) return null;
+    return {
+      x: (event.clientX - rect.left) * (canvas.width / rect.width),
+      y: (event.clientY - rect.top) * (canvas.height / rect.height),
+    };
+  };
+
+  const setPicking = (on) => {
+    livePicking = on;
+    from = null;
+    canvas.classList.toggle("picking", on);
+    hint.hidden = !on;
+    button.textContent = t(on ? "live.picking" : "live.pick");
+  };
+
+  button.onclick = () => {
+    if (live.pinned === "manual") { live.unpin(); livePinned = null; setPicking(false); return; }
+    setPicking(!livePicking);
+  };
+
+  canvas.addEventListener("pointerdown", (e) => {
+    if (!livePicking) return;
+    from = toFrame(e);
+    if (from) { canvas.setPointerCapture(e.pointerId); e.preventDefault(); }
+  });
+
+  canvas.addEventListener("pointerup", (e) => {
+    if (!livePicking || !from) return;
+    const start = from, to = toFrame(e);
+    from = null;
+    if (!to) return;
+    // Drawn from any corner, kept as a box. A stray click is not a region, so
+    // anything smaller than a mark is treated as a miss rather than obeyed --
+    // `pinRegion` says no and the picker stays open for another try.
+    const box = {
+      x: Math.round(Math.min(start.x, to.x)), y: Math.round(Math.min(start.y, to.y)),
+      w: Math.round(Math.abs(to.x - start.x)), h: Math.round(Math.abs(to.y - start.y)),
+    };
+    if (live.pinRegion(box)) setPicking(false);
+  });
+}
+
 function bindStake() {
   const cfg = stakeSettings();
   for (const id of Object.keys(STAKE_FIELDS)) {
@@ -8343,7 +9297,11 @@ function bindControls() {
   $("liveCamera").onclick = () => live.startCamera();
   renderLiveSources();
   $("liveStop").onclick = () => { live.stop(); liveLog(t("live.logStopped")); };
-  $("liveRelock").onclick = () => { live.relock(); liveHolds = 0; setLiveWarn(null); liveLog(t("live.logRelock")); };
+  $("liveRelock").onclick = () => {
+    live.relock(); liveHolds = 0; livePinned = null; setLiveWarn(null);
+    liveLog(t("live.logRelock"));
+  };
+  bindRegionPicker();
   $("liveInterval").onchange = (e) => live.setSampleInterval(Number(e.target.value));
   if (!LiveWatcher.supported) { live.error = "unsupported"; live._emit(); }
 
