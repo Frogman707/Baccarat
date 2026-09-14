@@ -682,6 +682,7 @@ footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
     <h2 data-i18n="state.h"></h2>
     <p class="sub" data-i18n="state.sub"></p>
     <div id="kpis"></div>
+    <p class="aiverdict" id="shoeShape" hidden></p>
   </section>
   </div>
 
@@ -700,7 +701,6 @@ footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
       <span class="v" id="aiSide"></span>
       <span class="betbadge" id="aiBetBadge"></span>
     </div>
-    <p class="aiverdict" id="aiNoBet" hidden></p>
     <p class="aiverdict" id="aiHold" hidden></p>
     <div class="aigrid" id="aiFacts"></div>
     <div class="obshead">
@@ -722,7 +722,6 @@ footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
     <p class="ainote" style="margin-top:0" data-i18n="learn.sub"></p>
     <div class="aigrid" id="learnRows"></div>
     <p class="aiverdict" id="learnVerdict"></p>
-    <p class="ainote" id="learnNote"></p>
 
     <p class="ainote" id="aiWhy"></p>
     <p class="aiwarn" id="aiDisclaimer"></p>
@@ -928,6 +927,14 @@ const S = {
     ko: "{shoes}슈 수집 · 현재 슈 {coups}판", en: "Shoes {shoes} · this shoe {coups}",
     "zh-Hant": "已收集 {shoes} 靴 · 本靴 {coups} 局", "zh-Hans": "已收集 {shoes} 靴 · 本靴 {coups} 局",
   },
+  // The tally the table's own counter shows, in the table's own order, so the
+  // two can be read against each other without counting beads. It is the only
+  // check on the reader a person can make in a second, and without it a
+  // misread looks exactly like a table running cold.
+  "header.shoeTally": {
+    ko: "뱅 {b} · 플 {p} · 타 {t}", en: "B {b} · P {p} · T {t}",
+    "zh-Hant": "莊 {b} · 閒 {p} · 和 {t}", "zh-Hans": "庄 {b} · 闲 {p} · 和 {t}",
+  },
 
   "theme.auto": { ko: "시스템", en: "Auto", "zh-Hant": "自動", "zh-Hans": "自动" },
   "theme.light": { ko: "밝게", en: "Light", "zh-Hant": "淺色", "zh-Hans": "浅色" },
@@ -1051,12 +1058,6 @@ const S = {
     "zh-Hant": "<b>採用基本估計。</b>兩者僅在 {n} 局上分歧 — 要判斷孰優需要 200 局。",
     "zh-Hans": "<b>采用基本估计。</b>两者仅在 {n} 局上分歧 — 要判断孰优需要 200 局。",
   },
-  "learn.note": {
-    ko: "이 저장소는 160만 판에 38개 모델을 이미 돌렸습니다. 수익이 난 모델은 0개였고, 다중검정 보정 후 유의한 모델도 0개였으며, 승률이 가장 높았던 것은 <b>아무것도 보지 않고 늘 뱅커에 거는 쪽</b>이었습니다. 위 판정이 대개 기본 추정을 가리키는 것은 그 때문입니다.",
-    en: "This repository already ran 38 models over 1.6M coups. None was profitable, none was significant after correction, and the highest win rate of all belonged to <b>always backing Banker without looking at anything</b>. That is why the verdict above usually points at the base estimate.",
-    "zh-Hant": "本專案已在 160 萬局上測試 38 個模型：沒有一個獲利，校正後沒有一個顯著，而勝率最高的是<b>什麼都不看、永遠押莊</b>。這就是上述判定通常指向基本估計的原因。",
-    "zh-Hans": "本项目已在 160 万局上测试 38 个模型：没有一个盈利，校正后没有一个显著，而胜率最高的是<b>什么都不看、永远押庄</b>。这就是上述判定通常指向基本估计的原因。",
-  },
   "learn.waiting": {
     ko: "학습을 시작하려면 판이 더 필요합니다.",
     en: "There are not enough coups yet to train on.",
@@ -1160,6 +1161,19 @@ const S = {
     en: "This is the big road, not the bead plate. The big road omits ties and turns a run past six rows sideways, so the order can come out wrong — bring the bead plate into view and press <b>find the board again</b>.",
     "zh-Hant": "目前讀取的是大路而非珠盤路。大路不顯示和局，且超過六列的連莊會向右轉折，順序可能出錯 — 請讓珠盤路顯示在畫面上，再按<b>重新尋找區域</b>。",
     "zh-Hans": "当前读取的是大路而非珠盘路。大路不显示和局，且超过六行的连庄会向右转折，顺序可能出错 — 请让珠盘路显示在画面上，再按<b>重新寻找区域</b>。",
+  },
+  "live.deepReset": {
+    ko: "읽은 값 {read}판이 현재 슈({cur}판)와 <b>전혀 겹치지 않습니다.</b> 새 슈는 1판부터 시작하므로, 이건 새 슈가 아니라 <b>다른 판</b>(본매나 옆 테이블)을 읽고 있을 가능성이 큽니다. 영역을 확인하거나, 정말 다른 테이블로 옮긴 것이라면 아래를 누르세요.",
+    en: "The {read}-coup reading has <b>nothing in common</b> with this shoe's {cur}. A new shoe starts at one coup, so this is more likely a <b>different board</b> — the big road, or the table next door — than a new shoe. Check the region, or press below if you really did move to another table.",
+    "zh-Hant": "讀到的 {read} 局與目前牌靴的 {cur} 局<b>完全不重疊</b>。新牌靴從第 1 局開始，所以這更可能是在讀<b>另一個路單</b>（大路或隔壁桌），而非新牌靴。請確認區域；若確實換了桌，請按下方。",
+    "zh-Hans": "读到的 {read} 局与当前牌靴的 {cur} 局<b>完全不重叠</b>。新牌靴从第 1 局开始，所以这更可能是在读<b>另一个路单</b>（大路或隔壁桌），而非新牌靴。请确认区域；若确实换了桌，请按下方。",
+  },
+  // No count in the label: the sentence above it has just given the count, and
+  // a bare number here reads as "1 as" at a shoe of one -- which is the plural
+  // check firing on the word "as", but the copy is better without it either way.
+  "live.deepResetAccept": {
+    ko: "이 판독을 새 슈로 기록", en: "Record this reading as a new shoe",
+    "zh-Hant": "將此讀取記為新牌靴", "zh-Hans": "将此读取记为新牌靴",
   },
   "live.shortSwap": { ko: "{n}판으로 교체", en: "Replace with {n}", "zh-Hant": "替換為 {n} 局", "zh-Hans": "替换为 {n} 局" },
   "live.retry": { ko: "다시 시도", en: "Try again", "zh-Hant": "重試", "zh-Hans": "重试" },
@@ -1332,12 +1346,6 @@ const S = {
   "ai.betGo": { ko: "베팅 권장", en: "Worth backing", "zh-Hant": "建議下注", "zh-Hans": "建议下注" },
   "ai.betHold": { ko: "참고용 · 베팅 권장 안 함", en: "Reference only \u00b7 not worth backing",
     "zh-Hant": "僅供參考 \u00b7 不建議下注", "zh-Hans": "仅供参考 \u00b7 不建议下注" },
-  "ai.noBetWhy": {
-    ko: "<b>어느 쪽도 걸 만하지 않습니다.</b> 둘 중 나은 쪽은 {side}지만 기댓값이 판당 <b>{ev}</b>로 음수입니다 — 공정한 테이블에서는 커미션 때문에 양쪽 다 그렇습니다. 이 값이 플러스가 되려면 이 테이블의 뱅커 비율 구간이 손익분기선을 <b>통째로</b> 넘어야 하고, 아래 눈금이 그걸 그리고 있습니다.",
-    en: "<b>Neither side is worth backing.</b> The better of the two is {side}, but its expectation is <b>{ev}</b> a hand — on a fair table the commission makes that true of both. It turns positive only once this table's Banker-share interval clears a break-even line <b>entirely</b>, which is what the scale below draws.",
-    "zh-Hant": "<b>兩邊都不值得下注。</b>較好的一邊是{side}，但每手期望值為 <b>{ev}</b>，是負的 — 公正的牌桌上因為佣金，兩邊皆然。唯有本桌莊家比率的區間<b>整段</b>越過損益平衡線，它才會轉正，而下方的刻度正是在畫這件事。",
-    "zh-Hans": "<b>两边都不值得下注。</b>较好的一边是{side}，但每手期望值为 <b>{ev}</b>，是负的 — 公正的牌桌上因为佣金，两边皆然。唯有本桌庄家比率的区间<b>整段</b>越过盈亏平衡线，它才会转正，而下方的刻度正是在画这件事。",
-  },
   "ai.confidence": { ko: "신뢰도", en: "Confidence", "zh-Hant": "信心度", "zh-Hans": "信心度" },
   "ai.margin": { ko: "오차범위", en: "Margin", "zh-Hant": "誤差範圍", "zh-Hans": "误差范围" },
   "ai.cardsLeft": { ko: "남은 카드", en: "Cards left", "zh-Hant": "剩餘牌數", "zh-Hans": "剩余牌数" },
@@ -1511,6 +1519,25 @@ const S = {
   },
   "state.shoes": { ko: "수집한 슈", en: "Shoes collected", "zh-Hant": "已收集牌靴", "zh-Hans": "已收集牌靴" },
   "state.coups": { ko: "{n}판", en: "{n} [n|coup|coups]", "zh-Hant": "{n} 局", "zh-Hans": "{n} 局" },
+  "state.coupsPerShoe": {
+    ko: "{n}판 · 슈당 {avg}판", en: "{n} [n|coup|coups] · {avg} a shoe",
+    "zh-Hant": "{n} 局 · 每靴 {avg} 局", "zh-Hans": "{n} 局 · 每靴 {avg} 局",
+  },
+  // Two measured figures and what follows from them. No threshold to argue
+  // with: a full 8-deck shoe is 75-86 coups because the cut card says so, and
+  // a record averaging a fraction of that is made of pieces of shoes.
+  "state.fragments": {
+    ko: "<b>모은 슈가 슈 길이가 아닙니다.</b> 닫힌 슈 {closed}개의 평균이 <b>{avg}판</b>인데, 8덱 슈는 컷카드 때문에 거의 언제나 <b>75–86판</b>입니다(4,000슈 실측: 평균 80.3, 최소 75, 최대 86). 온전한 슈는 {whole}개뿐입니다 — 나머지는 조각입니다. 중간부터 보다가 중간에 그만두면 자연히 짧아지지만, 대부분이 조각이라면 읽기가 한 판을 여러 슈로 쪼개고 있을 가능성이 큽니다.",
+    en: "<b>These are not shoe-length shoes.</b> The {closed} closed [closed|shoe averages|shoes average] <b>{avg} [avg|coup|coups]</b>, where an 8-deck shoe runs <b>75–86</b> almost without exception — the cut card decides it (4,000 dealt: mean 80.3, min 75, max 86). Only {whole} [whole|is|are] whole; the rest are pieces. Joining and leaving mid-shoe shortens them honestly, but when most are pieces the reader is more likely splitting one board into several shoes.",
+    "zh-Hant": "<b>收集到的牌靴長度不像牌靴。</b>已結束的 {closed} 靴平均 <b>{avg} 局</b>，而 8 副牌的牌靴因切牌幾乎都是 <b>75–86 局</b>（實測 4,000 靴：平均 80.3、最少 75、最多 86）。完整的只有 {whole} 靴，其餘是片段。中途加入或離開自然會變短，但若多數都是片段，更可能是讀取把同一路單拆成了多靴。",
+    "zh-Hans": "<b>收集到的牌靴长度不像牌靴。</b>已结束的 {closed} 靴平均 <b>{avg} 局</b>，而 8 副牌的牌靴因切牌几乎都是 <b>75–86 局</b>（实测 4,000 靴：平均 80.3、最少 75、最多 86）。完整的只有 {whole} 靴，其余是片段。中途加入或离开自然会变短，但若多数都是片段，更可能是读取把同一路单拆成了多靴。",
+  },
+  "state.overlong": {
+    ko: "<b>슈 {n}개가 한 슈보다 깁니다.</b> 8덱 슈는 최대 86판인데 그보다 긴 기록이 있습니다 — 같은 띠를 두 번 세었거나 두 슈가 이어 붙은 것입니다. 이 기록으로는 학습 모델을 신뢰하지 않습니다.",
+    en: "<b>{n} [n|shoe is|shoes are] longer than a shoe can be.</b> An 8-deck shoe tops out at 86 coups, so a longer record is one strip counted twice or two shoes stitched together. The learned model is not trusted on it.",
+    "zh-Hant": "<b>有 {n} 靴比一靴還長。</b>8 副牌的牌靴最多 86 局，更長者即為同一路單重複計數或兩靴被接在一起。此紀錄不採用學習模型。",
+    "zh-Hans": "<b>有 {n} 靴比一靴还长。</b>8 副牌的牌靴最多 86 局，更长者即为同一路单重复计数或两靴被接在一起。此记录不采用学习模型。",
+  },
   "state.bankerShare": { ko: "뱅커 비율", en: "Banker share", "zh-Hant": "莊家比率", "zh-Hans": "庄家比率" },
   "state.bankerShareRange": { ko: "{lo}–{hi} · {n}판 기준", en: "{lo}–{hi} · over {n} decided", "zh-Hant": "{lo}–{hi} · 以 {n} 局計", "zh-Hans": "{lo}–{hi} · 以 {n} 局计" },
   "state.noCoups": { ko: "판이 없습니다", en: "no coups yet", "zh-Hant": "尚無局數", "zh-Hans": "尚无局数" },
@@ -4438,6 +4465,54 @@ function tiePlausibility(coups = 0, ties = 0, deff = 1) {
   };
 }
 
+/**
+ * How long a real 8-deck shoe runs, measured rather than assumed.
+ *
+ * 4,000 shoes dealt by the rules engine in this repository: mean 80.27, sd
+ * 1.61, and every single one between 75 and 86. The cut card decides it, so
+ * the spread is tiny -- far tighter than anything else in this game, which is
+ * what makes the length of a shoe worth checking at all.
+ *
+ * A collected shoe may of course be shorter: a person joins a table mid-shoe
+ * and leaves mid-shoe, and both ends are then clipped. Nothing here calls that
+ * a fault. What it cannot be is *longer*: a closed shoe past 86 coups is two
+ * shoes stitched together, or one strip counted twice, and either way the
+ * record is not what it says it is.
+ */
+const SHOE_MIN = 75;
+const SHOE_MAX = 86;
+const SHOE_MEAN = 80.27;
+
+/**
+ * Shoes longer than a shoe can be, and how short the rest run.
+ *
+ * Two different things, deliberately reported separately. The long ones are a
+ * fault and the trust is withdrawn for them. The short ones are a fact about
+ * the record that the person collecting it should see -- a table whose shoes
+ * average eighteen coups has not been read as shoes -- and it is stated rather
+ * than adjudicated, because a short shoe is also what honest dipping in and
+ * out produces.
+ *
+ * Every shoe that has anything in it counts, the one in progress included.
+ * Judging only the closed ones was the first thing tried and it moves the
+ * figure at a shoe boundary: the same shoes and the same coups, one of them
+ * merely relabelled, and the average jumped from 60 to 51. Nothing about the
+ * table changed there, so nothing about the table should have moved.
+ */
+function shoeShape(lengths = []) {
+  const counted = lengths.filter((n) => Number.isFinite(n) && n > 0);
+  if (!counted.length) return { counted: 0, mean: NaN, long: 0, whole: 0, fragments: 0 };
+  const long = counted.filter((n) => n > SHOE_MAX).length;
+  const whole = counted.filter((n) => n >= SHOE_MIN && n <= SHOE_MAX).length;
+  return {
+    counted: counted.length,
+    mean: counted.reduce((a, b) => a + b, 0) / counted.length,
+    long,
+    whole,
+    fragments: counted.length - whole - long,
+  };
+}
+
 /** Expected value per coup of a flat unit on each side, ties pushing. */
 function edges(q, tieP) {
   const decided = 1 - tieP;
@@ -6120,6 +6195,27 @@ class LiveWatcher {
 }
 
 /**
+ * How deep a shoe may already be the first time it is seen, when the strip was
+ * never watched going empty.
+ *
+ * A new shoe starts at one coup and grows. So a reading that shares nothing
+ * with the shoe in progress and arrives already dozens deep is not a new shoe
+ * on this board -- it is a different board: the big road beside the bead
+ * plate, or the table next door. Filing it as a shoe is how a record fills
+ * with fragments.
+ *
+ * Measured from a real session's log: "new shoe -- 45 read", then "new shoe --
+ * 36 read", a minute apart, on a table whose own counter said 37. Thirty-one
+ * shoes averaging 18 coups came out of it, against a real 8-deck shoe's 80.
+ *
+ * A first column and a little, because the reader can miss the opening coups
+ * of a shoe it was not looking at. Past that the viewer is asked rather than
+ * obeyed -- switching the shared window to another table really does produce
+ * a deep reading with nothing in common, and that is a click away.
+ */
+const RESTART_DEPTH = 8;
+
+/**
  * Decide what a fresh reading means for the shoe in progress.
  *
  * Returns one of `same` (nothing changed), `grow` (the board gained coups),
@@ -7149,6 +7245,37 @@ function onLiveRead(seq, board, repeats, { afterClear = false } = {}) {
       sides: [...seq.slice(current.length)].map(side).join(" "),
     }));
   } else if ((restart || verdict === "reset") && repeats >= enough) {
+    // A new shoe starts at one coup. A reading that shares nothing with the
+    // shoe in progress and arrives already dozens deep, on a strip nobody
+    // watched go empty, is a different board rather than a new shoe -- the big
+    // road beside the bead plate, or the table next door.
+    //
+    // This was silent, and it is what fills a record with fragments: one real
+    // session logged "new shoe -- 45 read" and then "new shoe -- 36 read" a
+    // minute apart, on a table whose own counter said 37, and left 31 shoes
+    // averaging 18 coups where a real 8-deck shoe runs 80.
+    //
+    // Not refused, though. Pointing the shared window at another table really
+    // does produce a deep reading with nothing in common, and that is a thing
+    // people do. So it is offered instead of taken.
+    // Never against the seeded example. It is there so the page opens showing
+    // what it does, not because anyone collected it, and the first real
+    // reading replaces it rather than being compared with it -- which on a
+    // first visit is every reading, and would put this warning in front of
+    // someone who has done nothing wrong.
+    if (!restart && !state.isExample && seq.length > RESTART_DEPTH) {
+      setLiveWarn(
+        t("live.deepReset", { read: seq.length, cur: current.length }),
+        {
+          label: t("live.deepResetAccept"),
+          run: () => {
+            loadAsNewShoe(seq, into);
+            setLiveWarn(null);
+            liveLog(t("live.logNewShoe", { n: seq.length }), "new");
+          },
+        });
+      return;
+    }
     loadAsNewShoe(seq, into);
     liveLog(t("live.logNewShoe", { n: seq.length }), "new");
   }
@@ -7642,10 +7769,6 @@ function renderPrediction() {
   // Player by about 1.24% -- so naming the shallower one is not advice, it is
   // a description of which way you lose more slowly.
   //
-  // The scale below the panel has always said "no bet" in exactly this
-  // situation. Now the headline does too, and names a side only when backing
-  // it is worth more than not playing.
-  //
   // Two questions, and the panel used to collapse them into one. "Which side
   // does the estimate favour" is a fact about the estimate and is answerable at
   // every single coup -- there is always a larger of two numbers. "Is backing
@@ -7654,7 +7777,11 @@ function renderPrediction() {
   //
   // Hiding the side whenever the second answer was no meant the panel went
   // quiet on precisely the tables it had the most to say about. So the side is
-  // named every hand, and the bet judgment sits beside it as its own claim.
+  // named every hand, and the bet judgment sits beside it as its own claim --
+  // a badge rather than a paragraph, with the expectation itself in the row of
+  // figures below it. The paragraph that used to spell the same thing out in
+  // words is gone: on every coup it said at length what the badge and a
+  // negative expectation already say in two places.
   const evChosen = edges(p.q, p.tie)[chosen];
   const worthBacking = evChosen > 0;
   const pick = $("aiSide");
@@ -7664,14 +7791,6 @@ function renderPrediction() {
   const badge = $("aiBetBadge");
   badge.textContent = t(worthBacking ? "ai.betGo" : "ai.betHold");
   badge.className = "betbadge " + (worthBacking ? "go" : "hold");
-
-  // Emptied when hidden, not merely hidden. A line left holding the last
-  // table's sentence is two elements nobody can see and a claim that is wrong
-  // the moment anything shows it again.
-  const noBet = $("aiNoBet");
-  noBet.hidden = worthBacking;
-  noBet.innerHTML = worthBacking ? ""
-    : t("ai.noBetWhy", { side: side(chosen), ev: pct(evChosen, 3) });
 
   // Said where the recommendation is, because that is the thing it changes.
   const record = learned().record;
@@ -7856,11 +7975,17 @@ function learned() {
   // predictable sequence there is. So the trust is withdrawn at the source
   // rather than at the pick, and every panel that reads it agrees.
   const record = tiePlausibility(o.coups, o.ties, deff);
-  if (record.implausible) {
+  // And the same withdrawal for a closed shoe longer than a shoe can be. The
+  // cut card caps an 8-deck shoe at 86 coups -- 4,000 dealt here, none longer
+  // -- so a record holding a longer one is a strip counted twice or two shoes
+  // stitched into one, and a network trained on it is learning the join.
+  const shape = shoeShape(shoes().filter((s) => s.o.length).map((s) => s.o.length));
+  if (record.implausible || shape.long) {
     value.trusted = false;
     value.reason = "record";
   }
   value.record = record;
+  value.shape = shape;
   learnCache = { revision, table: state.active, value };
   return value;
 }
@@ -8043,7 +8168,7 @@ const isTouch = () => typeof matchMedia === "function"
  */
 function renderLearned() {
   const l = learned();
-  const rows = $("learnRows"), verdict = $("learnVerdict"), note = $("learnNote");
+  const rows = $("learnRows"), verdict = $("learnVerdict");
   $("learnTrained").textContent = l.decided
     ? t("learn.trained", { n: l.decided.toLocaleString() }) : "";
   rows.innerHTML = "";
@@ -8051,7 +8176,6 @@ function renderLearned() {
   if (!l.model.bets) {
     verdict.className = "aiverdict";
     verdict.textContent = t("learn.waiting");
-    note.innerHTML = "";
     return;
   }
 
@@ -8081,7 +8205,6 @@ function renderLearned() {
     : l.reason === "noise" ? t("learn.noise", { z })
     : l.reason === "tooFew" ? t("learn.tooFew", { n: l.split.toLocaleString() })
     : t("learn.behind");
-  note.innerHTML = t("learn.note");
 }
 
 function renderInputHints() {
@@ -8134,9 +8257,15 @@ function renderHeader() {
     sel.appendChild(o);
   }
   const shoe = openShoe();
+  // With the tally beside it, because that is the one figure the table itself
+  // also puts on screen. Reading "37" against the casino's "#37 B18 P16 T3"
+  // says the count agrees and nothing more; reading the whole tally against it
+  // says the reader is looking at the right board.
+  const tally = { b: 0, p: 0, t: 0 };
+  for (const o of shoe.o) tally[o === "B" ? "b" : o === "P" ? "p" : "t"] += 1;
   $("shoeMeta").textContent = t("header.shoeMeta", {
     shoes: shoes().filter((s) => s.o.length).length, coups: shoe.o.length,
-  });
+  }) + (shoe.o.length ? " · " + t("header.shoeTally", tally) : "");
   $("exampleBadge").hidden = !state.isExample;
 }
 
@@ -8171,10 +8300,17 @@ function shareSub(o) {
 function renderKpis() {
   const o = observed();
   const bias = detectableBias(o.shoes);
+  const shape = shoeShape(shoes().filter((s) => s.o.length).map((s) => s.o.length));
   const tiles = [
     {
       k: t("state.shoes"), v: o.shoes.toLocaleString(),
-      s: t("state.coups", { n: o.coups.toLocaleString() }),
+      // With the length beside the count, because the length is the one figure
+      // that says whether these are shoes. A full 8-deck shoe is 75 to 86
+      // coups and almost nothing else; a table reporting eighteen is reporting
+      // fragments, and the count alone hides that behind a bigger number.
+      s: shape.counted
+        ? t("state.coupsPerShoe", { n: o.coups.toLocaleString(), avg: shape.mean.toFixed(0) })
+        : t("state.coups", { n: o.coups.toLocaleString() }),
     },
     {
       k: t("state.bankerShare"), v: o.n ? pct(o.q, 2) : "—",
@@ -8204,6 +8340,22 @@ function renderKpis() {
     d.appendChild(el("div", "s", t.s));
     box.appendChild(d);
   }
+
+  // A shoe longer than a shoe first, because that one is not a judgement call:
+  // the cut card caps an 8-deck shoe at 86 coups, so a longer record is one
+  // strip counted twice. Then the fragments, said rather than adjudicated --
+  // joining a table mid-shoe shortens a record honestly, and only the person
+  // collecting it knows which of the two it was.
+  const note = $("shoeShape");
+  const fragmentary = shape.counted >= 5 && shape.mean < SHOE_MIN * 0.6;
+  note.hidden = !(shape.long || fragmentary);
+  note.innerHTML = shape.long
+    ? t("state.overlong", { n: shape.long })
+    : fragmentary
+      ? t("state.fragments", {
+          closed: shape.counted, avg: shape.mean.toFixed(0), whole: shape.whole,
+        })
+      : "";
 }
 
 /**
