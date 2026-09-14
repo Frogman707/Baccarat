@@ -3929,6 +3929,15 @@ function dilate(profile) {
  */
 const STEP_FLOOR = 3;
 
+/** Half-width of the average taken along a rule before differencing.
+ *
+ *  A rule is constant in its own direction and the grain on top of it is not,
+ *  so averaging along it is the one filter that costs the signal nothing. Five
+ *  pixels either side divides per-pixel noise by about three, which is the
+ *  difference between finding the strip on a compressed screen share and not
+ *  finding it at all. */
+const SMOOTH = 5;
+
 /**
  * How many pixels of nothing a rule may cross and still be one rule.
  *
@@ -3980,12 +3989,48 @@ function longestRun(read, count, step) {
   return best;
 }
 
+/**
+ * The window to average over at `at`, clamped inside `[0, count)`.
+ *
+ * Returned as a pair rather than computed twice, because all four places that
+ * difference across a rule need the same bounds and getting them subtly
+ * different in one of them is the kind of thing that only shows up as the
+ * reader failing on somebody's screen.
+ *
+ * Not called `window`. The build concatenates every module into one scope, so
+ * a top-level function of that name shadows the browser's own `window` for the
+ * whole page -- `store.js` watches `window` for another tab's writes, and that
+ * would simply have stopped. The build's duplicate-name check cannot catch it
+ * either, because nothing in this repository *declares* `window`; it is only
+ * used.
+ */
+function spanAround(at, count, half) {
+  const width = Math.min(count, 2 * half + 1);
+  let lo = at - half;
+  if (lo < 0) lo = 0;
+  let hi = lo + width;
+  if (hi > count) { hi = count; lo = hi - width; }
+  return [lo, hi];
+}
+
 function rowProfile(L, w, h, i0 = 0, i1 = w) {
   const row = new Float32Array(h);
   const span = Math.max(1, i1 - i0);
+  const half = Math.min(SMOOTH, Math.max(0, (span >> 1) - 1));
   for (let j = 0; j < h - 1; j += 1) {
-    row[j] = longestRun((i) => L[(j + 1) * w + i0 + i] - L[j * w + i0 + i],
-                        span, STEP_FLOOR) / span;
+    const a = (j + 1) * w + i0, b = j * w + i0;
+    row[j] = longestRun((i) => {
+      // Averaged along the rule, which is the one direction it does not vary
+      // in. A horizontal rule is the same brightness all the way across, so
+      // this leaves it untouched and divides the grain by the root of the
+      // window -- and grain is what kills this: five grey levels of it on a
+      // resampled frame lost the strip completely, and a compressed screen
+      // share has more than five.
+      const [lo, hi] = spanAround(i, span, half);
+      let up = 0, down = 0;
+      for (let x = lo; x < hi; x += 1) { up += L[a + x]; down += L[b + x]; }
+      return (up - down) / (hi - lo);
+    }, span, STEP_FLOOR) / span;
   }
   return dilate(row);
 }
@@ -3993,9 +4038,18 @@ function rowProfile(L, w, h, i0 = 0, i1 = w) {
 function colProfile(L, w, j0, j1) {
   const col = new Float32Array(w);
   const rows = Math.max(1, j1 - j0);
+  const half = Math.min(SMOOTH, Math.max(0, (rows >> 1) - 1));
   for (let i = 0; i < w - 1; i += 1) {
-    col[i] = longestRun((j) => L[(j0 + j) * w + i + 1] - L[(j0 + j) * w + i],
-                        rows, STEP_FLOOR) / rows;
+    col[i] = longestRun((j) => {
+      // The same, down a vertical rule.
+      const [lo, hi] = spanAround(j, rows, half);
+      let right = 0, left = 0;
+      for (let y = lo; y < hi; y += 1) {
+        const at = (j0 + y) * w + i;
+        right += L[at + 1]; left += L[at];
+      }
+      return (right - left) / (hi - lo);
+    }, rows, STEP_FLOOR) / rows;
   }
   return dilate(col);
 }
@@ -4352,14 +4406,31 @@ function detectGrid(imageData, { region = null } = {}) {
       for (let pass = 0; pass < 2 && ok; pass += 1) {
         const jFrom = Math.max(0, Math.round(rows[0]));
         const tall = Math.max(1, Math.min(h - 1 - jFrom, Math.round(rows[rows.length - 1]) - jFrom));
+        const downHalf = Math.min(SMOOTH, Math.max(0, (tall >> 1) - 1));
         cols = trimToCrossing(cols, (i) => (i < 1 || i >= w - 2 ? 0
-          : runAt((x) => (j) => L[(jFrom + j) * w + x + 1] - L[(jFrom + j) * w + x], i, tall) / tall));
+          : runAt((x) => (j) => {
+              const [lo, hi] = spanAround(j, tall, downHalf);
+              let right = 0, left = 0;
+              for (let y = lo; y < hi; y += 1) {
+                const at = (jFrom + y) * w + x;
+                right += L[at + 1]; left += L[at];
+              }
+              return (right - left) / (hi - lo);
+            }, i, tall) / tall));
         if (cols.length < GRID_MIN_COLS + 1) { ok = false; break; }
 
         const iFrom = Math.max(0, Math.round(cols[0]));
         const wide = Math.max(1, Math.min(w - 1 - iFrom, Math.round(cols[cols.length - 1]) - iFrom));
+        const acrossHalf = Math.min(SMOOTH, Math.max(0, (wide >> 1) - 1));
         rows = trimToCrossing(rows, (j) => (j < 1 || j >= h - 2 ? 0
-          : runAt((y) => (i) => L[(y + 1) * w + iFrom + i] - L[y * w + iFrom + i], j, wide) / wide));
+          : runAt((y) => (i) => {
+              const [lo, hi] = spanAround(i, wide, acrossHalf);
+              let up = 0, down2 = 0;
+              for (let x = lo; x < hi; x += 1) {
+                up += L[(y + 1) * w + iFrom + x]; down2 += L[y * w + iFrom + x];
+              }
+              return (up - down2) / (hi - lo);
+            }, j, wide) / wide));
         if (rows.length < GRID_MIN_ROWS + 1) { ok = false; break; }
       }
       if (!ok) continue;
