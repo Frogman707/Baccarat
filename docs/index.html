@@ -246,7 +246,10 @@ table.stake tr:last-child td{border-bottom:none}
 .wholink{border:none; background:none; padding:0; color:var(--ink-3); font-size:11.5px;
   font-family:var(--sans); cursor:pointer; text-decoration:underline; text-underline-offset:2px}
 .wholink:hover{color:var(--ink)}
-.airec .v.nobet{color:var(--ink-2); font-size:0.82em; letter-spacing:0.01em}
+.betbadge{margin-left:10px; padding:3px 9px; border-radius:999px; font-size:11px;
+  font-weight:500; letter-spacing:.01em; white-space:nowrap; vertical-align:2px}
+.betbadge.hold{background:var(--surface-3); color:var(--ink-2); border:1px solid var(--line-2)}
+.betbadge.go{background:var(--accent); color:#fff}
 .aibar .p{font-family:var(--mono); font-size:13px; text-align:right;
           font-variant-numeric:tabular-nums; font-weight:500;
           padding:1px 3px; border-radius:4px}
@@ -691,6 +694,7 @@ footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
     <div class="airec">
       <span class="k" data-i18n="ai.recommend"></span>
       <span class="v" id="aiSide"></span>
+      <span class="betbadge" id="aiBetBadge"></span>
     </div>
     <p class="aiverdict" id="aiNoBet" hidden></p>
     <p class="aiverdict" id="aiHold" hidden></p>
@@ -1274,7 +1278,18 @@ const S = {
     "zh-Hant": "以每手下注額計算，本金僅用於換算百分比。手數為每小時手數 × 每天小時 × 每月天數。平均值隨手數線性成長，區間只隨平方根成長，所以手數越多，運氣的比重越小 — 只是變小，不會消失。",
     "zh-Hans": "以每手下注额计算，本金仅用于换算百分比。手数为每小时手数 × 每天小时 × 每月天数。平均值随手数线性增长，区间只随平方根增长，所以手数越多，运气的比重越小 — 只是变小，不会消失。",
   },
-  "ai.noBet": { ko: "베팅 안 함", en: "No bet", "zh-Hant": "不下注", "zh-Hans": "不下注" },
+  // The conditional is not decoration. On a fair table the share drifts back to
+  // the pack's own rate, so the count is never reached -- it is what *this*
+  // share would take, not a promise that collecting that many gets you there.
+  "ai.confNeed": { ko: "이 비율이면 {n}판 더", en: "{n} more at this share",
+    "zh-Hant": "若維持此比率，尚需 {n} 局", "zh-Hans": "若维持此比率，尚需 {n} 局" },
+  "ai.confNever": { ko: "이 비율로는 도달 불가", en: "unreachable at this share",
+    "zh-Hant": "以此比率無法達到", "zh-Hans": "以此比率无法达到" },
+  "ai.confReached": { ko: "표본이 충분합니다", en: "the sample is enough",
+    "zh-Hant": "樣本已足夠", "zh-Hans": "样本已足够" },
+  "ai.betGo": { ko: "베팅 권장", en: "Worth backing", "zh-Hant": "建議下注", "zh-Hans": "建议下注" },
+  "ai.betHold": { ko: "참고용 · 베팅 권장 안 함", en: "Reference only \u00b7 not worth backing",
+    "zh-Hant": "僅供參考 \u00b7 不建議下注", "zh-Hans": "仅供参考 \u00b7 不建议下注" },
   "ai.noBetWhy": {
     ko: "<b>어느 쪽도 걸 만하지 않습니다.</b> 둘 중 나은 쪽은 {side}지만 기댓값이 판당 <b>{ev}</b>로 음수입니다 — 공정한 테이블에서는 커미션 때문에 양쪽 다 그렇습니다. 이 값이 플러스가 되려면 이 테이블의 뱅커 비율 구간이 손익분기선을 <b>통째로</b> 넘어야 하고, 아래 눈금이 그걸 그리고 있습니다.",
     en: "<b>Neither side is worth backing.</b> The better of the two is {side}, but its expectation is <b>{ev}</b> a hand — on a fair table the commission makes that true of both. It turns positive only once this table's Banker-share interval clears a break-even line <b>entirely</b>, which is what the scale below draws.",
@@ -1289,10 +1304,10 @@ const S = {
   "ai.conf.medium": { ko: "보통", en: "Medium", "zh-Hant": "中", "zh-Hans": "中" },
   "ai.conf.high": { ko: "높음", en: "High", "zh-Hant": "高", "zh-Hans": "高" },
   "ai.holdWhy": {
-    ko: "위에서는 <b>{lead}</b>가 {gap}%p 높은데 추천은 {pick}입니다. 뱅커는 커미션을 물고도 교차점 {cross} 위에서는 더 나은 쪽이고, 갈아타려면 추정치가 그 선보다 2표준오차 아래여야 합니다 — 아직 <b>{need}%p</b> 모자랍니다.",
-    en: "<b>{lead}</b> reads {gap}pp higher above, yet the pick is {pick}. Banker is the better bet above the crossover at {cross} even after commission, and switching needs the estimate two standard errors below that line — it is still <b>{need}pp</b> short.",
-    "zh-Hant": "上方 <b>{lead}</b> 高出 {gap}%p，推薦卻是{pick}。莊在交叉點 {cross} 之上即使扣佣仍較優，要換邊須估計值低於該線兩個標準誤 — 目前尚差 <b>{need}%p</b>。",
-    "zh-Hans": "上方 <b>{lead}</b> 高出 {gap}%p，推荐却是{pick}。庄在交叉点 {cross} 之上即使扣佣仍较优，要换边须估计值低于该线两个标准误 — 目前尚差 <b>{need}%p</b>。",
+    ko: "위에서는 <b>{lead}</b>가 {gap}%p 높은데 추천은 {pick}입니다. 뱅커는 커미션을 물고도 교차점 {cross} 위에서는 더 나은 쪽이고, 갈아타려면 추정치가 그 선보다 1표준오차 아래여야 합니다 — 아직 <b>{need}%p</b> 모자랍니다.",
+    en: "<b>{lead}</b> reads {gap}pp higher above, yet the pick is {pick}. Banker is the better bet above the crossover at {cross} even after commission, and switching needs the estimate a standard error below that line — it is still <b>{need}pp</b> short.",
+    "zh-Hant": "上方 <b>{lead}</b> 高出 {gap}%p，推薦卻是{pick}。莊在交叉點 {cross} 之上即使扣佣仍較優，要換邊須估計值低於該線一個標準誤 — 目前尚差 <b>{need}%p</b>。",
+    "zh-Hans": "上方 <b>{lead}</b> 高出 {gap}%p，推荐却是{pick}。庄在交叉点 {cross} 之上即使扣佣仍较优，要换边须估计值低于该线一个标准误 — 目前尚差 <b>{need}%p</b>。",
   },
   "ai.holdNetwork": {
     ko: "위에서는 <b>{lead}</b>가 {gap}%p 높은데 추천은 {pick}입니다 — 이 추천은 기본 추정이 아니라 아래 <b>학습 모델</b>이 고른 값입니다. 모델이 기본 추정을 앞선다고 판정됐을 때만 그 값을 씁니다.",
@@ -1331,10 +1346,10 @@ const S = {
     "zh-Hans": "本桌的 {n} 局已将估计值自基准移动 {delta}%p。",
   },
   "ai.crossover": {
-    ko: "뱅커와 플레이어의 우열은 P(뱅커 | 타이 제외) {q}에서 뒤집히고, 현재 추정치는 그 선에서 {z}표준오차 떨어져 있습니다. 선을 <b>2표준오차 넘게</b> 내려가기 전까지는 뱅커를 유지합니다 — 그 선은 새 슈에서 0.05%p밖에 안 떨어져 있어, 추정 오차만으로도 수천 판 동안 넘나들기 때문입니다. 각 49,000판인 공정한 테이블 6개에서, 그때그때 나은 쪽을 따라가면 이김 45.44%·테이블당 −540유닛이었고, 이 기준을 두면 <b>45.98%·테이블당 −416유닛</b>이었습니다.",
-    en: "Banker stops being the better bet below P(Banker | not tie) of {q}, and the estimate sits {z} standard errors from that line. The pick holds Banker until the estimate is <b>two standard errors below</b> it: the line is only 0.05pp from a fresh shoe, so estimation error alone crosses it for thousands of coups. Over six fair tables of 49,000 coups each, following whichever side looked better won 45.44% of coups and lost 540 units a table; requiring the evidence won <b>45.98% and lost 416 a table</b>.",
-    "zh-Hant": "當 P(莊 | 排除和局) 低於 {q} 時莊就不再較優，目前估計值距該線 {z} 個標準誤。在估計值低於該線<b>兩個標準誤</b>之前維持押莊 — 該線距全新牌靴僅 0.05%p，單憑估計誤差就會來回穿越數千局。在六張各 49,000 局的公正牌桌上，跟著當下較優的一邊贏 45.44%、每桌虧 540 單位；要求證據則贏 <b>45.98%、每桌虧 416</b>。",
-    "zh-Hans": "当 P(庄 | 排除和局) 低于 {q} 时庄就不再较优，当前估计值距该线 {z} 个标准误。在估计值低于该线<b>两个标准误</b>之前维持押庄 — 该线距全新牌靴仅 0.05%p，单凭估计误差就会来回穿越数千局。在六张各 49,000 局的公正牌桌上，跟着当下较优的一边赢 45.44%、每桌亏 540 单位；要求证据则赢 <b>45.98%、每桌亏 416</b>。",
+    ko: "뱅커와 플레이어의 우열은 P(뱅커 | 타이 제외) {q}에서 뒤집히고, 현재 추정치는 그 선에서 {z}표준오차 떨어져 있습니다. 선을 <b>1표준오차 넘게</b> 내려가기 전까지는 뱅커를 유지합니다 — 그 선은 새 슈에서 0.05%p밖에 안 떨어져 있어, 추정 오차만으로도 수천 판 동안 넘나들기 때문입니다. 각 49,000판인 공정한 테이블 6개에서, 그때그때 나은 쪽을 따라가면 이김 45.44%·테이블당 −540유닛이었고, 이 기준을 두면 <b>45.91%·테이블당 −452유닛</b>이었습니다. 문턱의 크기는 재서 골랐습니다 — 실제로 돌린 슈 290만 판에서 1표준오차는 항상 뱅커와 차이가 없었고(잡음 이하), 진짜로 플레이어 쪽으로 치우친 테이블에서는 전에 쓰던 더 넓은 문턱보다 적중률이 2~3%p 높았습니다.",
+    en: "Banker stops being the better bet below P(Banker | not tie) of {q}, and the estimate sits {z} standard errors from that line. The pick holds Banker until the estimate is <b>a standard error below</b> it: the line is only 0.05pp from a fresh shoe, so estimation error alone crosses it for thousands of coups. Over six fair tables of 49,000 coups each, following whichever side looked better won 45.44% of coups and lost 540 units a table; requiring the evidence won <b>45.91% and lost 452 a table</b>. The size of the bar is measured: over 2.9 million dealt coups one standard error is indistinguishable from never switching, and on a table genuinely biased to Player it is 2 to 3 points of hit rate better than the wider bar it replaced.",
+    "zh-Hant": "當 P(莊 | 排除和局) 低於 {q} 時莊就不再較優，目前估計值距該線 {z} 個標準誤。在估計值低於該線<b>一個標準誤</b>之前維持押莊 — 該線距全新牌靴僅 0.05%p，單憑估計誤差就會來回穿越數千局。在六張各 49,000 局的公正牌桌上，跟著當下較優的一邊贏 45.44%、每桌虧 540 單位；要求證據則贏 <b>45.91%、每桌虧 452</b>。門檻大小是量出來的：在 290 萬局實際發牌中，一個標準誤與從不換邊無法區分，而在真正偏向閒家的桌上，命中率比先前較寬的門檻高 2 至 3 個百分點。",
+    "zh-Hans": "当 P(庄 | 排除和局) 低于 {q} 时庄就不再较优，当前估计值距该线 {z} 个标准误。在估计值低于该线<b>一个标准误</b>之前维持押庄 — 该线距全新牌靴仅 0.05%p，单凭估计误差就会来回穿越数千局。在六张各 49,000 局的公正牌桌上，跟着当下较优的一边赢 45.44%、每桌亏 540 单位；要求证据则赢 <b>45.91%、每桌亏 452</b>。门槛大小是量出来的：在 290 万局实际发牌中，一个标准误与从不换边无法区分，而在真正偏向闲家的桌上，命中率比先前较宽的门槛高 2 至 3 个百分点。",
   },
   "ai.notBaccarat": {
     ko: "<b>이 기록은 8덱 바카라의 모양이 아닙니다.</b> 타이가 <b>{rate}</b>인데 공정한 슈는 <b>9.52%</b>이고, {coups}판에서 그 차이는 <b>{z}표준오차</b>입니다. 타이 비율은 셔플이 아니라 덱 구성이 정하는 값이라, 이만큼 벗어났다면 셔플이 아니라 <b>판독</b>을 먼저 의심해야 합니다 — 화면 인식이 판을 빠뜨렸거나, 같은 슈를 두 번 세었거나, 조각난 슈를 이어 붙였을 수 있습니다. 그 전까지 추천은 학습 모델이 아니라 기본 추정을 씁니다.",
@@ -3816,11 +3831,37 @@ function edges(q, tieP) {
 /**
  * Standard errors of evidence required before leaving Banker for Player.
  *
- * The same two the break-even scale draws its interval at, so the panel and
- * the recommendation say the same thing about the same number instead of one
- * refusing to call a side while the other confidently calls it.
+ * One, and the value is measured rather than chosen. Swept over 600 tables of
+ * 3,000 coups each, every rule walking the table coup by coup and predicting
+ * from what came before -- hit rate on decided coups, against always backing
+ * Banker, at a noise floor of +-0.039pp:
+ *
+ *     threshold   fair   clustered   B 52%   P 49%   P 47%   P 45%
+ *     0 SE       -0.58      +0.03    -0.49   +1.56   +5.57   +9.63
+ *     0.5 SE     -0.09      +0.10    -0.02   +0.73   +4.20   +8.21
+ *     1 SE       -0.01      +0.05    -0.00   +0.24   +2.80   +6.72
+ *     2 SE       +0.00      +0.01    +0.00   +0.00   +0.50   +3.52
+ *     3 SE       +0.00      +0.00    +0.00   +0.00   +0.01   +0.73
+ *
+ * One standard error dominates two: indistinguishable from it on a fair table
+ * and on a Banker-leaning one -- both inside the noise -- and better by 2.3
+ * points of hit rate on a table genuinely biased to Player, 3.2 on a strongly
+ * biased one. There is no column where it is measurably worse, so the old
+ * threshold was buying nothing with the coups it spent waiting.
+ *
+ * Going further is not free. At half a standard error the fair-table cost
+ * becomes real (-0.09pp, over twice the noise) and at zero it is severe
+ * (-0.58pp, and -0.49 on a Banker-leaning table) -- which is the measurement
+ * that put the threshold at two in the first place. What that measurement
+ * never tested was the ground in between.
+ *
+ * Worth being exact about what this improves. On a fair table it changes
+ * nothing, because there is nothing to change: the commission still puts both
+ * sides under water and the panel still says so. The whole gain is on tables
+ * that really are biased -- which is the only kind this project exists to
+ * find, and the only kind where being right matters.
  */
-const SWITCH_EVIDENCE = 2;
+const SWITCH_EVIDENCE = 1;
 
 /**
  * Which side to back.
@@ -3834,14 +3875,13 @@ const SWITCH_EVIDENCE = 2;
  *
  * Measured over six fair tables of 49,000 coups: picking by expectation won
  * 45.44% of coups and lost 540 units; holding Banker unless the estimate has
- * cleared the crossover by two standard errors won 45.98% and lost 416. Better
- * on both counts, because on a fair table Banker is simply the side that wins
- * more often, and nothing short of real evidence should give that up.
+ * cleared the crossover won 45.98% and lost 416. Better on both counts,
+ * because on a fair table Banker is simply the side that wins more often, and
+ * nothing short of real evidence should give that up.
  *
- * What it costs is speed on a table that is genuinely biased to Player: there
- * the gate takes longer to commit and earns less while it waits. That is the
- * trade this makes deliberately -- the same one the scale below the prediction
- * has always made in words.
+ * What the gate costs is speed on a table that is genuinely biased to Player.
+ * How much it costs depends entirely on how wide it is set, which is why
+ * `SWITCH_EVIDENCE` above is a swept value and not a round number.
  */
 function sidePick(q, se) {
   return SIDE_CROSSOVER - q > SWITCH_EVIDENCE * se ? "P" : "B";
@@ -4055,6 +4095,67 @@ function projectStake({ q, tieP, side = "B", unit = 1, bankroll = 0,
     perHand: mean * unit, sdPerHand: sd * unit, side, breakEvenHands,
     hand: row(1), day: row(perDay), month: row(perMonth),
   };
+}
+
+/**
+ * How many more decided coups it would take to reach a given confidence.
+ *
+ * Confidence here is `z = |q - crossover| / se`, and neither term is a setting:
+ * the first is what the table has produced, the second is how much of it there
+ * is. So "raise the confidence" has exactly one answer -- collect more -- and
+ * the only useful thing the app can add is *how much* more.
+ *
+ * Solved by search rather than algebra because the posterior's standard error
+ * moves with the estimate, which moves with the sample. The search is over the
+ * effective sample size, so a clustered record is told the truth about what its
+ * own coups are worth.
+ *
+ * Returns null where the question has no answer: before anything has been
+ * decided, and for a table sitting so near the crossover that no amount of
+ * collecting separates it from one (the sample grows, the estimate stays put,
+ * and z climbs so slowly that the honest answer is "not in any session").
+ */
+const CONFIDENCE_Z = { medium: 1, high: 2 };
+
+/**
+ * Past this, the answer is "no" rather than a number.
+ *
+ * The search will happily report that a share sitting a fifteenth of a point
+ * off the crossover reaches high confidence in 2,215,028 coups. That is true
+ * and it is useless: nobody plays two million hands, and printing the figure
+ * dresses "never" up as a plan. The app's own collection panel tops out at
+ * 1,178 shoes -- about 95,000 coups -- which is the most it asks anybody to
+ * gather, so a count past that horizon is not a count worth quoting.
+ */
+const PRACTICAL_HORIZON = 100_000;
+const SEARCH_CAP = 8_000_000;
+
+function coupsForConfidence(sample = {}, targetZ = 2) {
+  const { n = 0, q: qObserved, inflate } = sample;
+  if (!n || !Number.isFinite(qObserved)) return null;
+  const deff = Number.isFinite(inflate) ? Math.max(1, inflate ** 2) : 1;
+
+  const zAt = (nEff) => {
+    const a = PRIOR_A + qObserved * nEff;
+    const b = PRIOR_B + (1 - qObserved) * nEff;
+    const q = a / (a + b);
+    const se = Math.sqrt((q * (1 - q)) / (a + b + 1));
+    return se > 0 ? Math.abs(q - SIDE_CROSSOVER) / se : 0;
+  };
+
+  const have = n / deff;
+  if (zAt(have) >= targetZ) return 0;
+  if (zAt(SEARCH_CAP) < targetZ) return null;          // never, at this share
+
+  let lo = have, hi = SEARCH_CAP;
+  for (let i = 0; i < 60; i += 1) {
+    const mid = (lo + hi) / 2;
+    if (zAt(mid) >= targetZ) hi = mid; else lo = mid;
+  }
+  // Back out of effective coups into real ones: clustering means a real coup
+  // is worth less than one, so more of them are needed.
+  const need = Math.ceil((hi - have) * deff);
+  return need > PRACTICAL_HORIZON ? null : need;
 }
 
 /* ═══ learn.js ═══ */
@@ -4969,10 +5070,23 @@ class LiveWatcher {
     // there says "between shoes", not "wrong place", and nothing found
     // elsewhere is allowed to argue with it.
     const holding = this.memory && Date.now() - this.memoryAt <= MEMORY_HOLD_MS;
-    if (this.region && this.samples % RECHECK_EVERY === 0 && !(holding && !boards.length)) {
+    if (this.region && this.samples % RECHECK_EVERY === 0) {
       const full = detectBoards(frame, { minCells: COLD_CELLS });
       const here = boards.length ? boards[0].score : 0;
-      if (full.boards.length && full.boards[0].score > here * 1.25) {
+      // The lock only moves off a strip that has been silent long enough to
+      // have been left behind. A strip with marks in it has not been left
+      // behind, however few those marks are -- and a strip that has just
+      // turned over has exactly one. Comparing scores there is comparing one
+      // coup against a neighbouring table's full board, which the neighbour
+      // wins every time: measured, the reader read the new shoe's first coup
+      // correctly, then handed the lock over and added seven of the
+      // neighbour's coups to this table's shoe.
+      //
+      // `holding` is the memory's own window, and its whole purpose is this:
+      // past it a quiet strip really has been abandoned, and the search opens
+      // up again. Before it, quiet is what a shoe change sounds like.
+      const abandoned = !boards.length && !holding;
+      if (abandoned && full.boards.length && full.boards[0].score > here * 1.25) {
         boards = full.boards;
         bounds = full.bounds;
         this.region = null;
@@ -4999,24 +5113,34 @@ class LiveWatcher {
       // their screen sharing was broken while it did. The lock is kept and the
       // emptiness reported instead.
       if (this.empties === CLEAR_PATIENCE) {
-        const full = holding ? { boards: [] } : detectBoards(frame, { minCells: COLD_CELLS });
-        if (full.boards.length) {
-          // Something is on screen that is not in the strip. That may be the
-          // window having moved -- or it may be another table's board, or the
-          // panel beside the one being watched, which was always there and is
-          // only visible now because this strip went quiet. The lock is let go
-          // so the reader can follow a window that really did move, but the
-          // place is remembered: at a shoe change every road clears together,
-          // and the next mark is far more likely to land where the last shoe
-          // was than anywhere else. Remembering it is what lets that mark be
-          // read as the first coup instead of the eighth.
-          this.region = null;
-          this.anchor = null;
-          this.lastBox = null;
-          this.cleared = false;
-        } else {
-          this.cleared = true;
-        }
+        // The strip is empty and the lock stays on it.
+        //
+        // This used to search the whole screen here, and hand the lock over to
+        // whatever it found. The reasoning was that something visible outside
+        // the strip might mean the window had moved. On a casino screen it
+        // almost never does: the betting panel and the neighbouring table were
+        // there the whole time and are only *interesting* now because this
+        // strip went quiet. An empty strip scores zero, so anything at all
+        // beat it, and the lock went to the neighbour every shoe change.
+        //
+        // Measured on a screen carrying a second board: the first shoe read
+        // 34 of 34, the table wiped, one coup of the new shoe was dealt -- and
+        // the reader came back with 42, having adopted the neighbour's twelve
+        // marks as this table's new shoe. Seven coups that were never dealt
+        // here, filed under this table, permanently.
+        //
+        // A window that really did move is still recovered from, by the
+        // periodic full-screen re-check above: it compares scores rather than
+        // asking whether anything exists, and it resumes once the remembered
+        // strip's hold expires. Slower, and right.
+        this.cleared = true;
+        // `lastBox` stays. A shoe refills where the last one was, so the box
+        // just read is what tells the new shoe's first mark apart from the
+        // neighbouring table's board -- and with the lock now spanning the
+        // full width of the frame, that neighbour is inside the region.
+        // Clearing it here let the neighbour's twelve marks in as this table's
+        // new shoe; `boardsCarryingOn` is what keeps them out, and it has
+        // nothing to work with once the box is gone.
         this.candidate = null;
         this.repeats = 0;
       }
@@ -6630,17 +6754,33 @@ function renderPrediction() {
   // The scale below the panel has always said "no bet" in exactly this
   // situation. Now the headline does too, and names a side only when backing
   // it is worth more than not playing.
+  //
+  // Two questions, and the panel used to collapse them into one. "Which side
+  // does the estimate favour" is a fact about the estimate and is answerable at
+  // every single coup -- there is always a larger of two numbers. "Is backing
+  // it better than not playing" is a different question, and on a fair table
+  // the answer is no, because the commission puts both sides under water.
+  //
+  // Hiding the side whenever the second answer was no meant the panel went
+  // quiet on precisely the tables it had the most to say about. So the side is
+  // named every hand, and the bet judgment sits beside it as its own claim.
   const evChosen = edges(p.q, p.tie)[chosen];
   const worthBacking = evChosen > 0;
   const pick = $("aiSide");
-  pick.textContent = worthBacking ? side(chosen) : t("ai.noBet");
-  pick.className = "v " + (worthBacking ? chosen : "nobet");
+  pick.textContent = side(chosen);
+  pick.className = "v " + chosen;
 
+  const badge = $("aiBetBadge");
+  badge.textContent = t(worthBacking ? "ai.betGo" : "ai.betHold");
+  badge.className = "betbadge " + (worthBacking ? "go" : "hold");
+
+  // Emptied when hidden, not merely hidden. A line left holding the last
+  // table's sentence is two elements nobody can see and a claim that is wrong
+  // the moment anything shows it again.
   const noBet = $("aiNoBet");
   noBet.hidden = worthBacking;
-  if (!worthBacking) {
-    noBet.innerHTML = t("ai.noBetWhy", { side: side(chosen), ev: pct(evChosen, 3) });
-  }
+  noBet.innerHTML = worthBacking ? ""
+    : t("ai.noBetWhy", { side: side(chosen), ev: pct(evChosen, 3) });
 
   // Said where the recommendation is, because that is the thing it changes.
   const record = learned().record;
@@ -6659,11 +6799,21 @@ function renderPrediction() {
   // errors below the crossover, so a Player share that is merely higher is not
   // yet a reason to move -- which belongs here, beside the disagreement,
   // rather than only in the paragraph at the foot of the panel.
-  const leader = p.probability.P > p.probability.B ? "P" : "B";
+  //
+  // Measured against the bars drawn above, which is what the sentence says
+  // ("reads higher above") and what the reader is actually looking at. It used
+  // to compare the *estimate's* two shares instead -- and the estimate is the
+  // posterior, pulled most of the way back to the pack's own rate by a prior
+  // worth seven thousand coups. So on the table that prompted the complaint --
+  // Player 56.25% against Banker 37.50% on the bars -- the posterior still had
+  // Banker ahead, the two agreed, and the one line on the page that exists to
+  // explain the disagreement stayed hidden.
+  const leader = shares.P > shares.B ? "P" : "B";
   const hold = $("aiHold");
-  hold.hidden = chosen === leader || !worthBacking;
+  hold.hidden = chosen === leader;
+  if (hold.hidden) hold.innerHTML = "";
   if (!hold.hidden) {
-    const gap = (Math.abs(p.probability.P - p.probability.B) * 100).toFixed(3);
+    const gap = (Math.abs(shares.P - shares.B) * 100).toFixed(2);
     // Which rule is actually driving decides which answer is the true one.
     // The crossover is why the *base* rule holds Banker; it says nothing
     // about a pick the network made, and quoting it there would be an
@@ -6673,7 +6823,10 @@ function renderPrediction() {
       : t("ai.holdWhy", {
           lead: side(leader), pick: side(chosen), gap,
           cross: pct(SIDE_CROSSOVER, 3),
-          need: Math.max(0, (p.q - (SIDE_CROSSOVER - 2 * p.se)) * 100).toFixed(3),
+          // From the constant, not from a literal. The two parted company once
+          // already, and the number on screen was then explaining a rule the
+          // code was not following.
+          need: Math.max(0, (p.q - (SIDE_CROSSOVER - SWITCH_EVIDENCE * p.se)) * 100).toFixed(3),
         });
   }
 
@@ -6688,7 +6841,13 @@ function renderPrediction() {
 
   const facts = [
     { k: t("ai.ev"), v: pct(evChosen, 3), sub: t("ai.perCoup"), neg: evChosen < 0 },
-    { k: t("ai.confidence"), v: t("ai.conf." + p.confidence) },
+    // Confidence is `|q - crossover| / se`, and neither term is a setting: one
+    // is what the table produced, the other is how much of it there is. So
+    // "low" on its own is a dead end -- it says the reading is weak without
+    // saying what would make it strong. The distance to "high" is the only
+    // useful thing to put beside it, and on a fair table that distance is
+    // honestly infinite, because there is nothing there to become sure of.
+    { k: t("ai.confidence"), v: t("ai.conf." + p.confidence), sub: confidenceDistance(o) },
     { k: t("ai.margin"), v: "±" + (1.96 * p.se * 100).toFixed(3) + "%p" },
     { k: t("ai.cardsLeft"), v: String(p.cardsLeft), sub: t("ai.estimated") },
   ];
@@ -7238,6 +7397,15 @@ async function showSignedInAs() {
     } catch { /* going to the door anyway */ }
     location.href = "/login";
   };
+}
+
+/** What it would take to move the confidence, in coups. */
+function confidenceDistance(o) {
+  if (!o.n) return "";
+  const need = coupsForConfidence(o, 2);
+  if (need === null) return t("ai.confNever");
+  if (need === 0) return t("ai.confReached");
+  return t("ai.confNeed", { n: need.toLocaleString() });
 }
 
 function renderStake() {
