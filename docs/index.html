@@ -328,6 +328,24 @@ table.stake tr:last-child td{border-bottom:none}
 #aiLedger .aifact{padding:6px 0}
 #aiLedger .aifact:last-child{border-bottom:none}
 .ainote{font-size:11.5px; color:var(--ink-3); line-height:1.55; margin:13px 0 0}
+.verifygrid{display:grid; grid-template-columns:repeat(auto-fit,minmax(108px,1fr)); gap:9px;
+            margin-top:10px}
+.verifygrid .vt{background:var(--surface-2); border:1px solid var(--line); border-radius:8px;
+                padding:8px 10px}
+.verifygrid .vt .k{font-size:10.5px; color:var(--ink-3); letter-spacing:.01em}
+.verifygrid .vt .v{font-family:var(--mono); font-size:15px; font-variant-numeric:tabular-nums;
+                   margin-top:2px}
+.verifygrid .vt .v.up{color:var(--tie)} .verifygrid .vt .v.down{color:var(--banker)}
+.verifygrid .vt .s{font-size:10.5px; color:var(--ink-3); margin-top:1px}
+.verifyrows{margin-top:10px; max-height:186px; overflow-y:auto; font-family:var(--mono);
+            font-size:11.5px; font-variant-numeric:tabular-nums}
+.verifyrows table{width:100%; border-collapse:collapse}
+.verifyrows th{text-align:right; font-weight:500; color:var(--ink-3); font-size:10.5px;
+               padding:2px 6px; position:sticky; top:0; background:var(--surface)}
+.verifyrows th:first-child,.verifyrows td:first-child{text-align:left}
+.verifyrows td{padding:2px 6px; text-align:right; border-top:1px solid var(--line)}
+.verifyrows .hit{color:var(--tie)} .verifyrows .miss{color:var(--banker)}
+.verifyrows .wait{color:var(--ink-3)}
 /* The one line that says which of the two is actually being used. */
 .aiverdict{font-size:12.5px; line-height:1.55; margin:11px 0 0; padding:9px 12px;
            border-radius:8px; border:1px solid var(--line-2); background:var(--surface-2)}
@@ -723,6 +741,15 @@ footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
     <div class="aigrid" id="learnRows"></div>
     <p class="aiverdict" id="learnVerdict"></p>
 
+    <div class="obshead">
+      <span class="blabel" data-i18n="verify.h"></span>
+      <span class="obssub" id="verifyCount"></span>
+    </div>
+    <p class="ainote" style="margin-top:0" data-i18n="verify.sub"></p>
+    <div id="verifyKpis" class="verifygrid"></div>
+    <p class="aiverdict" id="verifyVerdict"></p>
+    <div id="verifyRecent" class="verifyrows"></div>
+
     <p class="ainote" id="aiWhy"></p>
     <p class="aiwarn" id="aiDisclaimer"></p>
   </section>
@@ -923,6 +950,9 @@ const S = {
     ko: "{name} 은 이미 있는 테이블입니다.", en: "There is already a table called {name}.",
     "zh-Hant": "已經有一張叫 {name} 的牌桌。", "zh-Hans": "已经有一张叫 {name} 的牌桌。",
   },
+  "header.noTable": {
+    ko: "테이블 없음", en: "No table", "zh-Hant": "無桌台", "zh-Hans": "无桌台",
+  },
   "header.shoeMeta": {
     ko: "{shoes}슈 수집 · 현재 슈 {coups}판", en: "Shoes {shoes} · this shoe {coups}",
     "zh-Hant": "已收集 {shoes} 靴 · 本靴 {coups} 局", "zh-Hans": "已收集 {shoes} 靴 · 本靴 {coups} 局",
@@ -1058,6 +1088,68 @@ const S = {
     "zh-Hant": "<b>採用基本估計。</b>兩者僅在 {n} 局上分歧 — 要判斷孰優需要 200 局。",
     "zh-Hans": "<b>采用基本估计。</b>两者仅在 {n} 局上分歧 — 要判断孰优需要 200 局。",
   },
+  "verify.h": {
+    ko: "실제 추천 성적", en: "What was actually recommended",
+    "zh-Hant": "實際推薦成績", "zh-Hans": "实际推荐成绩",
+  },
+  "verify.sub": {
+    ko: "위 기록은 지금 코드로 과거를 다시 계산한 값입니다. 아래는 다릅니다 — 화면에 실제로 떴던 추천을 그때 그대로 저장해 두고, 판이 나온 뒤에 채점한 값입니다. 저장 시점에는 결과를 알 수 없으므로 결과를 보고 맞춘 것이 될 수 없습니다.",
+    en: "The record above is today's code recomputing the past. This is not: every recommendation is written down as it appears on screen and settled once the coup arrives. It is stored before the outcome exists, so it cannot have been scored with the answer in hand.",
+    "zh-Hant": "上方紀錄是以現在的程式重算過去。此處不同 — 每次推薦在顯示當下即被寫下，待該局開出後才評分。寫下時尚不知結果，因此不可能是看著答案算出來的。",
+    "zh-Hans": "上方记录是以现在的代码重算过去。此处不同 — 每次推荐在显示当下即被写下，待该局开出后才评分。写下时尚不知结果，因此不可能是看着答案算出来的。",
+  },
+  "verify.count": {
+    ko: "{n}판 채점 · {pending}판 대기", en: "{n} settled · {pending} pending",
+    "zh-Hant": "已評分 {n} 局 · 待評 {pending} 局", "zh-Hans": "已评分 {n} 局 · 待评 {pending} 局",
+  },
+  "verify.hitRate": { ko: "적중률", en: "Hit rate", "zh-Hant": "命中率", "zh-Hans": "命中率" },
+  "verify.vsBanker": { ko: "늘 뱅커 대비", en: "vs always Banker", "zh-Hant": "對比恆押莊", "zh-Hans": "对比恒押庄" },
+  "verify.decided": { ko: "승부 난 {n}판", en: "over {n} decided", "zh-Hant": "以 {n} 局計", "zh-Hans": "以 {n} 局计" },
+  "verify.logLoss": { ko: "로그 손실", en: "Log loss", "zh-Hant": "對數損失", "zh-Hans": "对数损失" },
+  "verify.brier": { ko: "브라이어 점수", en: "Brier score", "zh-Hant": "Brier 分數", "zh-Hans": "Brier 分数" },
+  "verify.lower": { ko: "낮을수록 좋음", en: "lower is better", "zh-Hant": "越低越好", "zh-Hans": "越低越好" },
+  "verify.calib": { ko: "확률 오차", en: "Calibration error", "zh-Hant": "機率誤差", "zh-Hans": "概率误差" },
+  "verify.calibSub": {
+    ko: "말한 확률 − 실제", en: "stated minus observed",
+    "zh-Hant": "宣稱機率 − 實際", "zh-Hans": "宣称概率 − 实际",
+  },
+  "verify.none": {
+    ko: "아직 채점된 추천이 없습니다. 판이 들어오면 직전 추천부터 채점됩니다.",
+    en: "Nothing has been settled yet. The first coup to arrive settles the recommendation before it.",
+    "zh-Hant": "尚無已評分的推薦。下一局開出時，即會評定其前一次推薦。",
+    "zh-Hans": "尚无已评分的推荐。下一局开出时，即会评定其前一次推荐。",
+  },
+  // The gap is what matters, and it is given with its own standard error so a
+  // run of luck is not read as a finding. Never as a recommendation to bet.
+  "verify.verdict": {
+    ko: "승부 난 {n}판에서 적중 <b>{acc}</b>, 같은 판에 늘 뱅커를 걸었다면 <b>{base}</b> — 차이 <b>{gap}</b> (표준오차 ±{se}). {call}",
+    en: "Over {n} decided coups the recommendation hit <b>{acc}</b>; always backing Banker on the same coups would have hit <b>{base}</b> — a gap of <b>{gap}</b> (standard error ±{se}). {call}",
+    "zh-Hant": "在 {n} 局分勝負的局數中，推薦命中 <b>{acc}</b>；同樣局數恆押莊則為 <b>{base}</b> — 差距 <b>{gap}</b>（標準誤 ±{se}）。{call}",
+    "zh-Hans": "在 {n} 局分胜负的局数中，推荐命中 <b>{acc}</b>；同样局数恒押庄则为 <b>{base}</b> — 差距 <b>{gap}</b>（标准误 ±{se}）。{call}",
+  },
+  "verify.callNoise": {
+    ko: "차이가 표준오차 안에 있어 아직 아무 말도 할 수 없습니다.",
+    en: "The gap is inside its own error, so it says nothing yet.",
+    "zh-Hant": "差距仍在誤差範圍內，尚無法據此判斷。",
+    "zh-Hans": "差距仍在误差范围内，尚无法据此判断。",
+  },
+  "verify.callAhead": {
+    ko: "차이가 표준오차보다 큽니다 — 다만 이것은 하나의 표본이고, 이 저장소가 160만 판에서 얻은 답은 그런 차이가 지속되지 않는다는 것이었습니다.",
+    en: "The gap is larger than its error — though this is one sample, and what this repository found over 1.6M coups is that such gaps do not persist.",
+    "zh-Hant": "差距大於其誤差 — 但這僅是一個樣本，而本專案在 160 萬局上得到的結論是這類差距不會持續。",
+    "zh-Hans": "差距大于其误差 — 但这仅是一个样本，而本项目在 160 万局上得到的结论是这类差距不会持续。",
+  },
+  "verify.callBehind": {
+    ko: "추천이 늘 뱅커보다 뒤처져 있습니다.",
+    en: "The recommendation is behind always backing Banker.",
+    "zh-Hant": "推薦落後於恆押莊。", "zh-Hans": "推荐落后于恒押庄。",
+  },
+  "verify.colHand": { ko: "판", en: "Coup", "zh-Hant": "局", "zh-Hans": "局" },
+  "verify.colPick": { ko: "추천", en: "Pick", "zh-Hant": "推薦", "zh-Hans": "推荐" },
+  "verify.colActual": { ko: "결과", en: "Actual", "zh-Hant": "結果", "zh-Hans": "结果" },
+  "verify.colConf": { ko: "신뢰", en: "Conf", "zh-Hant": "信賴", "zh-Hans": "信赖" },
+  "verify.colModel": { ko: "모델", en: "Model", "zh-Hant": "模型", "zh-Hans": "模型" },
+  "verify.pendingRow": { ko: "대기", en: "pending", "zh-Hant": "待評", "zh-Hans": "待评" },
   "learn.waiting": {
     ko: "학습을 시작하려면 판이 더 필요합니다.",
     en: "There are not enough coups yet to train on.",
@@ -4520,6 +4612,24 @@ function edges(q, tieP) {
 }
 
 /**
+ * What produced a prediction, written into every logged one.
+ *
+ * A stored prediction is only re-readable if you know what made it. These are
+ * the two things that decide it: `FEATURE_VERSION` covers what goes into the
+ * estimate -- the prior's weight, the clustering discount, the crossover --
+ * and `BASE_MODEL_VERSION` covers the rule that turns the estimate into a
+ * side. The names are spelled out because the page is served as one
+ * concatenated scope, where two modules exporting `MODEL_VERSION` collide.
+ *
+ * Bump one when a change would make the same coups come out differently. The
+ * point is not the number; it is that a record spanning a change says which
+ * side of it each row is on, so a run of misses under an old rule cannot be
+ * quietly averaged into a new rule's score.
+ */
+const FEATURE_VERSION = "f1";
+const BASE_MODEL_VERSION = "base-1";
+
+/**
  * Standard errors of evidence required before leaving Banker for Player.
  *
  * One, and the value is measured rather than chosen. Swept over 600 tables of
@@ -4886,6 +4996,15 @@ function coupsForConfidence(sample = {}, targetZ = 2) {
 
 
 /** Coups of order the network is shown. */
+/**
+ * The network's own version, for the prediction log.
+ *
+ * Separate from the estimate's: the two are different rules and a record has
+ * to say which one named the side, or a stretch where the network was trusted
+ * is indistinguishable from a stretch where it was not.
+ */
+const NET_MODEL_VERSION = "net-1";
+
 const CONTEXT = 6;
 /** Inputs: the context one-hot, then the summaries, then a bias. */
 const INPUTS = CONTEXT * 3 + 7;
@@ -5280,6 +5399,366 @@ function verdict(model, base, split = 0) {
       : model.units <= base.units ? "behind"
       : "noise",
   };
+}
+
+/* ═══ verify.js ═══ */
+/* What the app actually said, and whether it was right.
+ *
+ * The panel above this one already reports a record: it replays the pick rule
+ * over the stored sequence, walk-forward, and counts. That is honest and it is
+ * not the same thing. A replay is computed by today's code from today's
+ * thresholds, so it answers "what would this build have said", and it changes
+ * underneath you whenever the build does. It cannot answer "was the thing on
+ * my screen last Tuesday right", because nothing on screen last Tuesday was
+ * written down.
+ *
+ * This writes it down. Every recommendation is logged at the moment it is
+ * made -- the three probabilities, the side, whether backing it was judged
+ * worthwhile, and the versions of the code that produced it -- and it is
+ * settled later, when the coup it was about actually arrives. The two events
+ * are separate by construction, which is the only structural guarantee against
+ * scoring a prediction with the answer already in hand.
+ *
+ * Nothing here decides anything. It records, it settles, and it counts; the
+ * counting is done with proper scoring rules rather than hit rate alone,
+ * because hit rate on its own cannot tell a confident model from a lucky one.
+ */
+
+/** Storage format. Bumped only when a stored entry would be read wrongly. */
+const LOG_VERSION = 1;
+
+/**
+ * Entries kept per table before the oldest are rolled into a total.
+ *
+ * A coup is about a hundred bytes here, so this is a couple of hundred
+ * kilobytes at the cap -- room for a season of play in a store that also has
+ * to hold the shoes themselves. What is evicted is not lost: its contribution
+ * to every figure below is added to `rolled` first, so the totals stay exact
+ * and only the coup-by-coup list is finite.
+ */
+const LOG_CAP = 2000;
+
+/**
+ * And the hard limit, past which even unsettled predictions are given up.
+ *
+ * Twice the cap, which is a backlog no table watched by a person produces:
+ * coups arrive, predictions settle, and the list stays at the cap. Reaching
+ * this means the coups stopped coming, and the predictions waiting on them are
+ * never going to be scored.
+ */
+const LOG_CEILING = LOG_CAP * 2;
+
+/** Calibration bins: the share assigned to the side that was named. */
+const CALIBRATION_BINS = 10;
+
+/** An empty log, which is also the shape `sanitiseLog` returns for rubbish. */
+function emptyLog() {
+  return { v: LOG_VERSION, tables: {} };
+}
+
+/** An empty roll-up: every figure the scorer needs, and nothing else. */
+function emptyRoll() {
+  return {
+    n: 0, settled: 0, decided: 0, hits: 0, baseHits: 0,
+    backed: 0, backedDecided: 0, backedHits: 0, abstained: 0,
+    logLoss: 0, brier: 0,
+    bins: Array.from({ length: CALIBRATION_BINS }, () => ({ n: 0, hits: 0 })),
+  };
+}
+
+const tableLog = (log, table) => (log.tables[table] ||= { entries: [], rolled: emptyRoll() });
+
+/**
+ * Write down a recommendation, once.
+ *
+ * Keyed by the coup it is about -- the shoe it belongs to and how many coups
+ * that shoe held when it was made -- so the same coup cannot be predicted
+ * twice. That matters more than it looks: the panel re-renders on every
+ * sample, on every language change, on every window resize, and a log that
+ * appended each time would report the same coup dozens of times and weight it
+ * accordingly.
+ *
+ * Returns true when something was written, false when this coup already had a
+ * prediction, which is the ordinary case.
+ *
+ * The name is long because the built page is one concatenated scope: a plain
+ * `record`, `settle` or `score` here collides with a module that already has
+ * one, and the build refuses rather than let the survivor win silently.
+ */
+function recordPrediction(log, table, entry) {
+  if (!table || !entry || !entry.shoe) return false;
+  const t = tableLog(log, table);
+  const at = entry.index | 0;
+  // Backwards: a re-render is about the coup at the end, which is the one
+  // written last.
+  for (let i = t.entries.length - 1; i >= 0; i -= 1) {
+    const e = t.entries[i];
+    if (e.s === entry.shoe && e.i === at) return false;
+    // The list is in the order the coups arrived, so once it is behind this
+    // shoe there is nothing left to find.
+    if (e.s !== entry.shoe) break;
+  }
+  t.entries.push({
+    s: entry.shoe,
+    i: at,
+    p: [round6(entry.player), round6(entry.banker), round6(entry.tie)],
+    k: entry.pick,                    // "B" | "P"
+    b: entry.backed ? 1 : 0,          // was backing it judged worth it
+    c: Math.round(entry.confidence ?? 0),
+    m: String(entry.model || ""),
+    f: String(entry.features || ""),
+    t: entry.at || Date.now(),
+    r: null,                          // the outcome, once it is known
+  });
+  trim(t);
+  return true;
+}
+
+/** Six places is finer than any figure this shows and keeps the store small. */
+const round6 = (x) => (Number.isFinite(x) ? Math.round(x * 1e6) / 1e6 : 0);
+
+/**
+ * Bring the log into line with the record: settle what has happened, and let
+ * go of what has been taken back.
+ *
+ * Driven from the shoes rather than from an event, so a reload, a sync from
+ * another tab, or an import all settle what they brought with them.
+ *
+ * The taking-back half is not a nicety. Undo exists because a coup was
+ * mistyped or was never dealt, and a prediction settled against a coup that
+ * has since been withdrawn is scored against something that did not happen --
+ * so it goes, and so does its contribution. Correcting a coup rather than
+ * removing it re-settles instead: the prediction was still made before that
+ * coup either way, and the outcome it should be scored on is the one that is
+ * now in the record.
+ *
+ * What is never touched is the prediction itself. Only its outcome moves, and
+ * only to follow the record.
+ *
+ * Returns how many entries changed.
+ */
+function settlePredictions(log, table, sequences) {
+  const t = log.tables[table];
+  if (!t) return 0;
+  let done = 0;
+  const keep = [];
+  for (const e of t.entries) {
+    const seq = sequences[e.s];
+    const known = typeof seq === "string";
+    // A shoe the record no longer holds at all: an import replaced it, or it
+    // was dropped. Nothing can be said about those predictions, either way.
+    if (!known) { keep.push(e); continue; }
+
+    if (seq.length > e.i) {
+      if (e.r !== seq[e.i]) { e.r = seq[e.i]; done += 1; }
+      keep.push(e);
+      continue;
+    }
+    // The record no longer reaches this coup. If it never did, the prediction
+    // is simply still pending. If it did, the coup was undone, and the entry
+    // goes with it.
+    if (e.r) { done += 1; continue; }
+    keep.push(e);
+  }
+  t.entries = keep;
+  return done;
+}
+
+/**
+ * Oldest first into the roll-up, so the totals survive the cap.
+ *
+ * Settled rows only. A prediction that has not had its coup yet has not been
+ * counted anywhere, so evicting it would not shrink the list at the cost of a
+ * row -- it would delete a prediction outright, and the coup that was about to
+ * settle it would find nothing waiting. Measured: recording faster than the
+ * coups arrive dropped five hundred predictions out of the score entirely.
+ *
+ * The ceiling below is for the case that leaves: a table left open, a shoe
+ * abandoned, a backlog of predictions whose coups are never coming. Those are
+ * given up rather than allowed to grow without end, and counted as having been
+ * made and never scored.
+ */
+function trim(t) {
+  if (t.entries.length <= LOG_CAP) return;
+  let excess = t.entries.length - LOG_CAP;
+  const keep = [];
+  for (const e of t.entries) {
+    if (excess > 0 && e.r) { foldInto(t.rolled, e); excess -= 1; continue; }
+    keep.push(e);
+  }
+  while (keep.length > LOG_CEILING) { t.rolled.n += 1; keep.shift(); }
+  t.entries = keep;
+}
+
+/** Add one settled entry to a roll-up. */
+function foldInto(roll, e) {
+  const [pP, pB, pT] = e.p;
+  roll.n += 1;
+  roll.settled += 1;
+  if (e.b) roll.backed += 1;
+
+  // Proper scoring rules take every coup, ties included: they are about the
+  // whole distribution, not about the side that was named.
+  const truth = { P: pP, B: pB, T: pT }[e.r];
+  roll.logLoss += -Math.log(Math.max(1e-12, truth ?? 1e-12));
+  roll.brier += (pP - (e.r === "P" ? 1 : 0)) ** 2
+              + (pB - (e.r === "B" ? 1 : 0)) ** 2
+              + (pT - (e.r === "T" ? 1 : 0)) ** 2;
+
+  // Hit rate takes only the coups a side bet could settle. A tie pushes, so
+  // counting it as a miss would understate every rule equally and mean
+  // nothing; leaving it out is what the comparison below needs.
+  if (e.r === "T") return;
+  roll.decided += 1;
+  const hit = e.k === e.r;
+  if (hit) roll.hits += 1;
+  if (e.r === "B") roll.baseHits += 1;        // always backing Banker
+  if (e.b) {
+    roll.backedDecided += 1;
+    if (hit) roll.backedHits += 1;
+  } else {
+    roll.abstained += 1;
+  }
+
+  // Calibration on the share given to the side that was named: of the coups
+  // where the app said 52%, how many came in?
+  const said = e.k === "B" ? pB : pP;
+  const bin = Math.min(CALIBRATION_BINS - 1, Math.max(0, Math.floor(said * CALIBRATION_BINS)));
+  roll.bins[bin].n += 1;
+  if (hit) roll.bins[bin].hits += 1;
+}
+
+/**
+ * Everything the panel reports, over one table's whole log.
+ *
+ * Accuracy is never quoted on its own. A rule that names the more common side
+ * every time scores about 51% on decided coups and knows nothing, so the only
+ * number that means anything is the gap to that rule on the same coups --
+ * which is why `baseline` is computed here rather than left to be compared
+ * against a figure from somewhere else.
+ */
+function scorePredictions(log, table) {
+  const t = log.tables[table];
+  const roll = emptyRoll();
+  if (t) {
+    // The roll-up already holds what was evicted.
+    merge(roll, t.rolled);
+    for (const e of t.entries) {
+      if (e.r) foldInto(roll, e);
+      else roll.n += 1;
+    }
+  }
+
+  const rate = (a, b) => (b ? a / b : NaN);
+  return {
+    ...roll,
+    pending: roll.n - roll.settled,
+    accuracy: rate(roll.hits, roll.decided),
+    baseline: rate(roll.baseHits, roll.decided),
+    edge: roll.decided ? (roll.hits - roll.baseHits) / roll.decided : NaN,
+    backedAccuracy: rate(roll.backedHits, roll.backedDecided),
+    meanLogLoss: rate(roll.logLoss, roll.settled),
+    meanBrier: rate(roll.brier, roll.settled),
+    calibration: roll.bins.map((b, i) => ({
+      from: i / CALIBRATION_BINS,
+      to: (i + 1) / CALIBRATION_BINS,
+      n: b.n,
+      observed: rate(b.hits, b.n),
+    })),
+    // How far the stated confidence sits from what happened, averaged over the
+    // bins that have anything in them. This is the number that says whether a
+    // probability on screen can be read as a probability.
+    calibrationError: calibrationError(roll),
+  };
+}
+
+function merge(into, from) {
+  if (!from) return;
+  for (const key of ["n", "settled", "decided", "hits", "baseHits", "backed",
+                     "backedDecided", "backedHits", "abstained", "logLoss", "brier"]) {
+    into[key] += Number(from[key]) || 0;
+  }
+  const bins = Array.isArray(from.bins) ? from.bins : [];
+  for (let i = 0; i < into.bins.length; i += 1) {
+    into.bins[i].n += Number(bins[i]?.n) || 0;
+    into.bins[i].hits += Number(bins[i]?.hits) || 0;
+  }
+}
+
+/** Expected calibration error: each bin's gap, weighted by how full it is. */
+function calibrationError(roll) {
+  let seen = 0, sum = 0;
+  roll.bins.forEach((b, i) => {
+    if (!b.n) return;
+    const mid = (i + 0.5) / CALIBRATION_BINS;
+    sum += b.n * Math.abs(b.hits / b.n - mid);
+    seen += b.n;
+  });
+  return seen ? sum / seen : NaN;
+}
+
+/**
+ * Read a stored log back, keeping only what is shaped like one.
+ *
+ * The same standard the corpus is held to: a store that has been hand-edited,
+ * half-synced or written by an older build must not be able to put a string
+ * where a probability goes and have every figure below quietly become NaN.
+ */
+function sanitiseLog(raw) {
+  const out = emptyLog();
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return out;
+  const tables = raw.tables && typeof raw.tables === "object" ? raw.tables : {};
+  for (const [name, value] of Object.entries(tables)) {
+    if (!name || !value || typeof value !== "object") continue;
+    const t = tableLog(out, name);
+    merge(t.rolled, value.rolled);
+    const entries = Array.isArray(value.entries) ? value.entries : [];
+    for (const e of entries) {
+      const clean = sanitiseEntry(e);
+      if (clean) t.entries.push(clean);
+    }
+    trim(t);
+  }
+  return out;
+}
+
+function sanitiseEntry(e) {
+  if (!e || typeof e !== "object") return null;
+  if (typeof e.s !== "string" || !e.s) return null;
+  const i = Number(e.i);
+  if (!Number.isInteger(i) || i < 0) return null;
+  const p = Array.isArray(e.p) ? e.p.map((x) => (Number.isFinite(Number(x)) ? Number(x) : 0)) : [];
+  if (p.length !== 3) return null;
+  if (e.k !== "B" && e.k !== "P") return null;
+  const r = e.r === "B" || e.r === "P" || e.r === "T" ? e.r : null;
+  return {
+    s: e.s, i, p, k: e.k,
+    b: e.b ? 1 : 0,
+    c: Number.isFinite(Number(e.c)) ? Math.round(Number(e.c)) : 0,
+    m: typeof e.m === "string" ? e.m : "",
+    f: typeof e.f === "string" ? e.f : "",
+    t: Number.isFinite(Number(e.t)) ? Number(e.t) : 0,
+    r,
+  };
+}
+
+/** The most recent settled and pending entries, newest first, for the table. */
+function recentPredictions(log, table, limit = 20) {
+  const t = log.tables[table];
+  if (!t) return [];
+  return t.entries.slice(-limit).reverse();
+}
+
+/** Drop one table's log, when its table is deleted. */
+function forgetPredictions(log, table) {
+  delete log.tables[table];
+}
+
+/** Follow a table through a rename, so its record is not orphaned. */
+function renamePredictions(log, from, to) {
+  if (!log.tables[from] || from === to) return;
+  log.tables[to] = log.tables[from];
+  delete log.tables[from];
 }
 
 /* ═══ live.js ═══ */
@@ -6419,6 +6898,16 @@ function drawStrip(ctx, source, bounds, board) {
 
 
 const LS_KEY = "baccarat.corpus.v2";
+/**
+ * The prediction log, kept under a key of its own.
+ *
+ * Beside the corpus rather than inside it, because the two have different
+ * lives: the corpus is what the table produced and syncs to the shared store,
+ * while the log is what this build said about it and is local to whoever was
+ * watching. Folding them together would also change the shape of a record
+ * every older build knows how to read, for no gain.
+ */
+const LOG_KEY = "baccarat.verify.v1";
 const SHOE_COLLECTION = "shoes";
 const META_DOC = "meta/state";
 
@@ -6555,6 +7044,38 @@ class Store {
     } catch {
       this._setStatus("error");
       return local;
+    }
+  }
+
+  /**
+   * The prediction log as it was left, or null when there is none.
+   *
+   * Returned raw. `sanitiseLog` in `verify.js` is what decides which of it is
+   * readable, and it lives there because that is where the shape is defined.
+   */
+  readLog() {
+    try {
+      const raw = localStorage.getItem(LOG_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Keep the prediction log.
+   *
+   * Quietly on failure, and deliberately so: a full quota must cost the log
+   * rather than the coups, and the header already reports the corpus's own
+   * health. Losing a record of what was predicted is a loss; losing what was
+   * dealt is the loss this app exists to prevent.
+   */
+  saveLog(log) {
+    try {
+      localStorage.setItem(LOG_KEY, JSON.stringify(log));
+      return true;
+    } catch {
+      return false;
     }
   }
 
@@ -6695,8 +7216,11 @@ class Store {
  * anything that is not a tie and not a Banker counted as a Player, so one
  * stray character moved the estimate.
  *
- * Returns null when there is nothing left worth loading, which is the same
- * answer as an empty store.
+ * Returns null when there is nothing worth loading and nothing to say -- an
+ * empty store, or something that is not a record at all. A record that *is* a
+ * record and holds no tables is a different answer: somebody deleted the last
+ * one, and that is a decision to carry across a reload rather than an absence
+ * to fill with the seeded example.
  */
 function sanitiseState(raw) {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
@@ -6774,7 +7298,16 @@ function sanitiseState(raw) {
   }
 
   const names = Object.keys(tables);
-  if (!names.length) return null;
+  if (!names.length) {
+    // Emptied on purpose, or never filled? The shape says which: a stored
+    // record carries a `tables` object even once the last table is gone, and
+    // an absent store carries nothing. Without the distinction, deleting every
+    // table and reloading brought the demo corpus back, which reads as the
+    // deletion not having worked.
+    const emptied = raw.tables && typeof raw.tables === "object"
+      && !Array.isArray(raw.tables);
+    return emptied ? { tables: {}, active: null, isExample: false } : null;
+  }
   // Through `renamed`, so a table whose name the rule changed is still the
   // table this corpus was left looking at. Falling back to a direct hit covers
   // an `active` that was already written in its cleaned form while the table
@@ -6816,6 +7349,9 @@ function newId(taken) {
 
 
 
+
+// Named, and spelled out: the page is served as one concatenated scope, where
+// a namespace import has nothing to be a namespace of.
 
 
 const $ = (id) => document.getElementById(id);
@@ -6863,6 +7399,14 @@ let lastReport = null;      // kept so a language change can redraw the verdict
 let liveHolds = 0;          // consecutive readings shorter than the shoe in progress
 let liveCleared = false;    // the strip was last seen empty, so the log says so once
 
+/**
+ * What the app has actually recommended, and how it turned out.
+ *
+ * Loaded once and kept in memory because it is written on every coup and read
+ * on every render. `verify.js` owns the shape; this owns when it is written.
+ */
+let predictionLog = emptyLog();
+
 const newShoeId = () => "S" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 
 function exampleState() {
@@ -6872,7 +7416,20 @@ function exampleState() {
   return { tables: { "Demo": { shoes } }, active: "Demo", isExample: true };
 }
 
-const tableNamed = (name) => state.tables[name] || (state.tables[name] = { shoes: [] });
+/**
+ * A table that is not there: readable, empty, and never stored.
+ *
+ * Reading used to create. Every accessor below goes through `tableNamed`, so
+ * merely drawing the page with no table selected conjured one -- which is why
+ * deleting the last table had to invent "Table 1" on the spot rather than
+ * leave the selector empty. Frozen, so a writer that skipped `beforeWriting`
+ * fails loudly here instead of dropping coups into an object nothing stores.
+ */
+const NO_TABLE = Object.freeze({ shoes: Object.freeze([]) });
+
+const tableNamed = (name) => (name
+  ? (state.tables[name] || (state.tables[name] = { shoes: [] }))
+  : NO_TABLE);
 const table = () => tableNamed(state.active);
 const shoes = (name = state.active) => tableNamed(name).shoes;
 
@@ -6965,6 +7522,9 @@ function commit(changedIds, writtenTable = state.active) {
   lastWrite = writtenTable;
   invalidate();
   store.save(state, changedIds);
+  // Before the render, so the panel that reports the record is drawn from a
+  // log that already knows about the coup just committed.
+  settleLog();
   render();
 }
 
@@ -6972,14 +7532,14 @@ function commit(changedIds, writtenTable = state.active) {
 
 function addOutcomes(seq) {
   if (!seq) return;
-  clearExample();
+  beforeWriting();
   const shoe = currentShoe();
   shoe.o += seq;
   commit([shoe.id]);
 }
 
 function undo() {
-  clearExample();
+  beforeWriting();
   const list = shoes();
   for (let i = list.length - 1; i >= 0; i--) {
     if (list[i].o.length) {
@@ -6994,7 +7554,7 @@ function undo() {
 }
 
 function newShoe() {
-  clearExample();
+  beforeWriting();
   const shoe = currentShoe();
   if (!shoe.o.length) return;       // already on a fresh one
   shoe.closed = true;
@@ -7007,13 +7567,13 @@ function newShoe() {
  * Replace the shoe in progress with what a screenshot says it contains.
  *
  * `boundTo` is the table the live reader was started on, or null for "the one
- * being looked at". It is resolved *after* `clearExample`, never as a default
+ * being looked at". It is resolved *after* `beforeWriting`, never as a default
  * argument: a default is evaluated before the body runs, so it would capture
- * the example table that `clearExample` is about to remove -- and writing to a
+ * the example table that `beforeWriting` is about to remove -- and writing to a
  * name that is gone recreates it, filing the coups into a table nothing shows.
  */
 function replaceCurrentShoe(seq, boundTo = null) {
-  clearExample();
+  beforeWriting();
   const name = readingTable(boundTo, state.tables, state.active);
   const shoe = currentShoe(name);
   shoe.o = seq;
@@ -7021,7 +7581,7 @@ function replaceCurrentShoe(seq, boundTo = null) {
 }
 
 function loadAsNewShoe(seq, boundTo = null) {
-  clearExample();
+  beforeWriting();
   const name = readingTable(boundTo, state.tables, state.active);
   const list = shoes(name);
   const last = list[list.length - 1];
@@ -7034,11 +7594,34 @@ function loadAsNewShoe(seq, boundTo = null) {
   commit(changed, name);
 }
 
-/** The seeded example exists so the page opens showing what it does. The
- *  first real entry replaces it rather than mixing with it. */
-function clearExample() {
-  if (!state.isExample) return;
-  state = { tables: { "Table 1": { shoes: [] } }, active: "Table 1", isExample: false };
+/**
+ * Make the state ready to be written into, and return the table to write to.
+ *
+ * Two things have to be true before a coup can be stored, and every writer
+ * needs both, so they are settled in one place.
+ *
+ * The seeded example exists so the page opens showing what it does; the first
+ * real entry replaces it rather than mixing with it. And there has to be a
+ * table at all -- deleting the last one now leaves none, because a selector
+ * showing a table nobody asked for is worse than a selector showing nothing.
+ * Whatever writes first is what brings one into being, which is what "press
+ * start and it begins a new one" means.
+ */
+function beforeWriting() {
+  if (state.isExample) {
+    state = { tables: {}, active: null, isExample: false };
+  }
+  if (!state.active || !state.tables[state.active]) state.active = freshTableName();
+  state.tables[state.active] ||= { shoes: [] };
+  return state.active;
+}
+
+/** The next unused default table name: "Table 1", then "Table 2", and so on. */
+function freshTableName() {
+  for (let n = 1; ; n += 1) {
+    const name = `Table ${n}`;
+    if (!state.tables[name]) return name;
+  }
 }
 
 /* ------------------------------------------------------------ screenshots */
@@ -7548,7 +8131,7 @@ function renderBatch(photos, skipped) {
   const actions = el("div", "actions");
   const add = el("button", "btn primary", t("batch.add", { n: batchShoes.length }));
   add.onclick = () => {
-    clearExample();
+    beforeWriting();
     const changed = [];
     const shoes_ = shoes();
     const last = shoes_[shoes_.length - 1];
@@ -7689,6 +8272,71 @@ function measure() {
   };
 }
 
+/* ------------------------------------------------- the prediction log */
+
+/**
+ * Write down the recommendation now on screen.
+ *
+ * The coup it is about is the next one: the shoe in progress holds `n` coups,
+ * so this is the prediction for index `n`. A shoe that has not been given an
+ * id yet -- the empty one the app shows before anything is entered -- has
+ * nothing to key on and nothing to predict about, so it is skipped.
+ *
+ * Confidence is the distance from the crossover in standard errors, scaled to
+ * the 0-100 the log stores. It is deliberately not the probability: a 51%
+ * share over forty coups and the same share over four thousand are the same
+ * probability and not remotely the same claim.
+ */
+function logPrediction(p, chosen, worthBacking) {
+  const name = state.active;
+  if (!name || !state.tables[name] || state.isExample) return;
+  const shoe = openShoe(name);
+  if (!shoe.id) return;
+
+  const l = learned();
+  const usingNet = l.trusted && !!l.nextPick;
+  const wrote = recordPrediction(predictionLog, name, {
+    shoe: shoe.id,
+    index: shoe.o.length,
+    player: (1 - p.tie) * (1 - p.q),
+    banker: (1 - p.tie) * p.q,
+    tie: p.tie,
+    pick: chosen,
+    backed: worthBacking,
+    confidence: confidenceScore(p),
+    model: usingNet ? NET_MODEL_VERSION : BASE_MODEL_VERSION,
+    features: FEATURE_VERSION,
+  });
+  if (wrote) store.saveLog(predictionLog);
+}
+
+/** Standard errors from the crossover, as a 0-100 figure the log can store. */
+function confidenceScore(p) {
+  if (!Number.isFinite(p.se) || p.se <= 0) return 0;
+  const z = Math.abs(p.q - SIDE_CROSSOVER) / p.se;
+  return Math.max(0, Math.min(100, Math.round((z / 3) * 100)));
+}
+
+/**
+ * Fill in what happened, for every table.
+ *
+ * Every table rather than the one on screen: the live reader can be filling a
+ * table nobody is looking at, and a prediction that is never settled is a
+ * prediction that never counts. Cheap enough to do on each commit -- it walks
+ * the entries that have no result yet, which after the first pass is a
+ * handful.
+ */
+function settleLog() {
+  let done = 0;
+  for (const name of Object.keys(state.tables)) {
+    const sequences = {};
+    for (const s of shoes(name)) sequences[s.id] = s.o;
+    done += settlePredictions(predictionLog, name, sequences);
+  }
+  if (done) store.saveLog(predictionLog);
+  return done;
+}
+
 /* ------------------------------------------------------------ prediction */
 
 /** Cards consumed per coup and by the burn, measured over 3,000 simulated shoes. */
@@ -7792,6 +8440,13 @@ function renderPrediction() {
   badge.textContent = t(worthBacking ? "ai.betGo" : "ai.betHold");
   badge.className = "betbadge " + (worthBacking ? "go" : "hold");
 
+  // Written down here, where the recommendation is finished and before the
+  // coup it is about has happened. That ordering is the whole guarantee: the
+  // outcome is added later by `settleLog`, from the shoe, and nothing in this
+  // function can see it. Re-renders are free -- `record` keys on the coup, so
+  // a language change or a resize cannot log the same one twice.
+  logPrediction(p, chosen, worthBacking);
+
   // Said where the recommendation is, because that is the thing it changes.
   const record = learned().record;
   const flag = $("aiRecord");
@@ -7874,6 +8529,7 @@ function renderPrediction() {
 
   renderBetOutcome();
   renderLearned();
+  renderVerification();
 
   const why = [t("ai.whyBase")];
   if (!p.informed || p.moved < 0.0002) why.push(t("ai.whyThin", { n: p.n }));
@@ -8166,6 +8822,90 @@ const isTouch = () => typeof matchMedia === "function"
  * on its own says nothing here, because always backing Banker wins about half
  * of everything without looking at the board at all.
  */
+/**
+ * The record of what was actually recommended, scored.
+ *
+ * Four figures and a sentence, and the sentence is the one that matters: a hit
+ * rate on its own is unreadable here, because always naming the more common
+ * side scores about 51% and knows nothing. So the gap to that rule, on exactly
+ * the same coups, is what is put in bold -- with its own standard error beside
+ * it, because a gap smaller than its error is a run of luck being read as a
+ * finding, and that is the single most common way a record like this is
+ * misread.
+ */
+function renderVerification() {
+  const name = state.active;
+  const s = scorePredictions(predictionLog, name);
+  const grid = $("verifyKpis"), verdict = $("verifyVerdict"), rows = $("verifyRecent");
+
+  $("verifyCount").textContent = s.n
+    ? t("verify.count", { n: s.settled.toLocaleString(), pending: s.pending.toLocaleString() })
+    : "";
+
+  grid.innerHTML = "";
+  rows.innerHTML = "";
+  if (!s.decided) {
+    verdict.className = "aiverdict";
+    verdict.textContent = t("verify.none");
+    return;
+  }
+
+  // The gap's error, from the coups it was measured on. Two rules disagreeing
+  // on a share of the coups is a paired comparison, but the difference of two
+  // rates over the same n is bounded by this and it is the honest, simple
+  // bound to print beside a figure somebody is about to over-read.
+  const se = Math.sqrt(0.5 / s.decided);
+  const gap = s.edge;
+
+  const tile = (k, v, sub, cls) => {
+    const d = el("div", "vt");
+    d.appendChild(el("div", "k", k));
+    d.appendChild(el("div", "v" + (cls ? " " + cls : ""), v));
+    if (sub) d.appendChild(el("div", "s", sub));
+    grid.appendChild(d);
+  };
+  tile(t("verify.hitRate"), pct(s.accuracy, 2), t("verify.decided", { n: s.decided.toLocaleString() }));
+  tile(t("verify.vsBanker"), (gap >= 0 ? "+" : "−") + pct(Math.abs(gap), 2),
+       "±" + pct(se, 2), Math.abs(gap) <= se ? "" : gap > 0 ? "up" : "down");
+  tile(t("verify.logLoss"), s.meanLogLoss.toFixed(4), t("verify.lower"));
+  tile(t("verify.brier"), s.meanBrier.toFixed(4), t("verify.lower"));
+  if (Number.isFinite(s.calibrationError)) {
+    tile(t("verify.calib"), pct(s.calibrationError, 1), t("verify.calibSub"));
+  }
+
+  verdict.className = "aiverdict";
+  verdict.innerHTML = t("verify.verdict", {
+    n: s.decided.toLocaleString(),
+    acc: pct(s.accuracy, 2),
+    base: pct(s.baseline, 2),
+    gap: (gap >= 0 ? "+" : "−") + pct(Math.abs(gap), 2),
+    se: pct(se, 2),
+    call: t(Math.abs(gap) <= se ? "verify.callNoise"
+      : gap > 0 ? "verify.callAhead" : "verify.callBehind"),
+  });
+
+  const table = el("table");
+  const head = el("tr");
+  for (const key of ["verify.colHand", "verify.colPick", "verify.colActual",
+                     "verify.colConf", "verify.colModel"]) {
+    head.appendChild(el("th", null, t(key)));
+  }
+  table.appendChild(head);
+  for (const e of recentPredictions(predictionLog, name, 24)) {
+    const tr = el("tr");
+    tr.appendChild(el("td", null, String(e.i + 1)));
+    tr.appendChild(el("td", null, side(e.k)));
+    const settled = !!e.r;
+    const hit = settled && e.r === e.k;
+    tr.appendChild(el("td", settled ? (e.r === "T" ? "wait" : hit ? "hit" : "miss") : "wait",
+                      settled ? side(e.r) : t("verify.pendingRow")));
+    tr.appendChild(el("td", null, String(e.c)));
+    tr.appendChild(el("td", null, e.m));
+    table.appendChild(tr);
+  }
+  rows.appendChild(table);
+}
+
 function renderLearned() {
   const l = learned();
   const rows = $("learnRows"), verdict = $("learnVerdict");
@@ -8250,6 +8990,14 @@ function render() {
 function renderHeader() {
   const sel = $("tableSel");
   sel.innerHTML = "";
+  // Blank while there is no table, rather than a name nobody chose. Starting
+  // the reader, or entering a coup, is what creates one.
+  if (!state.active || !state.tables[state.active]) {
+    const blank = el("option", null, t("header.noTable"));
+    blank.value = "";
+    blank.selected = true;
+    sel.appendChild(blank);
+  }
   for (const name of Object.keys(state.tables)) {
     const o = el("option", null, name);
     o.value = name;
@@ -9332,7 +10080,9 @@ function bindControls() {
   $("shoeMore").onclick = () => { shoeLimit += SHOE_PAGE; render(); };
 
   $("tableSel").onchange = (e) => {
-    state.active = e.target.value;
+    // The blank option is a value, not a gap: choosing it means no table, and
+    // the panels go empty until something is started.
+    state.active = e.target.value || null;
     discardPendingReadings();
     shoeLimit = SHOE_PAGE;          // row 40 is a different shoe on another table
     invalidate();
@@ -9342,7 +10092,7 @@ function bindControls() {
   $("addTable").onclick = () => {
     const name = cleanTableName(prompt(t("header.newTablePrompt")));
     if (!name) return;
-    clearExample();
+    beforeWriting();
     state.tables[name] ||= { shoes: [] };
     state.active = name;
     invalidate();
@@ -9361,6 +10111,7 @@ function bindControls() {
    */
   $("renameTable").onclick = () => {
     const from = state.active;
+    if (!from || !state.tables[from]) return;      // nothing selected to rename
     // Through the same rule a typed name goes through anywhere else: the CSV
     // export is a file people open in a spreadsheet.
     const to = cleanTableName(prompt(t("header.renamePrompt", { table: from }), from));
@@ -9376,7 +10127,11 @@ function bindControls() {
     // the next coup it reads is filed under a table that no longer exists and
     // falls back to whichever one is selected.
     if (liveTable === from) liveTable = to;
-    clearExample();
+    // And so does its record, or the table arrives at its new name having
+    // predicted nothing.
+    renamePredictions(predictionLog, from, to);
+    store.saveLog(predictionLog);
+    beforeWriting();
     invalidate();
     store.save(state, []);
     render();
@@ -9445,8 +10200,17 @@ function bindControls() {
     onState: onLiveState,
     intervalMs: Number($("liveInterval").value),
   });
-  $("liveStart").onclick = () => live.start();
-  $("liveCamera").onclick = () => live.startCamera();
+  // A table first, so the header shows what is being filled from the moment
+  // the reader starts -- which is what "press start and it begins a new one"
+  // means. `beforeWriting` is the same door every other writer goes through.
+  const startInto = (go) => () => {
+    const made = !state.active || !state.tables[state.active];
+    beforeWriting();
+    if (made) { invalidate(); store.save(state, []); render(); }
+    go();
+  };
+  $("liveStart").onclick = startInto(() => live.start());
+  $("liveCamera").onclick = startInto(() => live.startCamera());
   renderLiveSources();
   $("liveStop").onclick = () => { live.stop(); liveLog(t("live.logStopped")); };
   $("liveRelock").onclick = () => {
@@ -9490,12 +10254,19 @@ function bindControls() {
   };
 
   $("resetBtn").onclick = async () => {
+    if (!state.active || !state.tables[state.active]) return;   // nothing to delete
     if (!confirm(t("tools.resetConfirm", { table: state.active }))) return;
     const ids = shoes().map((s) => s.id);
     if (liveTable === state.active) { live.stop(); liveLog(t("live.logStopped")); }
+    // Its record of what was predicted goes with it. Keeping the log of a
+    // table whose coups are gone would leave figures nothing can be checked
+    // against, and would quietly re-attach to the next table given that name.
+    forgetPredictions(predictionLog, state.active);
+    store.saveLog(predictionLog);
     delete state.tables[state.active];
-    if (!Object.keys(state.tables).length) state.tables["Table 1"] = { shoes: [] };
-    state.active = Object.keys(state.tables)[0];
+    // Nothing invented in its place. Deleting the last table leaves the
+    // selector blank, and whatever is started next brings a table with it.
+    state.active = Object.keys(state.tables)[0] || null;
     state.isExample = false;
     await store.deleteShoes(ids);
     commit([]);
@@ -9514,7 +10285,9 @@ function bindControls() {
     const ids = names.flatMap((name) => shoes(name).map((s) => s.id));
     live.stop();
     liveLog(t("live.logStopped"));
-    state = { tables: { "Table 1": { shoes: [] } }, active: "Table 1", isExample: false };
+    state = { tables: {}, active: null, isExample: false };
+    predictionLog = emptyLog();
+    store.saveLog(predictionLog);
     await store.deleteShoes(ids);
     commit([]);
   };
@@ -9625,6 +10398,8 @@ async function boot() {
   }
 
   state = store.readLocal() || exampleState();
+  predictionLog = sanitiseLog(store.readLog());
+  settleLog();
   invalidate();
   render();
   renderShot();
@@ -9633,6 +10408,9 @@ async function boot() {
   const loaded = await store.load();
   if (loaded && Object.keys(loaded.tables || {}).length) {
     state = loaded;
+    // Coups that arrived from the shared store settle predictions this view
+    // made before it had them.
+    settleLog();
     invalidate();
     render();
   }
