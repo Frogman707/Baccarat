@@ -346,6 +346,13 @@ table.stake tr:last-child td{border-bottom:none}
 .verifyrows td{padding:2px 6px; text-align:right; border-top:1px solid var(--line)}
 .verifyrows .hit{color:var(--tie)} .verifyrows .miss{color:var(--banker)}
 .verifyrows .wait{color:var(--ink-3)}
+/* The server's copy of the record is a short list rather than a table: one
+   line per model, the figures at one end and the rate at the other. Wraps
+   instead of colliding, because a model name is whatever it is. */
+.verifyrows .verifyrow{display:flex; justify-content:space-between; gap:6px 14px;
+                       flex-wrap:wrap; padding:4px 0; border-top:1px solid var(--line)}
+.verifyrows .verifyrow:first-child{border-top:none}
+.verifyrows .aiwarn{font-family:var(--sans); font-size:11.5px; margin:8px 0 0}
 /* The one line that says which of the two is actually being used. */
 .aiverdict{font-size:12.5px; line-height:1.55; margin:11px 0 0; padding:9px 12px;
            border-radius:8px; border:1px solid var(--line-2); background:var(--surface-2)}
@@ -750,6 +757,17 @@ footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
     <p class="aiverdict" id="verifyVerdict"></p>
     <div id="verifyRecent" class="verifyrows"></div>
 
+    <div class="obshead" style="margin-top:16px">
+      <span class="blabel" data-i18n="calls.h"></span>
+      <span class="obssub" id="sharedScoreCount"></span>
+    </div>
+    <p class="ainote" style="margin-top:0" data-i18n-html="calls.sub"></p>
+    <div class="actions" style="margin-top:0">
+      <button class="btn ghost" id="sharedScoreAsk" data-i18n="calls.ask"></button>
+    </div>
+    <p class="ainote" id="sharedScoreNote"></p>
+    <div id="sharedScoreRows" class="verifyrows"></div>
+
     <p class="ainote" id="aiWhy"></p>
     <p class="aiwarn" id="aiDisclaimer"></p>
   </section>
@@ -905,6 +923,12 @@ footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
           <button class="btn" id="sharePush" data-i18n="share.push"></button>
         </div>
         <p class="note" id="shareNote"></p>
+
+        <label class="note" style="display:flex;gap:8px;align-items:flex-start;margin-top:10px">
+          <input type="checkbox" id="shareCalls" style="margin-top:3px;flex:0 0 auto">
+          <span data-i18n-html="calls.toggle"></span>
+        </label>
+        <p class="note" id="callsNote"></p>
       </div>
     </div>
   </section>
@@ -2038,6 +2062,77 @@ const S = {
     en: "Shared record: {shoes} [shoes|shoe|shoes] · {coups} [coups|coup|coups] · {stats} [stats|statistic|statistics] · {reps} null [reps|replicate|replicates] · power measured by the server at this size (the device verdict above uses an estimate, so the two can differ)",
     "zh-Hant": "共用紀錄：{shoes} 靴 · {coups} 局 · {stats} 項統計量 · {reps} 次虛無重複 · 檢出力由伺服器在此規模下實測（上方本機判定使用估計值，兩者可能不同）",
     "zh-Hans": "共享记录：{shoes} 靴 · {coups} 局 · {stats} 项统计量 · {reps} 次零分布重复 · 检出力由服务器在此规模下实测（上方本机判定使用估计值，两者可能不同）",
+  },
+
+  /* ------------------------------------------- the forward record, live */
+  "calls.toggle": {
+    ko: "<b>예측도 공유 기록에 남기기</b> — 앱이 다음 판을 지목하는 그 순간 서버에 기록합니다. 판이 나온 뒤에는 보낼 수 없습니다(서버가 거절합니다). 켜 두면 이 테이블의 판과 예측이 계속 올라갑니다.",
+    en: "<b>Record calls in the shared record too</b> — written to the server at the moment the app names the next coup. It cannot be sent afterwards; the server refuses a call about a coup it already holds. While this is on, this table's coups and calls keep going up.",
+    "zh-Hant": "<b>將預測一併記入共用紀錄</b> — 在 App 指出下一局的當下就寫入伺服器。事後無法補送，伺服器會拒絕已開出局數的預測。開啟期間，本桌的局數與預測會持續上傳。",
+    "zh-Hans": "<b>将预测一并记入共享记录</b> — 在 App 指出下一局的当下就写入服务器。事后无法补送，服务器会拒绝已开出局数的预测。开启期间，本桌的局数与预测会持续上传。",
+  },
+  "calls.needAddress": {
+    ko: "먼저 위에 공유 기록 주소를 넣으세요.",
+    en: "Put a shared-record address in above first.",
+    "zh-Hant": "請先於上方填入共用紀錄位址。",
+    "zh-Hans": "请先于上方填入共享记录地址。",
+  },
+  "calls.exampleOff": {
+    ko: "예시 데이터에서는 기록하지 않습니다. 실제 테이블을 하나 만드세요.",
+    en: "Nothing is recorded from the example data. Make a real table first.",
+    "zh-Hant": "範例資料不會被記錄。請先建立一張實際桌台。",
+    "zh-Hans": "示例数据不会被记录。请先建立一张实际牌桌。",
+  },
+  "calls.tally": {
+    ko: "기록됨 {sent} · 못 보냄 {missed} · 늦음 {late}",
+    en: "recorded {sent} · not sent {missed} · too late {late}",
+    "zh-Hant": "已記錄 {sent} · 未送出 {missed} · 過期 {late}",
+    "zh-Hans": "已记录 {sent} · 未送出 {missed} · 过期 {late}",
+  },
+  "calls.gaps": {
+    ko: "보내지 못한 예측은 나중에 채울 수 없습니다 — 그때는 이미 답을 아는 상태라, 서버가 거절하는 것이 맞습니다. 그래서 빠진 개수를 숨기지 않고 셉니다. 마지막 실패: {why}",
+    en: "A call that did not go cannot be filled in later: by then its answer is known, and the server is right to refuse it. So the gaps are counted rather than hidden. Last failure: {why}",
+    "zh-Hant": "未送出的預測無法事後補上 — 那時答案已經揭曉，伺服器拒絕是正確的。因此缺漏會被計數而非隱藏。最後一次失敗：{why}",
+    "zh-Hans": "未送出的预测无法事后补上 — 那时答案已经揭晓，服务器拒绝是正确的。因此缺漏会被计数而非隐藏。最后一次失败：{why}",
+  },
+  "calls.h": { ko: "공유 기록에 남은 성적", en: "The record on the server", "zh-Hant": "共用紀錄中的成績", "zh-Hans": "共享记录中的成绩" },
+  "calls.sub": {
+    ko: "위 표는 <b>이 브라우저</b>가 적어 둔 것입니다. 아래는 <b>서버에 남은 것</b> — 판이 나오기 전에 기록됐고, 나중에 고칠 방법이 구조적으로 없는 것만 들어 있습니다. 진짜 검증에 쓸 수 있는 기록은 이쪽입니다.",
+    en: "The table above is what <b>this browser</b> wrote down. Below is what is <b>on the server</b> — only calls written before their coup, in a shape that structurally cannot be edited afterwards. This is the record that can actually be used as evidence.",
+    "zh-Hant": "上方表格是<b>本瀏覽器</b>所記錄的。下方則是<b>伺服器上的紀錄</b> — 只包含在開牌前寫入、且結構上事後無法竄改的預測。真正能作為證據的是這一份。",
+    "zh-Hans": "上方表格是<b>本浏览器</b>所记录的。下方则是<b>服务器上的记录</b> — 只包含在开牌前写入、且结构上事后无法篡改的预测。真正能作为证据的是这一份。",
+  },
+  "calls.ask": { ko: "서버 성적 불러오기", en: "Fetch the server's record", "zh-Hant": "載入伺服器成績", "zh-Hans": "载入服务器成绩" },
+  "calls.asking": { ko: "불러오는 중…", en: "Fetching…", "zh-Hant": "載入中…", "zh-Hans": "载入中…" },
+  "calls.none": {
+    ko: "서버에 정산된 예측이 아직 없습니다. 위에서 <b>예측도 공유 기록에 남기기</b> 를 켜고 몇 판 진행하세요.",
+    en: "Nothing settled on the server yet. Turn on <b>record calls</b> above and play a few coups.",
+    "zh-Hant": "伺服器上尚無已結算的預測。請在上方開啟<b>將預測一併記入共用紀錄</b>後進行幾局。",
+    "zh-Hans": "服务器上尚无已结算的预测。请在上方开启<b>将预测一并记入共享记录</b>后进行几局。",
+  },
+  "calls.pending": {
+    ko: "정산 대기 {n}건",
+    en: "{n} waiting to settle",
+    "zh-Hant": "待結算 {n} 筆",
+    "zh-Hans": "待结算 {n} 笔",
+  },
+  "calls.row": {
+    ko: "{model} · 정산 {settled}건 중 지목 {called}건 · 적중 {hits}건",
+    en: "{model} · {called} called of {settled} settled · {hits} right",
+    "zh-Hant": "{model} · 已結算 {settled} 筆中指出 {called} 筆 · 命中 {hits} 筆",
+    "zh-Hans": "{model} · 已结算 {settled} 笔中指出 {called} 笔 · 命中 {hits} 笔",
+  },
+  "calls.rate": {
+    ko: "적중률 {rate}",
+    en: "hit rate {rate}",
+    "zh-Hant": "命中率 {rate}",
+    "zh-Hans": "命中率 {rate}",
+  },
+  "calls.tooFew": {
+    ko: "{n}건으로는 아무 결론도 나오지 않습니다. 1% 우위를 확인하려면 3만 건, 0.5%라면 14만 건이 필요합니다 — 이 숫자는 성적이 아니라 아직 표본입니다.",
+    en: "{n} settled is not a result. Confirming a 1% edge takes about 30,000 bets and a 0.5% edge about 141,000 — this is a sample, not a score.",
+    "zh-Hant": "已結算 {n} 筆得不出任何結論。確認 1% 優勢約需三萬筆，0.5% 約需十四萬筆 — 這還只是樣本，不是成績。",
+    "zh-Hans": "已结算 {n} 笔得不出任何结论。确认 1% 优势约需三万笔，0.5% 约需十四万笔 — 这还只是样本，不是成绩。",
   },
 
   /* ------------------------------------------------- statistic names */
@@ -6223,7 +6318,14 @@ async function send(base, path, body, fetchImpl, signal) {
     try {
       detail = (await answer.json()).detail || "";
     } catch { /* not every failure is JSON */ }
-    throw new ShareError("server", detail || `the server said ${answer.status}`);
+    // Carried for the same reason the read side carries it: 409 here is not a
+    // fault but an answer -- either this call is already in the record, or it
+    // arrived after its coup was dealt and is refused on purpose. A caller
+    // counting how complete its forward record is needs to tell those from a
+    // server that is simply broken.
+    const failed = new ShareError("server", detail || `the server said ${answer.status}`);
+    failed.status = answer.status;
+    throw failed;
   }
   return answer.json();
 }
@@ -6313,6 +6415,131 @@ async function fetchIntegrity(base, table, options = {}) {
   return get(base, `/api/v1/tables/${encodeURIComponent(table)}/integrity`
     + `?session_type=${encodeURIComponent(sessionType)}`
     + `&replicates=${encodeURIComponent(replicates)}`, fetchImpl, signal);
+}
+
+/* ------------------------------------------------- the forward record */
+
+/**
+ * The app's own call, written down before the coup it is about.
+ *
+ * This is the one thing in the project that could ever justify any of it.
+ * `docs/VALIDATION.md` is blunt about why: a backtest can be re-run until it
+ * looks good, and a forward record cannot. But "made in advance" has to be
+ * something the record can show rather than something the writer promises,
+ * which is why the route refuses a prediction about a coup it already holds.
+ *
+ * So this cannot be batched. A call collected on a phone and pushed at the end
+ * of the evening is a call whose answer was already on disk when it arrived,
+ * and the server is right to turn it away. It goes now or it does not go, and
+ * a call that did not go is *reported* rather than retried -- by the time a
+ * retry succeeded the coup would have been dealt, and quietly filling the gap
+ * later is exactly the thing the refusal exists to prevent.
+ *
+ * The shoe is created first because a prediction has to name one, and creating
+ * it twice is safe by design.
+ */
+async function recordCall(base, table, shoe, entry, options = {}) {
+  const {
+    fetchImpl = typeof fetch === "function" ? fetch.bind(globalThis) : null,
+    signal = null,
+  } = options;
+
+  if (!base) throw new ShareError("address", "no address");
+  if (!fetchImpl) throw new ShareError("network", "this browser cannot send");
+
+  await send(base, "/api/v1/shoes", {
+    shoe_uuid: shoe.id,
+    table_name: table,
+    source: "reader",
+    session_type: "LIVE",
+    started_at: new Date(Math.min(MAX_TIME, shoe.t || 0)).toISOString(),
+  }, fetchImpl, signal);
+
+  return send(base, "/api/v1/predictions", callBody(shoe, entry), fetchImpl, signal);
+}
+
+/**
+ * One logged call, in the shape the record wants.
+ *
+ * `index` is how many coups the shoe already held when the call was made, so
+ * the coup it is about is the next one -- `index + 1` in the record's
+ * one-based numbering, and by construction one that has not been dealt.
+ *
+ * The side is always sent as the side, even where backing it was judged not
+ * worth it. The app names a side every coup and separately judges whether
+ * there is money in it; collapsing the second into the first would throw away
+ * which of those two things the record is measuring. `signal` carries that
+ * instead, so the hit rate `/predictions/score` reports is the rate over every
+ * coup -- the honest headline for a model that always speaks -- and the
+ * backed-only rate stays recoverable from the rows.
+ */
+function callBody(shoe, entry) {
+  const [player, banker, tie] = entry.p || [0, 0, 0];
+  return {
+    shoe_uuid: shoe.id,
+    hand_number: (entry.i | 0) + 1,
+    model_name: "browser",
+    model_version: String(entry.m || "unknown"),
+    feature_version: String(entry.f || "unknown"),
+    player_probability: player,
+    banker_probability: banker,
+    tie_probability: tie,
+    prediction: entry.k === "B" ? "BANKER" : entry.k === "P" ? "PLAYER" : "NO_SIGNAL",
+    confidence: entry.c ?? 0,
+    signal: entry.b ? bandOf(entry.c ?? 0) : "NO_SIGNAL",
+    prediction_source: "browser",
+  };
+}
+
+/** Where a 0-100 confidence sits, in the words the schema uses. */
+function bandOf(confidence) {
+  if (confidence >= 66) return "STRONG";
+  if (confidence >= 33) return "LEAN";
+  return "WEAK";
+}
+
+/**
+ * Send what has been dealt, then let the record settle what it can.
+ *
+ * Settling is a separate call from recording and only ever *adds* the outcome,
+ * which is the second half of the same guarantee: there is no route that
+ * rewrites a prediction and no column to rewrite it into.
+ *
+ * The whole shoe goes rather than the last coup alone. Re-sending is free --
+ * the record keys a coup by its shoe and its number and reports the rest as
+ * already there -- and a coup that failed to send earlier gets another chance,
+ * which matters here because a coup missing from the record is a prediction
+ * that can never be settled.
+ */
+async function settleAgainst(base, shoe, options = {}) {
+  const {
+    fetchImpl = typeof fetch === "function" ? fetch.bind(globalThis) : null,
+    signal = null,
+  } = options;
+
+  if (!base) throw new ShareError("address", "no address");
+  if (!fetchImpl) throw new ShareError("network", "this browser cannot send");
+  if (!shoe.o || !shoe.o.length) return { settled: 0, waiting: 0, already_settled: 0 };
+
+  await send(base, `/api/v1/shoes/${encodeURIComponent(shoe.id)}/hands`,
+             { hands: handsOf(shoe) }, fetchImpl, signal);
+  return send(base, "/api/v1/predictions/settle"
+    + `?shoe_uuid=${encodeURIComponent(shoe.id)}`, {}, fetchImpl, signal);
+}
+
+/** How the calls that have been settled actually did, per model. */
+async function fetchScore(base, options = {}) {
+  const {
+    fetchImpl = typeof fetch === "function" ? fetch.bind(globalThis) : null,
+    shoeUuid = null,
+    signal = null,
+  } = options;
+
+  if (!base) throw new ShareError("address", "no address");
+  if (!fetchImpl) throw new ShareError("network", "this browser cannot ask");
+
+  return get(base, "/api/v1/predictions/score"
+    + (shoeUuid ? `?shoe_uuid=${encodeURIComponent(shoeUuid)}` : ""), fetchImpl, signal);
 }
 
 /**
@@ -8153,6 +8380,7 @@ function commit(changedIds, writtenTable = state.active) {
   // Before the render, so the panel that reports the record is drawn from a
   // log that already knows about the coup just committed.
   settleLog();
+  settleShared(writtenTable);
   render();
 }
 
@@ -8935,7 +9163,133 @@ function logPrediction(p, chosen, worthBacking) {
     model: usingNet ? NET_MODEL_VERSION : BASE_MODEL_VERSION,
     features: FEATURE_VERSION,
   });
-  if (wrote) store.saveLog(predictionLog);
+  if (wrote) {
+    store.saveLog(predictionLog);
+    sendCall(name, shoe);
+  }
+}
+
+/* --------------------------------------- the forward record, on a server */
+
+/**
+ * Sending the app's own calls to the shared record as they are made.
+ *
+ * `verify.js` already writes every call down, and that record is honest as far
+ * as it goes: it is written before the coup and settled after. What it cannot
+ * do is convince anybody else. It lives in this browser, in storage this page
+ * can rewrite, so "it was written in advance" rests on the word of the thing
+ * being measured -- which is exactly the claim a forward record exists to stop
+ * resting on.
+ *
+ * The server's copy does not rest on it. A call about a coup the record
+ * already holds is refused, settling is a separate call that only adds the
+ * outcome, and there is no route that rewrites a prediction. Those three
+ * together are what make the record evidence rather than a diary.
+ *
+ * The cost is that it cannot be batched. By the time a phone is back on a
+ * network the coup has been dealt and the call is refused, correctly. So a
+ * call either goes at the moment it is made or it does not go at all, and the
+ * ones that did not are counted where the reader can see them: a record with
+ * invisible gaps is worse than one with visible gaps, because nobody can tell
+ * what the denominator was.
+ *
+ * Off by default, and per browser. Nothing in this app leaves without somebody
+ * turning it on, and this one keeps leaving for as long as it is on -- which
+ * is a different promise from the push button and is said plainly beside it.
+ */
+const CALLS_KEY = "baccarat.share.calls.v1";
+
+let recordingCalls = false;
+let settleInFlight = false;
+
+//: What the forward record on the server is missing, and why. Not persisted:
+//: it describes this sitting, and a stale count read back tomorrow would
+//: describe a gap nobody can act on any more.
+const callTally = { sent: 0, missed: 0, late: 0, why: null };
+
+function readCallsFlag() {
+  try {
+    return localStorage.getItem(CALLS_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function saveCallsFlag(on) {
+  try {
+    if (on) localStorage.setItem(CALLS_KEY, "1");
+    else localStorage.removeItem(CALLS_KEY);
+  } catch {
+    /* a browser with no storage still records, it just forgets the choice */
+  }
+}
+
+/** On, addressed, and not the example corpus -- which is nobody's table. */
+function recordingIsOn() {
+  return recordingCalls && !!state && !state.isExample && !!readServer();
+}
+
+/**
+ * Send the call just written, without making anybody wait for it.
+ *
+ * Deliberately not awaited: this runs while somebody is watching a table, and
+ * a slow server must not hold up the number on their screen. The record is a
+ * by-product of using the app, never a thing the app waits on.
+ */
+function sendCall(table, shoe) {
+  if (!recordingIsOn() || !shoe.id) return;
+  const entry = recentPredictions(predictionLog, table, 1)[0];
+  if (!entry) return;
+
+  recordCall(readServer(), table, shoe, entry)
+    .then(() => { callTally.sent += 1; })
+    .catch((e) => {
+      // 409 is the refusal working: either this call is already there, or it
+      // arrived after its coup. Counted apart from a server that is simply
+      // unreachable, because they mean different things about the record.
+      if (e instanceof ShareError && e.status === 409) callTally.late += 1;
+      else {
+        callTally.missed += 1;
+        callTally.why = String((e && e.message) || e);
+      }
+    })
+    .finally(renderCallsNote);
+}
+
+/**
+ * Send what has been dealt and let the record settle against it.
+ *
+ * One at a time: `commit` runs on every change, and a settle already in flight
+ * will pick up whatever arrived while it was working. Failures are silent here
+ * and only here -- a coup that did not reach the record is re-sent by the next
+ * settle, because the whole shoe goes each time.
+ */
+function settleShared(table) {
+  if (!recordingIsOn() || settleInFlight) return;
+  const shoe = openShoe(table);
+  if (!shoe.id || !shoe.o.length) return;
+
+  settleInFlight = true;
+  settleAgainst(readServer(), shoe)
+    .catch(() => {})
+    .finally(() => { settleInFlight = false; });
+}
+
+function renderCallsNote() {
+  const note = $("callsNote");
+  if (!note) return;
+  if (!recordingCalls) { note.textContent = ""; return; }
+  // Bound before the first render, so the corpus may not be loaded yet. Saying
+  // nothing is right for that moment; the render that follows says the rest.
+  if (!state) { note.textContent = ""; return; }
+  if (!readServer()) { note.textContent = t("calls.needAddress"); return; }
+  if (state.isExample) { note.textContent = t("calls.exampleOff"); return; }
+
+  const lines = [t("calls.tally", callTally)];
+  if (callTally.missed || callTally.late) {
+    lines.push(t("calls.gaps", { why: callTally.why || "-" }));
+  }
+  note.innerHTML = lines.join("<br>");
 }
 
 /** Standard errors from the crossover, as a 0-100 figure the log can store. */
@@ -9614,6 +9968,9 @@ function render() {
   renderMilestones();
   renderIntegrityAvailability();
   renderPooledStanding();
+  // Whether anything is being recorded depends on the table -- the example
+  // corpus records nothing -- so the line that says so is redrawn with it.
+  renderCallsNote();
 }
 
 function renderHeader() {
@@ -10599,6 +10956,74 @@ function renderIntegrityResult(rep) {
   });
 }
 
+/**
+ * What the server's copy of the forward record says.
+ *
+ * Asked rather than streamed, because it is a thing somebody looks at between
+ * sessions and not a number that has to move while they watch. Scoped to no
+ * shoe: the question is how the app has done over everything it ever called at
+ * this address, which is the only scale at which the answer could mean
+ * anything -- and it takes tens of thousands of settled calls before it does.
+ */
+function bindSharedScore() {
+  const button = $("sharedScoreAsk");
+  if (!button) return;
+  button.onclick = async () => {
+    const base = readServer();
+    const note = $("sharedScoreNote");
+    if (!base) { note.textContent = t("calls.needAddress"); return; }
+
+    button.disabled = true;
+    note.textContent = t("calls.asking");
+    try {
+      renderSharedScore(await fetchScore(base));
+      note.textContent = "";
+    } catch (e) {
+      note.textContent = e instanceof ShareError && e.kind === "auth"
+        ? t("pooled.auth")
+        : t("pooled.server", { why: String((e && e.message) || e) });
+    } finally {
+      button.disabled = false;
+    }
+  };
+}
+
+function renderSharedScore(score) {
+  const rows = $("sharedScoreRows");
+  const count = $("sharedScoreCount");
+  rows.innerHTML = "";
+  const models = score.models || [];
+  const settled = models.reduce((n, m) => n + (m.settled || 0), 0);
+
+  count.textContent = score.unsettled
+    ? t("calls.pending", { n: score.unsettled.toLocaleString() })
+    : "";
+
+  if (!settled) {
+    rows.innerHTML = `<p class="ainote">${t("calls.none")}</p>`;
+    return;
+  }
+
+  for (const book of models) {
+    const row = el("div", "verifyrow");
+    row.appendChild(el("span", "", t("calls.row", {
+      model: `${book.model} ${book.version}`,
+      settled: (book.settled || 0).toLocaleString(),
+      called: (book.called || 0).toLocaleString(),
+      hits: (book.hits || 0).toLocaleString(),
+    })));
+    // A rate over no calls is nothing, not zero -- the same rule the panel
+    // above this one follows, and the reason `/score` sends null for it.
+    row.appendChild(el("span", "", book.hit_rate === null || book.hit_rate === undefined
+      ? "—" : t("calls.rate", { rate: pct(book.hit_rate, 2) })));
+    rows.appendChild(row);
+  }
+
+  // Said with the number every time, because a hit rate over a few hundred
+  // calls is the most convincing meaningless figure this app can produce.
+  rows.appendChild(el("p", "aiwarn", t("calls.tooFew", { n: settled.toLocaleString() })));
+}
+
 /* ------------------------------------------------------ the shared record */
 
 /**
@@ -10894,7 +11319,21 @@ function bindShare() {
     } catch {
       note.textContent = t("share.badAddress");
     }
+    renderCallsNote();
   };
+
+  const calls = $("shareCalls");
+  if (calls) {
+    recordingCalls = readCallsFlag();
+    calls.checked = recordingCalls;
+    calls.onchange = () => {
+      recordingCalls = calls.checked;
+      saveCallsFlag(recordingCalls);
+      renderCallsNote();
+    };
+  }
+  renderCallsNote();
+  bindSharedScore();
 
   button.onclick = async () => {
     // The example corpus is there to show the page working, and it is nobody's
