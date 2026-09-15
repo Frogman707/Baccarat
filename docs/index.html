@@ -591,6 +591,7 @@ footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
     <select id="tableSel" data-i18n-aria="header.tableAria"></select>
     <button class="btn ghost" id="addTable" data-i18n="header.addTable"></button>
     <button class="btn ghost" id="renameTable" data-i18n="header.renameTable"></button>
+    <button class="btn ghost" id="clearTable" data-i18n="header.clearTable"></button>
     <button class="btn ghost" id="resetBtn" data-i18n="header.deleteTable"></button>
     <span id="exampleBadge" class="badge" data-i18n="header.example" hidden></span>
     <span class="spacer"></span>
@@ -992,6 +993,7 @@ const S = {
   "header.accounts": { ko: "계정 관리", en: "Accounts", "zh-Hant": "帳號管理", "zh-Hans": "账号管理" },
   "header.renameTable": { ko: "이름 변경", en: "Rename", "zh-Hant": "重新命名", "zh-Hans": "重命名" },
   "header.deleteTable": { ko: "테이블 삭제", en: "Delete table", "zh-Hant": "刪除牌桌", "zh-Hans": "删除牌桌" },
+  "header.clearTable": { ko: "테이블 초기화", en: "Clear table", "zh-Hant": "清空牌桌", "zh-Hans": "清空牌桌" },
   "header.renamePrompt": {
     ko: "{table} 의 새 이름:", en: "New name for {table}:",
     "zh-Hant": "{table} 的新名稱：", "zh-Hans": "{table} 的新名称：",
@@ -1028,6 +1030,31 @@ const S = {
   "room.off": { ko: "방 없음", en: "No room", "zh-Hant": "未加入房間", "zh-Hans": "未加入房间" },
   "room.connecting": { ko: "방 연결 중…", en: "Joining the room…", "zh-Hant": "加入房間中…", "zh-Hans": "加入房间中…" },
   "room.joined": { ko: "방 {id}", en: "Room {id}", "zh-Hant": "房間 {id}", "zh-Hans": "房间 {id}" },
+  "room.online": { ko: "방 {id}", en: "Room {id}", "zh-Hant": "房間 {id}", "zh-Hans": "房间 {id}" },
+  "room.syncing": {
+    ko: "방 {id} · {n}개 보내는 중",
+    en: "Room {id} · sending {n}",
+    "zh-Hant": "房間 {id} · 傳送 {n} 筆",
+    "zh-Hans": "房间 {id} · 发送 {n} 条",
+  },
+  "room.offline": {
+    ko: "방 {id} · 오프라인, {n}개 대기",
+    en: "Room {id} · offline, {n} waiting",
+    "zh-Hant": "房間 {id} · 離線，{n} 筆待送",
+    "zh-Hans": "房间 {id} · 离线，{n} 条待送",
+  },
+  "room.reconnecting": {
+    ko: "방 {id} · {n}개 아직 못 보냄",
+    en: "Room {id} · {n} still to send",
+    "zh-Hant": "房間 {id} · 尚有 {n} 筆未送",
+    "zh-Hans": "房间 {id} · 尚有 {n} 条未送",
+  },
+  "room.full": {
+    ko: "보낼 결과가 너무 많이 쌓였습니다. 연결을 확인해 주세요.",
+    en: "Too many coups are waiting to be sent. Check the connection.",
+    "zh-Hant": "待送結果過多，請檢查連線。",
+    "zh-Hans": "待送结果过多，请检查连接。",
+  },
   "room.error": { ko: "방에 들어가지 못했습니다", en: "Could not join the room", "zh-Hant": "無法加入房間", "zh-Hans": "无法加入房间" },
   "room.held": {
     ko: "{n}개 결과가 {miss}번째를 기다리는 중",
@@ -2254,6 +2281,12 @@ const S = {
     en: "This erases all {coups} [coups|coup|coups] collected across {tables} [tables|table|tables]. It cannot be undone -- export first if any of it is worth keeping. Continue?",
     "zh-Hant": "將刪除 {tables} 張桌台上收集的全部 {coups} 局。無法復原 — 若有需要保留的請先匯出。要繼續嗎？",
     "zh-Hans": "将删除 {tables} 张桌台上收集的全部 {coups} 局。无法复原 — 若有需要保留的请先导出。要继续吗？",
+  },
+  "tools.clearConfirm": {
+    ko: "\"{table}\" 테이블에 모은 {coups}판을 지웁니다. 테이블은 그대로 남습니다. 되돌릴 수 없습니다 — 남겨야 할 것이 있으면 먼저 내보내세요. 계속할까요?",
+    en: "This erases the {coups} [coups|coup|coups] collected for \"{table}\". The table itself stays. It cannot be undone -- export first if any of it is worth keeping. Continue?",
+    "zh-Hant": "將刪除「{table}」已收集的 {coups} 局，桌台本身保留。無法復原 — 若有需要保留的請先匯出。要繼續嗎？",
+    "zh-Hans": "将删除“{table}”已收集的 {coups} 局，桌台本身保留。无法复原 — 若有需要保留的请先导出。要继续吗？",
   },
   "tools.resetConfirm": {
     ko: "\"{table}\" 테이블의 수집 데이터를 모두 지웁니다. 계속할까요?",
@@ -6975,6 +7008,117 @@ function classifyWriteError(err, { existed = false } = {}) {
   return "failed";
 }
 
+/* ---------------------------------------------------------- the queue ---- */
+
+/** How many coups may wait. A shoe is at most 200; this is several shoes. */
+const QUEUE_LIMIT = 1000;
+
+/** The states a room connection can be in, as the brief names them. */
+function syncState({ joined, online, queued, sending }) {
+  if (!joined) return "off";
+  if (sending) return "syncing";
+  if (!online) return "offline";
+  // Online, joined, and still holding coups: the connection is back but the
+  // backlog has not gone yet. That is a different thing to say than "offline",
+  // and a different thing to say than "everything is sent".
+  return queued ? "reconnecting" : "online";
+}
+
+/**
+ * Coups waiting to reach the room.
+ *
+ * **In order, and stopping at the first one that will not go.** This is the
+ * whole design, and the reason is `outcomesFromHands`: the room's record stops
+ * at its first gap, so a queue that skipped coup 5 and delivered 6 through 20
+ * would leave every one of those fifteen invisible to everybody in the room --
+ * present in the database, absent from every screen. Draining in order and
+ * halting on failure keeps the record short and true rather than long and
+ * wrong.
+ *
+ * Storage is injected. The page hands it localStorage so a queue survives the
+ * reload that a phone going to sleep at a table will cause; the tests hand it
+ * an object.
+ */
+class CoupQueue {
+  constructor({ read = () => [], write = () => {}, limit = QUEUE_LIMIT } = {}) {
+    this._write = write;
+    this.limit = limit;
+    this.full = false;
+    const stored = read();
+    this.items = Array.isArray(stored) ? stored.filter(isCoupEntry) : [];
+  }
+
+  get length() { return this.items.length; }
+
+  /**
+   * Add a coup, unless it is already waiting.
+   *
+   * Refuses rather than making room when full. Dropping the oldest would put a
+   * hole at the front of the record, which is the one thing this class exists
+   * to prevent; dropping the newest would lose what is happening now. Neither
+   * is a decision to take quietly, so it stops and says so instead.
+   */
+  add(shoe, handNumber, code) {
+    if (!shoe || !OUTCOME_OF[String(code)]) return false;
+    if (!Number.isInteger(handNumber) || handNumber < 1 || handNumber > MAX_HAND) {
+      return false;
+    }
+    if (this.items.some((e) => e.shoe === shoe && e.n === handNumber)) return false;
+    if (this.items.length >= this.limit) { this.full = true; return false; }
+    this.items.push({ shoe, n: handNumber, code });
+    this.full = false;
+    this.save();
+    return true;
+  }
+
+  save() { try { this._write(this.items); } catch { /* storage is a courtesy */ } }
+
+  /** Forget a shoe's coups -- it was undone, or its table was deleted. */
+  forget(shoe) {
+    const before = this.items.length;
+    this.items = this.items.filter((e) => e.shoe !== shoe);
+    if (this.items.length !== before) this.save();
+  }
+
+  /**
+   * Send what is waiting, oldest first, stopping at the first refusal.
+   *
+   * `send(shoe, n, code)` returns what `RoomSync.recordCoup` returns. Written,
+   * duplicate and conflict all mean the coup has reached the room and its fate
+   * is decided, so it leaves the queue; conflicts are handed back so the page
+   * can show them. Anything else means the coup is still owed and the run
+   * stops there, with it still at the front.
+   */
+  async drain(send) {
+    const conflicts = [];
+    let sent = 0;
+    let why = null;
+    while (this.items.length) {
+      const e = this.items[0];
+      let answer;
+      try {
+        answer = await send(e.shoe, e.n, e.code);
+      } catch {
+        answer = "failed";
+      }
+      if (answer === "conflict") conflicts.push(e);
+      if (answer !== "written" && answer !== "duplicate" && answer !== "conflict") {
+        why = answer;
+        break;
+      }
+      this.items.shift();
+      sent += 1;
+    }
+    if (sent) { this.full = false; this.save(); }
+    return { sent, conflicts, left: this.items.length, why };
+  }
+}
+
+function isCoupEntry(e) {
+  return !!e && typeof e.shoe === "string" && Number.isInteger(e.n)
+    && typeof e.code === "string" && !!OUTCOME_OF[e.code];
+}
+
 /* ------------------------------------------------------------- the room -- */
 
 class RoomSync {
@@ -7159,12 +7303,54 @@ class RoomSync {
       });
       return "written";
     } catch (err) {
-      // Ask the database what is actually there before calling it a duplicate.
-      // Guessing from the error code alone would report a real access problem
-      // as somebody else's coup, and the two need opposite responses.
-      let existed = false;
-      try { existed = !!(await f.read(path)); } catch { /* keep existed false */ }
-      return classifyWriteError(err, { existed });
+      // Ask the database what is actually there before deciding what happened.
+      // Three different things arrive here as the same `permission-denied`, and
+      // they need three different answers:
+      //
+      //   nothing there      -- a real access problem, and the reader is
+      //                         somewhere they should not be
+      //   the same result    -- the other reader got there first. Not an error:
+      //                         it is two people agreeing, which is the system
+      //                         working exactly as intended
+      //   a different result -- one of the two misread the board, and that has
+      //                         to be seen. It is the only case here that
+      //                         anybody needs to do anything about
+      //
+      // Collapsing the last two into "duplicate" would throw away the only
+      // disagreement the record can detect, and it would do it silently.
+      let there = null;
+      try { there = await f.read(path); } catch { /* leave it null */ }
+      if (!there) return classifyWriteError(err, { existed: false });
+      return there.result === result ? "duplicate" : "conflict";
+    }
+  }
+
+  /**
+   * Write a disagreement down where the room can see it.
+   *
+   * Nothing here picks a winner, and that is deliberate: no rule about which
+   * copy wins can tell you which reader misread the board. It records that the
+   * two do not agree, and which coup, so a person who can look at the table
+   * can settle it. A conflict that resolves itself is a conflict that was
+   * decided by whoever happened to write second.
+   */
+  async reportConflict(shoeId, handNumber, mine, theirs) {
+    const f = this.facade;
+    if (!f || !this.roomId) return false;
+    try {
+      await f.write(["rooms", this.roomId, "conflicts", `${shoeId}-${handId(handNumber)}`], {
+        shoeId,
+        handNumber,
+        mine: OUTCOME_OF[String(mine)] || String(mine),
+        theirs: OUTCOME_OF[String(theirs)] || String(theirs),
+        resolved: false,
+        reportedBy: f.uid,
+        reportedAt: f.now(),
+      });
+      return true;
+    } catch {
+      // Already reported by the other reader, which is the same conflict.
+      return false;
     }
   }
 
@@ -8950,6 +9136,45 @@ let roomShoe = "";
 let roomLocalShoe = "";
 const roomSeen = { held: 0, missing: 0, conflicts: [] };
 
+/** Coups owed to the room, across reloads. */
+const ROOM_QUEUE_KEY = "baccarat.room.queue.v1";
+let roomQueue = null;
+let roomSending = false;
+let roomRetry = null;
+/** Why the last run stopped, which is how "offline" is told from "idle". */
+let roomLastWhy = null;
+/** Disagreements already written to the room, so a listener does not resend. */
+const roomReported = new Set();
+/** What the room's last snapshot showed it holding, as an outcomes string. */
+let roomHave = "";
+
+function roomStorage() {
+  return {
+    read: () => {
+      try { return JSON.parse(localStorage.getItem(ROOM_QUEUE_KEY) || "[]"); }
+      catch { return []; }
+    },
+    write: (items) => {
+      try { localStorage.setItem(ROOM_QUEUE_KEY, JSON.stringify(items)); }
+      catch { /* a full disk must not stop the table being recorded */ }
+    },
+  };
+}
+
+/** What the header should say, from the four facts that decide it. */
+function roomStateNow() {
+  return syncState({
+    joined: !!room && room.status === "joined",
+    // Two different ways to be offline, and both count: the browser saying so,
+    // and a write that came back saying so while the browser still believed it
+    // was connected. The second is the common one on a casino floor.
+    online: (typeof navigator === "undefined" || navigator.onLine !== false)
+            && roomLastWhy !== "offline",
+    queued: roomQueue ? roomQueue.length : 0,
+    sending: roomSending,
+  });
+}
+
 /** A local shoe id in the form a Firestore document id can take. */
 function roomShoeIdFor(localId) {
   const clean = String(localId || "").replace(/[^A-Za-z0-9_-]/g, "").slice(0, 32);
@@ -8961,12 +9186,20 @@ function renderRoom() {
   if (!box) return;
   box.hidden = !room;
   if (!room) return;
-  const status = room.status;
-  $("roomDot").className = "sdot " + (status === "joined" ? "synced"
-    : status === "error" ? "error" : "syncing");
-  $("roomLabel").textContent = status === "joined"
-    ? t("room.joined", { id: room.roomId })
-    : t("room." + status);
+  if (room.status !== "joined") {
+    $("roomDot").className = "sdot " + (room.status === "error" ? "error" : "syncing");
+    $("roomLabel").textContent = t("room." + room.status);
+    return;
+  }
+  // Joined, and then the four states the connection can actually be in. A
+  // badge that said only "in the room" while twenty coups sat unsent would be
+  // telling somebody their table is recorded when it is not.
+  const s = roomStateNow();
+  $("roomDot").className = "sdot " + ({
+    online: "synced", syncing: "syncing", reconnecting: "syncing", offline: "error",
+  }[s] || "syncing");
+  $("roomLabel").textContent = t("room." + s,
+    { id: room.roomId, n: roomQueue ? roomQueue.length : 0 });
 }
 
 /**
@@ -8981,6 +9214,7 @@ async function useRoomShoe(id, localId) {
   if (!room || !id || id === roomShoe) return;
   roomShoe = id;
   roomLocalShoe = localId || "";
+  roomHave = "";
   await room.useShoe(id);
   room.watchShoe(id, adoptFromRoom);
 }
@@ -8997,6 +9231,7 @@ async function useRoomShoe(id, localId) {
 function adoptFromRoom(seen) {
   roomSeen.held = seen.held;
   roomSeen.missing = seen.missing;
+  roomHave = seen.outcomes;
   if (state.isExample) { renderRoom(); return; }
   // A device arriving at a table already in progress has no shoe open, and
   // that is exactly when the room's coups matter most -- so a shoe is started
@@ -9007,6 +9242,17 @@ function adoptFromRoom(seen) {
   const { outcomes, conflicts } = mergeOutcomes(shoe.o, seen.outcomes);
   roomSeen.conflicts = conflicts;
   roomLocalShoe = shoe.id;
+  // Write the disagreement down where the room can see it. Here rather than in
+  // the queue, because this is the one place that holds both readings -- the
+  // queue only learns that a write was refused, not what the other reader saw.
+  // Nothing settles it: no rule about which copy wins can say who misread the
+  // board.
+  for (const c of conflicts) {
+    const key = `${roomShoe}-${c.handNumber}`;
+    if (roomReported.has(key)) continue;
+    roomReported.add(key);
+    room.reportConflict(roomShoe, c.handNumber, c.mine, c.theirs).catch(() => {});
+  }
   if (outcomes === shoe.o) { renderRoom(); return; }
   shoe.o = outcomes;
   clampMarks();
@@ -9032,14 +9278,51 @@ async function pushToRoom(shoe) {
     await useRoomShoe(roomShoeIdFor(shoe.id), shoe.id);
   }
   if (!roomShoe) return;
-  for (let i = 0; i < shoe.o.length && i < 200; i += 1) {
-    // A coup the room already holds comes back "duplicate", which is the other
-    // reader having got there first and is not a failure. Anything else stops
-    // the run: pushing coup 8 while coup 7 was refused would put a gap in the
-    // record that nobody asked for.
-    const answer = await room.recordCoup(roomShoe, i + 1, shoe.o[i]);
-    if (answer !== "written" && answer !== "duplicate") break;
+  const wasFull = roomQueue.full;
+  // Only what the room has not got. Re-offering coups it already holds would
+  // be harmless -- they come back as duplicates -- but it would fill the queue
+  // with work that is already done, and on a connection that is down it would
+  // put a whole shoe in front of the coup that was just dealt. Anything that
+  // failed is still in the queue and stays there; `add` will not take a coup
+  // twice.
+  for (let i = roomHave.length; i < shoe.o.length && i < 200; i += 1) {
+    roomQueue.add(roomShoe, i + 1, shoe.o[i]);
   }
+  if (roomQueue.full && !wasFull) flashNote(t("room.full"));
+  await drainRoom();
+}
+
+/**
+ * Send what is owed, oldest first, and stop at the first one that will not go.
+ *
+ * Never more than one run at a time: two draining at once would take the same
+ * coup off the front twice and send it twice, and the second send would come
+ * back as a duplicate of itself.
+ */
+async function drainRoom() {
+  if (!room || roomSending || room.status !== "joined") return;
+  if (!roomQueue || !roomQueue.length) { renderRoom(); return; }
+  roomSending = true;
+  renderRoom();
+  try {
+    const out = await roomQueue.drain((s, n, c) => room.recordCoup(s, n, c));
+    roomLastWhy = out.why;
+  } catch {
+    roomLastWhy = "failed";
+  } finally {
+    roomSending = false;
+    renderRoom();
+    scheduleRoomRetry();
+  }
+}
+
+/** Come back to it. A casino floor drops a connection and gets it back. */
+function scheduleRoomRetry(ms = 15000) {
+  if (roomRetry || !roomQueue || !roomQueue.length) return;
+  roomRetry = setTimeout(() => {
+    roomRetry = null;
+    drainRoom().catch(() => {});
+  }, ms);
 }
 
 /**
@@ -9056,7 +9339,17 @@ async function joinRoomFromUrl() {
   const connect = (typeof window !== "undefined" && window.__roomConnect)
     || (() => connectFirebase());
   room = new RoomSync({ connect });
+  roomQueue = new CoupQueue(roomStorage());
   room.onStatus = () => renderRoom();
+  if (typeof window !== "undefined" && window.addEventListener) {
+    // The browser noticing before a write does saves a round trip and a wait.
+    window.addEventListener("online", () => {
+      roomLastWhy = null;
+      renderRoom();
+      drainRoom().catch(() => {});
+    });
+    window.addEventListener("offline", renderRoom);
+  }
   renderRoom();
   if (!await room.join(id)) { renderRoom(); return; }
 
@@ -9070,6 +9363,8 @@ async function joinRoomFromUrl() {
   }
   renderRoom();
   await pushToRoom(openShoe());
+  // Coups owed from a previous visit, which is the whole point of keeping them.
+  await drainRoom();
 }
 
 function commit(changedIds, writtenTable = state.active) {
@@ -10685,14 +10980,15 @@ function render() {
 function renderHeader() {
   const sel = $("tableSel");
   sel.innerHTML = "";
-  // Blank while there is no table, rather than a name nobody chose. Starting
-  // the reader, or entering a coup, is what creates one.
-  if (!state.active || !state.tables[state.active]) {
-    const blank = el("option", null, t("header.noTable"));
-    blank.value = "";
-    blank.selected = true;
-    sel.appendChild(blank);
-  }
+  // A blank entry, always. It is what is shown while there is no table -- a
+  // name nobody chose would be worse -- and it is also the way back out of one:
+  // offering it only when nothing was selected meant a table could be entered
+  // and never left, so putting a phone down on a table you are no longer at
+  // left its name standing over an empty board.
+  const blank = el("option", null, t("header.noTable"));
+  blank.value = "";
+  blank.selected = !state.active || !state.tables[state.active];
+  sel.appendChild(blank);
   for (const name of Object.keys(state.tables)) {
     const o = el("option", null, name);
     o.value = name;
@@ -12298,6 +12594,38 @@ function bindControls() {
 
   bindShare();
 
+  // Emptying a table is not deleting it. A table that went wrong -- a shoe read
+  // off the wrong board, a session that turned out to be free play -- wants its
+  // record gone and itself kept, because it is still the table in front of you
+  // and it is about to be recorded again. Deleting and retyping the name gets
+  // there too, and loses the name's history on the way.
+  $("clearTable").onclick = async () => {
+    const name = state.active;
+    if (!name || !state.tables[name]) return;
+    const coups = tableCoups(name);
+    if (!coups) return;                       // nothing to clear
+    if (!confirm(t("tools.clearConfirm", { table: name, coups: coups.toLocaleString() }))) {
+      return;
+    }
+    const ids = shoes(name).map((s) => s.id);
+    if (liveTable === name) { live.stop(); liveLog(t("live.logStopped")); }
+    // The same reasoning as deleting: a prediction log whose coups are gone
+    // holds figures nothing can be checked against.
+    forgetPredictions(predictionLog, name);
+    store.saveLog(predictionLog);
+    state.tables[name] = { shoes: [] };
+    // Coups still owed to the room are owed no longer -- they belong to shoes
+    // that no longer exist here, and sending them would put this device's
+    // deleted record into everybody else's.
+    for (const id of ids) roomQueue?.forget(roomShoeIdFor(id));
+    roomHave = "";
+    // An example is not a table anybody collected, so clearing it means
+    // leaving the example behind rather than emptying it in place.
+    state.isExample = false;
+    await store.deleteShoes(ids);
+    commit([]);
+  };
+
   $("resetBtn").onclick = async () => {
     if (!state.active || !state.tables[state.active]) return;   // nothing to delete
     if (!confirm(t("tools.resetConfirm", { table: state.active }))) return;
@@ -12308,6 +12636,8 @@ function bindControls() {
     // against, and would quietly re-attach to the next table given that name.
     forgetPredictions(predictionLog, state.active);
     store.saveLog(predictionLog);
+    for (const id of ids) roomQueue?.forget(roomShoeIdFor(id));
+    roomHave = "";
     delete state.tables[state.active];
     // Nothing invented in its place. Deleting the last table leaves the
     // selector blank, and whatever is started next brings a table with it.
@@ -12328,6 +12658,8 @@ function bindControls() {
       return;
     }
     const ids = names.flatMap((name) => shoes(name).map((s) => s.id));
+    for (const id of ids) roomQueue?.forget(roomShoeIdFor(id));
+    roomHave = "";
     live.stop();
     liveLog(t("live.logStopped"));
     state = { tables: {}, active: null, isExample: false };
