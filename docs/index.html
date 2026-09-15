@@ -613,6 +613,7 @@ footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
       </button>
     </span>
     <span class="store"><i class="sdot" id="storeDot"></i><span id="storeLabel"></span></span>
+    <span class="store" id="roomBox" hidden><i class="sdot" id="roomDot"></i><span id="roomLabel"></span></span>
   </div>
 </header>
 
@@ -1024,6 +1025,22 @@ const S = {
   "store.synced": { ko: "저장됨", en: "Saved", "zh-Hant": "已儲存", "zh-Hans": "已保存" },
   "store.error": { ko: "저장 실패", en: "Save failed", "zh-Hant": "儲存失敗", "zh-Hans": "保存失败" },
   "store.full": { ko: "저장 공간 가득 참", en: "Storage full", "zh-Hant": "儲存空間已滿", "zh-Hans": "存储空间已满" },
+  "room.off": { ko: "방 없음", en: "No room", "zh-Hant": "未加入房間", "zh-Hans": "未加入房间" },
+  "room.connecting": { ko: "방 연결 중…", en: "Joining the room…", "zh-Hant": "加入房間中…", "zh-Hans": "加入房间中…" },
+  "room.joined": { ko: "방 {id}", en: "Room {id}", "zh-Hant": "房間 {id}", "zh-Hans": "房间 {id}" },
+  "room.error": { ko: "방에 들어가지 못했습니다", en: "Could not join the room", "zh-Hant": "無法加入房間", "zh-Hans": "无法加入房间" },
+  "room.held": {
+    ko: "{n}개 결과가 {miss}번째를 기다리는 중",
+    en: "{n} [n|result is|results are] waiting on coup {miss}",
+    "zh-Hant": "{n} 個結果正在等待第 {miss} 局",
+    "zh-Hans": "{n} 个结果正在等待第 {miss} 局",
+  },
+  "room.conflict": {
+    ko: "{n}번째 결과가 서로 다릅니다 — 내 기록 {mine}, 방의 기록 {theirs}",
+    en: "Coup {n} — this device says {mine}, the room says {theirs}",
+    "zh-Hant": "第 {n} 局不一致 — 本機為 {mine}，房間為 {theirs}",
+    "zh-Hans": "第 {n} 局不一致 — 本机为 {mine}，房间为 {theirs}",
+  },
   "store.elsewhere": {
     ko: "↻ 다른 탭에서 바뀐 내용을 가져왔습니다",
     en: "↻ Took the change made in another tab",
@@ -6645,6 +6662,518 @@ async function pushCorpus(base, tables, options = {}) {
   return report;
 }
 
+/* ═══ firebase-config.js ═══ */
+/* The Firebase project this build talks to.
+ *
+ * Every value here is public by design and none of it is a credential. The web
+ * API key identifies the project; it does not authenticate anybody. Firebase
+ * ships it inside the page on purpose, and it can be read out of
+ * `docs/index.html` by anyone who opens the site -- so hiding it would buy
+ * nothing, and treating it as a secret would give a false idea of where the
+ * safety actually comes from.
+ *
+ * Where it actually comes from: `firebase/firestore.rules`, checked against
+ * the real rules engine in `firebase/tests/rules.test.mjs`, plus
+ * Authentication. `docs/FIREBASE_SECURITY.md` §1 sets out the threat model and
+ * §7 says what is still uncovered.
+ *
+ * What must NEVER appear in this file, or anywhere under `webapp/`: an Admin
+ * SDK service account key. That one is a private key, it authenticates *as the
+ * project*, and it ignores every rule in `firestore.rules`. `.gitignore`
+ * refuses the usual filenames, but the real defence is not putting it here.
+ */
+
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyDFx-n1nlf8LPcbLv1ARi9Sl1g5vpJ9ro8",
+  authDomain: "avatar-ai-system.firebaseapp.com",
+  projectId: "avatar-ai-system",
+  storageBucket: "avatar-ai-system.firebasestorage.app",
+  messagingSenderId: "900253859441",
+  appId: "1:900253859441:web:af476ad89b3cad0ae425d0",
+  measurementId: "G-L7DC1211TS",
+};
+
+/** The SDK build the page loads, pinned. */
+const FIREBASE_VERSION = "11.10.0";
+
+/** Where the modules come from. Firebase serves its own ESM builds. */
+const FIREBASE_CDN = "https://www.gstatic.com/firebasejs";
+
+/** True when the config is filled in rather than left as a placeholder. */
+function configured(cfg = FIREBASE_CONFIG) {
+  return !!(cfg && cfg.apiKey && cfg.projectId
+            && !String(cfg.apiKey).startsWith("YOUR_"));
+}
+
+/* ═══ room.js ═══ */
+/* Shared rooms: several readers at one table, recording into one record.
+ *
+ * The corpus this app has always kept stores a shoe as one string, one
+ * character per coup -- "PBTPB..." -- because a bead plate shows which side
+ * won and nothing else. A shared room needs something else: a document per
+ * coup, carrying who entered it and when, so that two people watching the same
+ * table produce one record rather than two, and so a disagreement between them
+ * is visible instead of silent.
+ *
+ * So this module is mostly a bridge between those two shapes, and the bridge
+ * is where the danger is. `store.js` sanitises a shoe with
+ * `o.replace(/[^PBT]/g, "")`: any character that is not an outcome is deleted,
+ * and deleting one *closes the gap*. Fill a missing coup 5 with a placeholder
+ * and coup 6 slides into position 5, taking every road, every streak and every
+ * statistic after it with it -- quietly, and in a form that still looks like a
+ * valid shoe. That is why `outcomesFromHands` stops at a gap rather than
+ * filling it, and why it reports what it held back instead of pretending the
+ * shoe is complete.
+ *
+ * Nothing here talks to Firebase directly. The SDK arrives through `sdk`, so
+ * the same code runs against the real service in a browser and against the
+ * emulator in `firebase/tests/room.test.mjs` -- and the pure functions run
+ * under plain node with no network at all.
+ */
+
+
+/** One character per coup, as the corpus has always stored it. */
+const CODE_OF = { PLAYER: "P", BANKER: "B", TIE: "T" };
+/** And back. These are the only three results the rules accept. */
+const OUTCOME_OF = { P: "PLAYER", B: "BANKER", T: "TIE" };
+
+/** A shoe runs out long before this; the rules refuse anything above it. */
+const MAX_HAND = 200;
+
+/**
+ * The document id for a coup, derived from its number and nothing else.
+ *
+ * This is load-bearing, not cosmetic. Because the id comes from the coup
+ * number, two readers entering the same coup address the same document, and
+ * the second write lands on one that already exists -- which the security
+ * rules refuse. That refusal is the entire duplicate-detection mechanism: it
+ * happens in the database, at the moment of the write, rather than in a
+ * comparison somebody has to remember to run afterwards.
+ *
+ * Zero-padded so the ids sort in coup order as strings, which is how Firestore
+ * returns them.
+ */
+function handId(n) {
+  return String(n).padStart(4, "0");
+}
+
+/** The coup number a document id refers to, or 0 if it is not one of ours. */
+function handNumberFrom(id) {
+  return /^\d{4}$/.test(String(id)) ? Number(id) : 0;
+}
+
+/**
+ * A room id that is safe as a Firestore document id and legible to a person.
+ *
+ * Firestore refuses "." and "..", refuses a leading "__", and treats "/" as a
+ * path separator, so an unfiltered room id from a URL can address a document
+ * nobody meant. Returns "" for anything that cannot be made into a room id,
+ * which callers treat as "no room".
+ */
+function cleanRoomId(raw) {
+  const id = String(raw ?? "").trim().replace(/[^A-Za-z0-9_-]/g, "").slice(0, 48);
+  if (!id || /^_{2}/.test(id) || /^\.+$/.test(id)) return "";
+  return id;
+}
+
+/** The room named in a query string, or "" when none is. */
+function roomIdFromUrl(search) {
+  try {
+    const params = new URLSearchParams(String(search || "").replace(/^\?/, ""));
+    return cleanRoomId(params.get("room"));
+  } catch {
+    return "";
+  }
+}
+
+/** The address to send somebody so they arrive in the same room. */
+function roomUrl(base, roomId) {
+  const id = cleanRoomId(roomId);
+  if (!id) return String(base || "");
+  try {
+    const url = new URL(String(base));
+    url.searchParams.set("room", id);
+    return url.toString();
+  } catch {
+    return `${base}?room=${encodeURIComponent(id)}`;
+  }
+}
+
+/**
+ * The coups of a stored shoe, as the documents a room holds.
+ *
+ * `timestamp` is deliberately absent: it is the server's to set, and the rules
+ * refuse a document whose timestamp is anything else. The caller adds the
+ * sentinel at the moment of writing.
+ */
+function handsFromOutcomes(outcomes, { uid, source = "LIVE", from = 1 } = {}) {
+  const text = String(outcomes || "");
+  const hands = [];
+  for (let i = from - 1; i < text.length && i < MAX_HAND; i += 1) {
+    const result = OUTCOME_OF[text[i]];
+    if (!result) continue;                       // sanitised corpora have none
+    const number = i + 1;
+    hands.push({
+      handId: handId(number),
+      handNumber: number,
+      result,
+      source,
+      sequence: number,
+      createdBy: uid,
+    });
+  }
+  return hands;
+}
+
+/**
+ * The stored string for a room's coups -- up to the first gap.
+ *
+ * A room is several people writing at once over a connection that drops, so
+ * coup 7 can arrive before coup 5 exists. Concatenating what has arrived would
+ * put coup 7 in position 5 and silently rewrite the shoe. Stopping at the gap
+ * gives a shorter shoe that is *true*, which is the only kind worth keeping.
+ *
+ * Returns the outcomes, how many coups are waiting behind the gap, and where
+ * the gap is, so the page can say "3 coups are held back, waiting on coup 5"
+ * rather than showing a shoe that quietly lost them.
+ */
+function outcomesFromHands(hands) {
+  const byNumber = new Map();
+  for (const h of hands || []) {
+    const n = Number(h?.handNumber);
+    const code = CODE_OF[String(h?.result)];
+    if (!Number.isInteger(n) || n < 1 || n > MAX_HAND || !code) continue;
+    byNumber.set(n, code);
+  }
+  let outcomes = "";
+  let n = 1;
+  while (byNumber.has(n)) { outcomes += byNumber.get(n); n += 1; }
+  const held = [...byNumber.keys()].filter((k) => k > n).length;
+  return { outcomes, held, missing: held ? n : 0 };
+}
+
+/**
+ * What this device holds against what the room holds.
+ *
+ * Reports rather than decides. Where both have a coup and they disagree, one
+ * of the two readers misread the table, and no rule about which copy wins can
+ * tell you which -- so this names the disagreement and leaves it to be
+ * resolved by somebody who can look at the board. The room's copy is taken for
+ * positions it has, because it is the copy everybody else is already seeing;
+ * anything this device holds beyond the room's end is kept, because it is
+ * simply not written yet.
+ */
+function mergeOutcomes(mine, theirs) {
+  const a = String(mine || "");
+  const b = String(theirs || "");
+  const conflicts = [];
+  const shared = Math.min(a.length, b.length);
+  for (let i = 0; i < shared; i += 1) {
+    if (a[i] !== b[i]) conflicts.push({ handNumber: i + 1, mine: a[i], theirs: b[i] });
+  }
+  const merged = b + (a.length > b.length ? a.slice(b.length) : "");
+  return { outcomes: merged, conflicts, added: Math.max(0, b.length - a.length) };
+}
+
+/* ------------------------------------------------------------ the SDK ---- */
+
+/**
+ * Load the Firebase SDK, on demand and never before.
+ *
+ * A dynamic import, not a static one, for two reasons. The page is one
+ * concatenated bundle with no package manager, so a static import would have
+ * to be resolved at build time by machinery that does not exist here. And the
+ * published page must keep working with no network and no Firebase at all --
+ * it did for its whole life before this module -- so nothing is fetched until
+ * somebody actually opens a room.
+ */
+async function loadFirebase(load = (url) => import(url)) {
+  const at = (mod) => `${FIREBASE_CDN}/${FIREBASE_VERSION}/firebase-${mod}.js`;
+  const [app, auth, firestore] = await Promise.all([
+    load(at("app")), load(at("auth")), load(at("firestore")),
+  ]);
+  return { app, auth, firestore };
+}
+
+/**
+ * The narrow set of operations a room needs, over whichever SDK it is given.
+ *
+ * Everything Firebase-shaped lives in this one function. The browser hands it
+ * the modules from the CDN; `firebase/tests/room.test.mjs` hands it the same
+ * modules from node_modules pointed at the emulator. Both run the code below
+ * it unchanged, which is what makes the emulator test evidence about the
+ * browser rather than about a parallel implementation.
+ */
+function facadeFor(sdk, db, uid) {
+  const {
+    doc, collection, setDoc, updateDoc, getDoc, onSnapshot, serverTimestamp,
+    query, orderBy,
+  } = sdk;
+  return {
+    uid,
+    now: () => serverTimestamp(),
+    ref: (...path) => doc(db, ...path),
+    async write(path, data) { await setDoc(doc(db, ...path), data); },
+    // A merge, not a replace: the room's `createdBy` and `createdAt` may not
+    // move, and a set would carry whatever the caller happened to hold.
+    async update(path, data) { await updateDoc(doc(db, ...path), data); },
+    async read(path) {
+      const snap = await getDoc(doc(db, ...path));
+      return snap.exists() ? snap.data() : null;
+    },
+    watch(path, onRows) {
+      const q = query(collection(db, ...path), orderBy("handNumber"));
+      return onSnapshot(q, (snap) => onRows(snap.docs.map((d) => d.data())));
+    },
+  };
+}
+
+/**
+ * Sign in and open a handle on the project's Firestore.
+ *
+ * Anonymous sign-in, because a uid is the whole of what the rules use: they
+ * ask which account is writing, never who the person is. Asking a reader
+ * standing at a table to make an account before they can record a coup would
+ * buy nothing and cost the feature.
+ *
+ * `load` is injectable so this can be exercised without a network; the default
+ * fetches the SDK from Firebase's own CDN the first time somebody opens a room.
+ */
+async function connectFirebase({ load = loadFirebase, config = FIREBASE_CONFIG } = {}) {
+  if (!configured(config)) throw new Error("no Firebase project is configured");
+  const { app, auth, firestore } = await load();
+
+  // initializeApp twice is an error, and opening a second room in one session
+  // would do exactly that.
+  const existing = app.getApps?.() || [];
+  const fbApp = existing.length ? app.getApp() : app.initializeApp(config);
+
+  const fbAuth = auth.getAuth(fbApp);
+  const user = fbAuth.currentUser || (await auth.signInAnonymously(fbAuth)).user;
+  const db = firestore.getFirestore(fbApp);
+  return { facade: facadeFor(firestore, db, user.uid), uid: user.uid };
+}
+
+/* --------------------------------------------------------------- errors -- */
+
+/**
+ * A refused write is not always a security problem, and the difference matters.
+ *
+ * Hands are create-only for everybody but their author, so a second reader
+ * writing a coup that already exists is refused with exactly the same
+ * `permission-denied` the rules use to turn away a stranger. One is a
+ * duplicate and is ordinary; the other means somebody is somewhere they should
+ * not be. Telling the user "access denied" for the first would be wrong, and
+ * treating the second as a duplicate would be worse.
+ */
+function classifyWriteError(err, { existed = false } = {}) {
+  const code = String(err?.code || "");
+  if (code === "permission-denied" || code === "PERMISSION_DENIED") {
+    return existed ? "duplicate" : "denied";
+  }
+  if (code === "unavailable" || code === "deadline-exceeded") return "offline";
+  return "failed";
+}
+
+/* ------------------------------------------------------------- the room -- */
+
+class RoomSync {
+  /**
+   * @param {object} opts
+   * @param {function} opts.connect  builds `{facade, uid}`; injected so the
+   *                                 emulator test and the browser share a path
+   * @param {string}   opts.source   LIVE or FREE_GAME -- kept apart because a
+   *                                 corpus mixing them measures neither
+   */
+  constructor({ connect, source = "LIVE" } = {}) {
+    this._connect = connect;
+    this.source = source;
+    this.facade = null;
+    this.roomId = "";
+    this.ownedByMe = false;
+    this.shoeId = "";
+    this.status = "off";        // off | connecting | joined | error
+    this.onStatus = () => {};
+    this._stop = null;
+  }
+
+  _setStatus(s, detail = null) {
+    if (this.status === s) return;
+    this.status = s;
+    this.onStatus(s, detail);
+  }
+
+  /** Sign in and take the room. Never throws; the status carries the answer. */
+  async join(roomId, { name = "" } = {}) {
+    const id = cleanRoomId(roomId);
+    if (!id) { this._setStatus("error", "that is not a room id"); return false; }
+    if (!configured(FIREBASE_CONFIG)) {
+      this._setStatus("error", "no Firebase project is configured");
+      return false;
+    }
+    this._setStatus("connecting");
+    try {
+      const { facade } = await this._connect();
+      this.facade = facade;
+      this.roomId = id;
+
+      // The order here is forced, and getting it wrong locks every reader out
+      // of every room.
+      //
+      // A room is readable only by its members, so a reader who is not one yet
+      // cannot look to see whether the room already exists -- reading it is
+      // precisely what membership grants. So the room is *created* first: that
+      // rule asks only for a signed-in writer, because it is the one move
+      // somebody outside a room has to have. If the room is already there the
+      // write lands on an existing document, which the rules refuse, and that
+      // refusal is the answer to the question we were not allowed to ask.
+      let opened = false;
+      try {
+        await facade.write(["rooms", id], {
+          roomId: id,
+          name: String(name || id).slice(0, 96),
+          status: "OPEN",
+          createdBy: facade.uid,
+          createdAt: facade.now(),
+        });
+        opened = true;
+      } catch {
+        // Already open, or opened by somebody else a moment ago. Either way
+        // this reader is joining rather than starting it.
+      }
+
+      // Now the membership, which is what makes everything else readable. The
+      // document's id is what the rules check -- `isMember()` never looks at
+      // the field inside it -- so this is the write that actually lets us in.
+      //
+      // And it is allowed to fail. Coming back to a room you are already in --
+      // which is every page reload -- writes this document again with a fresh
+      // server timestamp, and the rules refuse an edit that moves `joinedAt`,
+      // because a join time somebody can rewrite is not a record of anything.
+      // Being refused for that reason means the membership is already there,
+      // which is the thing we wanted. So the write is attempted and the
+      // read-back below is what decides, rather than this.
+      try {
+        await facade.write(["rooms", id, "members", facade.uid], {
+          uid: facade.uid,
+          role: opened ? "owner" : "member",
+          joinedAt: facade.now(),
+        });
+      } catch {
+        /* already a member, or genuinely refused -- the read-back tells which */
+      }
+
+      // And confirm it took, by doing the thing membership is for. Without
+      // this, a reader whose membership was refused would go on believing it
+      // had joined until the first coup failed in front of them at a table.
+      const room = await facade.read(["rooms", id]);
+      if (!room) {
+        this._setStatus("error", "joined a room that cannot be read back");
+        return false;
+      }
+      this.ownedByMe = room.createdBy === facade.uid;
+      this.shoeId = String(room.currentShoeId || "");
+      this._setStatus("joined");
+      return true;
+    } catch (err) {
+      this._setStatus("error", String(err?.code || err?.message || err));
+      return false;
+    }
+  }
+
+  /**
+   * Point the room at the shoe everybody should be recording into.
+   *
+   * Two devices have different local ids for the same physical shoe, so the
+   * room needs one name for it that both can reach. The room document carries
+   * it; whoever starts a shoe sets it and the others follow. Without this each
+   * device would write its coups into a shoe of its own and the room would
+   * hold two half-records of one table.
+   */
+  async useShoe(shoeId, { deckCount = 8 } = {}) {
+    const f = this.facade;
+    if (!f || !this.roomId) return false;
+    await this.openShoe(shoeId, { deckCount });
+    try {
+      await f.update(["rooms", this.roomId], {
+        currentShoeId: shoeId, updatedAt: f.now(),
+      });
+    } catch {
+      // Losing this race is harmless: somebody else named the same shoe.
+    }
+    this.shoeId = shoeId;
+    return true;
+  }
+
+  /** Follow a shoe. `onShoe` gets `{outcomes, held, missing}` on every change. */
+  watchShoe(shoeId, onShoe) {
+    if (!this.facade || !this.roomId) return () => {};
+    this.close();
+    this._stop = this.facade.watch(
+      ["rooms", this.roomId, "shoes", shoeId, "hands"],
+      (rows) => onShoe(outcomesFromHands(rows)),
+    );
+    return () => this.close();
+  }
+
+  /** Open a shoe in the room, if it is not open already. */
+  async openShoe(shoeId, { deckCount = 8 } = {}) {
+    const f = this.facade;
+    if (!f || !this.roomId) return false;
+    const path = ["rooms", this.roomId, "shoes", shoeId];
+    if (await f.read(path)) return true;
+    await f.write(path, {
+      shoeId, roomId: this.roomId, deckCount, status: "OPEN",
+      createdBy: f.uid, createdAt: f.now(),
+    });
+    return true;
+  }
+
+  /**
+   * Record one coup.
+   *
+   * Returns "written", "duplicate", "denied", "offline" or "failed" rather
+   * than throwing, because every one of those is an ordinary thing that
+   * happens at a table and the caller has something different to do about
+   * each. A duplicate in particular is not an error: it is the other reader
+   * having got there first, which is the system working.
+   */
+  async recordCoup(shoeId, handNumber, code) {
+    const f = this.facade;
+    if (!f || !this.roomId) return "offline";
+    const result = OUTCOME_OF[String(code)];
+    if (!result) return "failed";
+    if (!Number.isInteger(handNumber) || handNumber < 1 || handNumber > MAX_HAND) {
+      return "failed";
+    }
+    const path = ["rooms", this.roomId, "shoes", shoeId, "hands", handId(handNumber)];
+    try {
+      await f.write(path, {
+        handId: handId(handNumber),
+        handNumber,
+        result,
+        source: this.source,
+        sequence: handNumber,
+        timestamp: f.now(),
+        createdBy: f.uid,
+      });
+      return "written";
+    } catch (err) {
+      // Ask the database what is actually there before calling it a duplicate.
+      // Guessing from the error code alone would report a real access problem
+      // as somebody else's coup, and the two need opposite responses.
+      let existed = false;
+      try { existed = !!(await f.read(path)); } catch { /* keep existed false */ }
+      return classifyWriteError(err, { existed });
+    }
+  }
+
+  close() {
+    if (this._stop) { try { this._stop(); } catch { /* already gone */ } }
+    this._stop = null;
+  }
+}
+
 /* ═══ live.js ═══ */
 /* Watch the table's screen live.
  *
@@ -8402,6 +8931,147 @@ function openShoe(name = state.active) {
   return !last || last.closed ? { id: null, o: "", closed: false, t: 0 } : last;
 }
 
+/* ------------------------------------------------------------ the room --
+ *
+ * Several people at one table, recording into one record. Everything about how
+ * a room is shaped lives in `room.js`; this is the join, what to do with coups
+ * that arrive, and what to say about it in the header.
+ *
+ * The rule the whole block is written around: **the reader in front of the
+ * table is never interrupted.** A room that is unreachable, refused, or simply
+ * not asked for leaves the page exactly as it was before any of this existed
+ * -- which is how it has to be, because the page works at a table with no
+ * network and that must keep being true.
+ */
+
+let room = null;
+/** The shoe the room is on, and which shoe here corresponds to it. */
+let roomShoe = "";
+let roomLocalShoe = "";
+const roomSeen = { held: 0, missing: 0, conflicts: [] };
+
+/** A local shoe id in the form a Firestore document id can take. */
+function roomShoeIdFor(localId) {
+  const clean = String(localId || "").replace(/[^A-Za-z0-9_-]/g, "").slice(0, 32);
+  return clean ? `s-${clean}` : "";
+}
+
+function renderRoom() {
+  const box = $("roomBox");
+  if (!box) return;
+  box.hidden = !room;
+  if (!room) return;
+  const status = room.status;
+  $("roomDot").className = "sdot " + (status === "joined" ? "synced"
+    : status === "error" ? "error" : "syncing");
+  $("roomLabel").textContent = status === "joined"
+    ? t("room.joined", { id: room.roomId })
+    : t("room." + status);
+}
+
+/**
+ * Put the room and this device on the same shoe, and follow it.
+ *
+ * Two devices have different local ids for one physical shoe, so the room
+ * names it and arrivals follow. Getting this wrong does not look like a
+ * failure: each device writes into a shoe of its own and each sees a record
+ * that appears complete, while the room holds two halves of one table.
+ */
+async function useRoomShoe(id, localId) {
+  if (!room || !id || id === roomShoe) return;
+  roomShoe = id;
+  roomLocalShoe = localId || "";
+  await room.useShoe(id);
+  room.watchShoe(id, adoptFromRoom);
+}
+
+/**
+ * Take what the room holds and fold it into the shoe on screen.
+ *
+ * `mergeOutcomes` reports disagreements rather than settling them, because no
+ * rule about which copy wins can tell you which reader misread the board. The
+ * room's copy is adopted for the coups it has -- it is what everybody else is
+ * already looking at -- and anything this device holds beyond its end is kept,
+ * because that is simply not written yet rather than contradicted.
+ */
+function adoptFromRoom(seen) {
+  roomSeen.held = seen.held;
+  roomSeen.missing = seen.missing;
+  if (state.isExample) { renderRoom(); return; }
+  // A device arriving at a table already in progress has no shoe open, and
+  // that is exactly when the room's coups matter most -- so a shoe is started
+  // to receive them. Only when there is something to receive: an empty room
+  // must not leave an empty shoe behind on every join.
+  if (!seen.outcomes && !openShoe().id) { renderRoom(); return; }
+  const shoe = currentShoe();
+  const { outcomes, conflicts } = mergeOutcomes(shoe.o, seen.outcomes);
+  roomSeen.conflicts = conflicts;
+  roomLocalShoe = shoe.id;
+  if (outcomes === shoe.o) { renderRoom(); return; }
+  shoe.o = outcomes;
+  clampMarks();
+  invalidate();
+  store.save(state, [shoe.id]);
+  settleLog();
+  render();
+  renderRoom();
+  if (conflicts.length) {
+    const c = conflicts[0];
+    flashNote(t("room.conflict", { n: c.handNumber, mine: c.mine, theirs: c.theirs }));
+  } else if (seen.held) {
+    flashNote(t("room.held", { n: seen.held, miss: seen.missing }));
+  }
+}
+
+/** Send coups this device recorded to the room. Never blocks the page. */
+async function pushToRoom(shoe) {
+  if (!room || room.status !== "joined" || !shoe?.id || state.isExample) return;
+  // A shoe started here after the room was already on another one takes the
+  // room with it -- a new shoe at the table is a new shoe for everybody.
+  if (!roomShoe || (roomLocalShoe && shoe.id !== roomLocalShoe)) {
+    await useRoomShoe(roomShoeIdFor(shoe.id), shoe.id);
+  }
+  if (!roomShoe) return;
+  for (let i = 0; i < shoe.o.length && i < 200; i += 1) {
+    // A coup the room already holds comes back "duplicate", which is the other
+    // reader having got there first and is not a failure. Anything else stops
+    // the run: pushing coup 8 while coup 7 was refused would put a gap in the
+    // record that nobody asked for.
+    const answer = await room.recordCoup(roomShoe, i + 1, shoe.o[i]);
+    if (answer !== "written" && answer !== "duplicate") break;
+  }
+}
+
+/**
+ * Join the room named in the address, if one is.
+ *
+ * No room in the URL means no Firebase: nothing is loaded, nothing is signed
+ * in, and the page is the page it has always been. `window.__roomConnect` is
+ * the seam the browser checks use to stand in for the real service -- named so
+ * it reads as what it is rather than as something to rely on.
+ */
+async function joinRoomFromUrl() {
+  const id = roomIdFromUrl(typeof location === "undefined" ? "" : location.search);
+  if (!id) return;
+  const connect = (typeof window !== "undefined" && window.__roomConnect)
+    || (() => connectFirebase());
+  room = new RoomSync({ connect });
+  room.onStatus = () => renderRoom();
+  renderRoom();
+  if (!await room.join(id)) { renderRoom(); return; }
+
+  // Follow the shoe the room is on. Only propose one of our own when the room
+  // has none, so two devices joining at once do not split the table.
+  if (room.shoeId) {
+    await useRoomShoe(room.shoeId, "");
+  } else {
+    const local = openShoe();
+    if (local.id) await useRoomShoe(roomShoeIdFor(local.id), local.id);
+  }
+  renderRoom();
+  await pushToRoom(openShoe());
+}
+
 function commit(changedIds, writtenTable = state.active) {
   clampMarks();
   lastWrite = writtenTable;
@@ -8411,6 +9081,15 @@ function commit(changedIds, writtenTable = state.active) {
   // log that already knows about the coup just committed.
   settleLog();
   settleShared(writtenTable);
+  // Fire and forget: a room that is slow, refused or gone must not hold up the
+  // render in front of somebody waiting to enter the next coup.
+  //
+  // `openShoe`, never `currentShoe`: the latter *creates* a shoe when none is
+  // open, and calling it from here resurrected a table that had just been
+  // deleted -- a commit is the last thing that runs on the way out, and it
+  // must not bring anything back. Nothing is computed at all without a room,
+  // so a page that never joined one follows exactly the path it always did.
+  if (room) pushToRoom(openShoe(writtenTable)).catch(() => {});
   render();
 }
 
@@ -11780,6 +12459,10 @@ async function boot() {
     invalidate();
     render();
   }
+
+  // Last, and only if the address asks for it. Everything above is the page as
+  // it has always been, and a room that never loads leaves it that way.
+  joinRoomFromUrl().catch(() => {});
 }
 
 boot();
