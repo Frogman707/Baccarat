@@ -7159,11 +7159,42 @@ function syncState({ joined, online, queued, sending }) {
  */
 class CoupQueue {
   constructor({ read = () => [], write = () => {}, limit = QUEUE_LIMIT } = {}) {
+    this._read = read;
     this._write = write;
     this.limit = limit;
     this.full = false;
     const stored = read();
     this.items = Array.isArray(stored) ? stored.filter(isCoupEntry) : [];
+  }
+
+  /**
+   * Take whatever is in storage now, before changing anything.
+   *
+   * Every change here is a read-modify-write for one reason: two tabs share
+   * one storage key, each holds its own copy of the whole list, and each
+   * writes all of it -- so without this, whichever tab saves last erases the
+   * other's coups. That is not a hypothetical. `store.js` grew
+   * `watchOtherTabs` because the corpus had exactly this bug, and two tabs is
+   * a thing this project tells people to do: two tables in front of you is the
+   * reason to open one. Two tables also means two shoes, so the queues are
+   * disjoint and neither list is a superset that hides the loss.
+   *
+   * Storage first, then ours: storage holds what the other tab queued, ours
+   * may hold what this tab queued a moment ago, and a coup is kept once.
+   */
+  _adopt() {
+    let stored;
+    try { stored = this._read(); } catch { return; }
+    if (!Array.isArray(stored)) return;
+    const seen = new Set();
+    const merged = [];
+    for (const e of [...stored.filter(isCoupEntry), ...this.items]) {
+      const key = `${e.shoe}\u0000${e.n}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      merged.push(e);
+    }
+    this.items = merged;
   }
 
   get length() { return this.items.length; }
@@ -7181,6 +7212,7 @@ class CoupQueue {
     if (!Number.isInteger(handNumber) || handNumber < 1 || handNumber > MAX_HAND) {
       return false;
     }
+    this._adopt();
     if (this.items.some((e) => e.shoe === shoe && e.n === handNumber)) return false;
     if (this.items.length >= this.limit) { this.full = true; return false; }
     this.items.push({ shoe, n: handNumber, code });
@@ -7193,6 +7225,7 @@ class CoupQueue {
 
   /** Forget a shoe's coups -- it was undone, or its table was deleted. */
   forget(shoe) {
+    this._adopt();
     const before = this.items.length;
     this.items = this.items.filter((e) => e.shoe !== shoe);
     if (this.items.length !== before) this.save();
@@ -7224,10 +7257,16 @@ class CoupQueue {
         why = answer;
         break;
       }
-      this.items.shift();
+      // Remove the one that went, and only that one. Shifting a stale copy of
+      // the list and saving it would take another tab's additions with it --
+      // the same lost update `_adopt` exists to prevent, arriving by the back
+      // door after a successful send.
+      this._adopt();
+      this.items = this.items.filter((x) => !(x.shoe === e.shoe && x.n === e.n));
+      this.save();
       sent += 1;
     }
-    if (sent) { this.full = false; this.save(); }
+    if (sent) { this.full = false; }
     return { sent, conflicts, left: this.items.length, why };
   }
 }
@@ -7356,13 +7395,18 @@ class RoomSync {
   async useShoe(shoeId, { deckCount = 8 } = {}) {
     const f = this.facade;
     if (!f || !this.roomId) return false;
-    await this.openShoe(shoeId, { deckCount });
     try {
+      await this.openShoe(shoeId, { deckCount });
       await f.update(["rooms", this.roomId], {
         currentShoeId: shoeId, updatedAt: f.now(),
       });
     } catch {
-      // Losing this race is harmless: somebody else named the same shoe.
+      // Naming a shoe is best effort, and has to be: it is two writes, and a
+      // write fails when the connection is down. Letting that throw took the
+      // caller's coups with it -- they were never queued, because the failure
+      // happened first -- and being down is exactly when the queue is the only
+      // thing keeping them. Losing the race to somebody else naming the same
+      // shoe lands here too, and is harmless.
     }
     this.shoeId = shoeId;
     return true;
@@ -9286,7 +9330,6 @@ let room = null;
 /** The shoe the room is on, and which shoe here corresponds to it. */
 let roomShoe = "";
 let roomLocalShoe = "";
-const roomSeen = { held: 0, missing: 0, conflicts: [] };
 
 /** Coups owed to the room, across reloads. */
 const ROOM_QUEUE_KEY = "baccarat.room.queue.v1";
@@ -9395,7 +9438,7 @@ async function useRoomShoe(id, localId) {
   roomShoe = id;
   roomLocalShoe = localId || "";
   roomHave = "";
-  await room.useShoe(id);
+  await room.useShoe(id);          // best effort; never throws
   room.watchShoe(id, adoptFromRoom);
 }
 
@@ -9409,8 +9452,6 @@ async function useRoomShoe(id, localId) {
  * because that is simply not written yet rather than contradicted.
  */
 function adoptFromRoom(seen) {
-  roomSeen.held = seen.held;
-  roomSeen.missing = seen.missing;
   roomHave = seen.outcomes;
   if (state.isExample) { renderRoom(); return; }
   // A device arriving at a table already in progress has no shoe open, and
@@ -9420,7 +9461,6 @@ function adoptFromRoom(seen) {
   if (!seen.outcomes && !openShoe().id) { renderRoom(); return; }
   const shoe = currentShoe();
   const { outcomes, conflicts } = mergeOutcomes(shoe.o, seen.outcomes);
-  roomSeen.conflicts = conflicts;
   roomLocalShoe = shoe.id;
   // Write the disagreement down where the room can see it. Here rather than in
   // the queue, because this is the one place that holds both readings -- the
@@ -9454,21 +9494,30 @@ async function pushToRoom(shoe) {
   if (!room || room.status !== "joined" || !shoe?.id || state.isExample) return;
   // A shoe started here after the room was already on another one takes the
   // room with it -- a new shoe at the table is a new shoe for everybody.
-  if (!roomShoe || (roomLocalShoe && shoe.id !== roomLocalShoe)) {
-    await useRoomShoe(roomShoeIdFor(shoe.id), shoe.id);
-  }
-  if (!roomShoe) return;
-  const wasFull = roomQueue.full;
+  const id = roomShoeIdFor(shoe.id);
+  if (!id) return;
+  // A different shoe than the room was last told about: what this device
+  // believes the room holds was about the other one.
+  if (roomLocalShoe !== shoe.id) roomHave = "";
+
+  // Queue first, and always. Telling the room which shoe this is comes after,
+  // because that is a pair of writes and writes fail -- and a coup that never
+  // got queued because an announcement failed is a coup lost for exactly the
+  // reason the queue exists.
+  //
   // Only what the room has not got. Re-offering coups it already holds would
   // be harmless -- they come back as duplicates -- but it would fill the queue
   // with work that is already done, and on a connection that is down it would
   // put a whole shoe in front of the coup that was just dealt. Anything that
   // failed is still in the queue and stays there; `add` will not take a coup
   // twice.
+  const wasFull = roomQueue.full;
   for (let i = roomHave.length; i < shoe.o.length && i < 200; i += 1) {
-    roomQueue.add(roomShoe, i + 1, shoe.o[i]);
+    roomQueue.add(id, i + 1, shoe.o[i]);
   }
   if (roomQueue.full && !wasFull) flashNote(t("room.full"));
+
+  if (!roomShoe || roomLocalShoe !== shoe.id) await useRoomShoe(id, shoe.id);
   await drainRoom();
 }
 
