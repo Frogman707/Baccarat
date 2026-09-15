@@ -615,6 +615,7 @@ footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
     </span>
     <span class="store"><i class="sdot" id="storeDot"></i><span id="storeLabel"></span></span>
     <span class="store" id="roomBox" hidden><i class="sdot" id="roomDot"></i><span id="roomLabel"></span></span>
+    <button class="btn ghost tiny" id="roomInvite" data-i18n="room.invite" hidden></button>
   </div>
 </header>
 
@@ -723,6 +724,10 @@ footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
     <div id="aiBars"></div>
     <p class="ainote" id="aiEstimate"></p>
     <div id="aiRecord" class="verdict flag" hidden></div>
+    <!-- Disagreements the room holds, including ones this device was not part
+         of. A reader who joined afterwards adopted the room's copy and saw
+         nothing wrong, which makes them the one most likely to act on it. -->
+    <div id="roomConflicts" class="verdict flag" hidden></div>
     <div class="airec">
       <span class="k" data-i18n="ai.recommend"></span>
       <span class="v" id="aiSide"></span>
@@ -1074,6 +1079,31 @@ const S = {
     "zh-Hant": "無法連線至伺服器（{why}）。",
     "zh-Hans": "无法连接服务器（{why}）。",
   },
+  "room.conflicts": {
+    ko: "이 방에서 결과가 엇갈린 판이 {n}개 있습니다",
+    en: "[n|One coup|{n} coups] in this room [n|has|have] two different results",
+    "zh-Hant": "此房間有 {n} 局出現不同結果",
+    "zh-Hans": "此房间有 {n} 局出现不同结果",
+  },
+  "room.conflictRow": {
+    ko: "{n}번째 판 · {mine} / {theirs}",
+    en: "Coup {n} · {mine} / {theirs}",
+    "zh-Hant": "第 {n} 局 · {mine} / {theirs}",
+    "zh-Hans": "第 {n} 局 · {mine} / {theirs}",
+  },
+  "room.conflictHow": {
+    ko: "무엇이 맞는지는 판을 본 사람만 압니다. 잘못 넣은 사람이 자기 결과를 고쳐주세요.",
+    en: "Only somebody who saw the board knows which is right. Whoever entered the wrong one corrects their own coup.",
+    "zh-Hant": "只有看過牌桌的人才知道哪個正確。輸錯的人請自行修正。",
+    "zh-Hans": "只有看过牌桌的人才知道哪个正确。输错的人请自行修正。",
+  },
+  "room.invite": {
+    ko: "이 방 주소 복사",
+    en: "Copy the room link",
+    "zh-Hant": "複製房間連結",
+    "zh-Hans": "复制房间链接",
+  },
+  "room.invited": { ko: "복사했습니다", en: "Copied", "zh-Hant": "已複製", "zh-Hans": "已复制" },
   "room.off": { ko: "방 없음", en: "No room", "zh-Hant": "未加入房間", "zh-Hans": "未加入房间" },
   "room.connecting": { ko: "방 연결 중…", en: "Joining the room…", "zh-Hant": "加入房間中…", "zh-Hans": "加入房间中…" },
   "room.joined": { ko: "방 {id}", en: "Room {id}", "zh-Hant": "房間 {id}", "zh-Hans": "房间 {id}" },
@@ -6788,24 +6818,6 @@ async function askPrediction(base, outcomes, options = {}) {
   return send(base, "/api/v1/predict", body, fetchImpl, signal);
 }
 
-/**
- * What the server says about itself: the model, and what it achieved.
- *
- * Asked separately from a prediction because it changes on a deploy rather
- * than on a coup, and because a reader should be able to see it without
- * asking for a recommendation first.
- */
-async function fetchModel(base, options = {}) {
-  const {
-    fetchImpl = typeof fetch === "function" ? fetch.bind(globalThis) : null,
-    signal = null,
-  } = options;
-
-  if (!base) throw new ShareError("address", "no address");
-  if (!fetchImpl) throw new ShareError("network", "this browser cannot ask");
-  return get(base, "/api/v1/model/version", fetchImpl, signal);
-}
-
 /* ═══ firebase-config.js ═══ */
 /* The Firebase project this build talks to.
  *
@@ -6899,11 +6911,6 @@ const MAX_HAND = 200;
  */
 function handId(n) {
   return String(n).padStart(4, "0");
-}
-
-/** The coup number a document id refers to, or 0 if it is not one of ours. */
-function handNumberFrom(id) {
-  return /^\d{4}$/.test(String(id)) ? Number(id) : 0;
 }
 
 /**
@@ -7249,7 +7256,8 @@ class RoomSync {
     this.shoeId = "";
     this.status = "off";        // off | connecting | joined | error
     this.onStatus = () => {};
-    this._stop = null;
+    this._shoeStop = null;
+    this._conflictStop = null;
   }
 
   _setStatus(s, detail = null) {
@@ -7363,12 +7371,44 @@ class RoomSync {
   /** Follow a shoe. `onShoe` gets `{outcomes, held, missing}` on every change. */
   watchShoe(shoeId, onShoe) {
     if (!this.facade || !this.roomId) return () => {};
-    this.close();
-    this._stop = this.facade.watch(
+    this._stopShoe();
+    this._shoeStop = this.facade.watch(
       ["rooms", this.roomId, "shoes", shoeId, "hands"],
       (rows) => onShoe(outcomesFromHands(rows)),
     );
-    return () => this.close();
+    return () => this._stopShoe();
+  }
+
+  /**
+   * Follow the room's disagreements.
+   *
+   * Without this the `conflicts` collection is write-only, and that is not a
+   * tidiness problem: a disagreement is only ever *detected* by the device
+   * that holds a different result, so this collection is the only way anybody
+   * else learns about it. A reader who joined afterwards adopts the room's
+   * copy, sees no disagreement, and has no reason to suspect one -- which is
+   * exactly the reader most likely to act on it.
+   */
+  watchConflicts(onRows) {
+    if (!this.facade || !this.roomId) return () => {};
+    this._stopConflicts();
+    this._conflictStop = this.facade.watch(
+      ["rooms", this.roomId, "conflicts"],
+      (rows) => onRows((rows || []).filter((r) => !r.resolved)),
+    );
+    return () => this._stopConflicts();
+  }
+
+  _stopShoe() {
+    if (this._shoeStop) { try { this._shoeStop(); } catch { /* already gone */ } }
+    this._shoeStop = null;
+  }
+
+  _stopConflicts() {
+    if (this._conflictStop) {
+      try { this._conflictStop(); } catch { /* already gone */ }
+    }
+    this._conflictStop = null;
   }
 
   /** Open a shoe in the room, if it is not open already. */
@@ -7466,8 +7506,8 @@ class RoomSync {
   }
 
   close() {
-    if (this._stop) { try { this._stop(); } catch { /* already gone */ } }
-    this._stop = null;
+    this._stopShoe();
+    this._stopConflicts();
   }
 }
 
@@ -9061,6 +9101,7 @@ function newId(taken) {
 
 
 
+
 // Named, and spelled out: the page is served as one concatenated scope, where
 // a namespace import has nothing to be a namespace of.
 
@@ -9292,11 +9333,39 @@ function roomShoeIdFor(localId) {
   return clean ? `s-${clean}` : "";
 }
 
+/** Disagreements the room holds, this device's own and everybody else's. */
+let roomConflictRows = [];
+
+function renderRoomConflicts() {
+  const box = $("roomConflicts");
+  if (!box) return;
+  box.hidden = !room || !roomConflictRows.length;
+  box.innerHTML = "";
+  if (box.hidden) return;
+
+  const head = el("p", "aiverdict");
+  head.textContent = t("room.conflicts", { n: roomConflictRows.length });
+  box.appendChild(head);
+  // Shown, never settled. Which reading is right is not a question the record
+  // can answer, and a room that quietly picked one would be deciding it by
+  // whoever happened to write second.
+  for (const row of roomConflictRows.slice(0, 8)) {
+    const line = el("p", "ainote");
+    line.textContent = t("room.conflictRow", {
+      n: row.handNumber, mine: row.mine, theirs: row.theirs });
+    box.appendChild(line);
+  }
+  const how = el("p", "ainote");
+  how.textContent = t("room.conflictHow");
+  box.appendChild(how);
+}
+
 function renderRoom() {
   const box = $("roomBox");
   if (!box) return;
   box.hidden = !room;
   if (!room) return;
+  if ($("roomInvite")) $("roomInvite").hidden = room.status !== "joined";
   if (room.status !== "joined") {
     $("roomDot").className = "sdot " + (room.status === "error" ? "error" : "syncing");
     $("roomLabel").textContent = t("room." + room.status);
@@ -9466,6 +9535,15 @@ async function joinRoomFromUrl() {
 
   // Follow the shoe the room is on. Only propose one of our own when the room
   // has none, so two devices joining at once do not split the table.
+  // Everybody's disagreements, not only the ones this device noticed. A
+  // conflict is detected only by the device holding the other result, so
+  // without this the reader who joined afterwards -- who adopted the room's
+  // copy and saw nothing wrong -- never learns of it.
+  room.watchConflicts((rows) => {
+    roomConflictRows = rows;
+    renderRoomConflicts();
+  });
+
   if (room.shoeId) {
     await useRoomShoe(room.shoeId, "");
   } else {
@@ -11172,6 +11250,7 @@ function render() {
   // Whether the panel is there at all follows the address, so it has to be
   // drawn with the page rather than only when somebody asks.
   renderServerAI();
+  renderRoomConflicts();
   // Whether anything is being recorded depends on the table -- the example
   // corpus records nothing -- so the line that says so is redrawn with it.
   renderCallsNote();
@@ -12797,6 +12876,23 @@ function bindControls() {
   // round trip in front of somebody entering results at a live table, and the
   // page's own recommendation is already there without one.
   $("srvAsk").onclick = () => { askServerAI().catch(() => {}); };
+
+  // A room id is a capability, so handing somebody the address is how a second
+  // reader at the same table gets in. Without this they have to be told to
+  // edit a URL by hand, which is how a room id becomes a typo and a second
+  // room nobody else is in.
+  $("roomInvite").onclick = async () => {
+    if (!room || !room.roomId) return;
+    const link = roomUrl(location.href, room.roomId);
+    try {
+      await navigator.clipboard.writeText(link);
+      flashNote(t("room.invited"));
+    } catch {
+      // No clipboard permission, or an insecure context. Showing the address
+      // beats failing silently: it can still be copied by hand.
+      flashNote(link);
+    }
+  };
 
   // Emptying a table is not deleting it. A table that went wrong -- a shoe read
   // off the wrong board, a session that turned out to be free play -- wants its
