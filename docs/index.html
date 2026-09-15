@@ -728,6 +728,16 @@ footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
       <span class="v" id="aiSide"></span>
       <span class="betbadge" id="aiBetBadge"></span>
     </div>
+    <!-- A second opinion, above this device's own and never in place of it.
+         Everything below the divider is computed in this browser and keeps
+         working with no network, which is how the page is used at a table. -->
+    <div class="srvbox" id="srvBox" hidden>
+      <div class="obshead">
+        <span class="blabel" data-i18n="srv.title"></span>
+        <button class="btn ghost tiny" id="srvAsk" data-i18n="srv.ask"></button>
+      </div>
+      <div id="srvBody"></div>
+    </div>
     <p class="aiverdict" id="aiHold" hidden></p>
     <div class="aigrid" id="aiFacts"></div>
     <div class="obshead">
@@ -1027,6 +1037,43 @@ const S = {
   "store.synced": { ko: "저장됨", en: "Saved", "zh-Hant": "已儲存", "zh-Hans": "已保存" },
   "store.error": { ko: "저장 실패", en: "Save failed", "zh-Hant": "儲存失敗", "zh-Hans": "保存失败" },
   "store.full": { ko: "저장 공간 가득 참", en: "Storage full", "zh-Hant": "儲存空間已滿", "zh-Hans": "存储空间已满" },
+  "srv.title": { ko: "서버 AI", en: "Server AI", "zh-Hant": "伺服器 AI", "zh-Hans": "服务器 AI" },
+  "srv.ask": { ko: "물어보기", en: "Ask", "zh-Hant": "詢問", "zh-Hans": "询问" },
+  "srv.asking": { ko: "묻는 중…", en: "Asking…", "zh-Hant": "詢問中…", "zh-Hans": "询问中…" },
+  "srv.needAddress": {
+    ko: "공유 기록 주소를 먼저 넣어주세요.",
+    en: "Set the shared-record address first.",
+    "zh-Hant": "請先設定共用紀錄位址。",
+    "zh-Hans": "请先设定共享记录地址。",
+  },
+  "srv.model": { ko: "모델", en: "Model", "zh-Hant": "模型", "zh-Hans": "模型" },
+  "srv.kind.analytic": { ko: "이론 계산", en: "analytic", "zh-Hant": "理論計算", "zh-Hans": "理论计算" },
+  "srv.kind.fitted": { ko: "학습됨", en: "fitted", "zh-Hant": "已訓練", "zh-Hans": "已训练" },
+  "srv.kind.unfitted": { ko: "학습 안 됨", en: "not trained", "zh-Hant": "未訓練", "zh-Hans": "未训练" },
+  "srv.beside": {
+    ko: "아래 이 기기의 판단은 이 답과 별개이고, 그대로입니다.",
+    en: "This device's own judgement below is separate from this, and unchanged.",
+    "zh-Hant": "下方本機的判斷與此獨立，維持不變。",
+    "zh-Hans": "下方本机的判断与此独立，保持不变。",
+  },
+  "srv.flat": {
+    ko: "이 모델은 당신의 테이블을 읽고 있지 않습니다 — 어느 슈에나 같은 숫자를 냅니다. 이것이 이 프로젝트가 측정한 최선의 답이며, 고장이 아닙니다.",
+    en: "This model is not reading your table — it returns the same number for every shoe. That is the project's measured best answer, not a fault.",
+    "zh-Hant": "此模型並未讀取您的牌桌 — 對任何一靴都給出相同數字。這是本專案量測到的最佳答案，並非故障。",
+    "zh-Hans": "此模型并未读取您的牌桌 — 对任何一靴都给出相同数字。这是本项目测量到的最佳答案，并非故障。",
+  },
+  "srv.substituted": {
+    ko: "설정된 모델은 카드 정보가 필요해서 다른 모델이 대신 답했습니다.",
+    en: "The configured model needs card-level input, so another one answered instead.",
+    "zh-Hant": "設定的模型需要牌面資料，因此由另一個模型作答。",
+    "zh-Hans": "设定的模型需要牌面数据，因此由另一个模型作答。",
+  },
+  "srv.failed": {
+    ko: "서버에 닿지 못했습니다 ({why}).",
+    en: "Could not reach the server ({why}).",
+    "zh-Hant": "無法連線至伺服器（{why}）。",
+    "zh-Hans": "无法连接服务器（{why}）。",
+  },
   "room.off": { ko: "방 없음", en: "No room", "zh-Hant": "未加入房間", "zh-Hans": "未加入房间" },
   "room.connecting": { ko: "방 연결 중…", en: "Joining the room…", "zh-Hant": "加入房間中…", "zh-Hans": "加入房间中…" },
   "room.joined": { ko: "방 {id}", en: "Room {id}", "zh-Hant": "房間 {id}", "zh-Hans": "房间 {id}" },
@@ -6695,6 +6742,70 @@ async function pushCorpus(base, tables, options = {}) {
   return report;
 }
 
+/**
+ * Ask the server what it says about the coup that has not been dealt.
+ *
+ * Nothing is stored by this call, on either side. It is a second opinion
+ * standing beside the one this browser already computed, never a replacement
+ * for it -- the page has to keep working at a table with no network, which it
+ * did for its whole life before any server existed.
+ *
+ * The answer carries more than numbers. `/api/v1/predict` reports which model
+ * actually answered, whether it is analytic, fitted or unfitted, and -- when
+ * it has been measured not to -- that it is not reading your table at all.
+ * Those fields are the point of showing anything: a probability displayed
+ * without them would be the page claiming an analysis the server explicitly
+ * says it did not perform.
+ */
+async function askPrediction(base, outcomes, options = {}) {
+  const {
+    fetchImpl = typeof fetch === "function" ? fetch.bind(globalThis) : null,
+    table = null,
+    signal = null,
+  } = options;
+
+  if (!base) throw new ShareError("address", "no address");
+  if (!fetchImpl) throw new ShareError("network", "this browser cannot ask");
+
+  // Not sanitised on the way out, deliberately. The server refuses a coup it
+  // cannot read rather than dropping it, because dropping one renumbers every
+  // coup after it -- and a client that quietly dropped it first would defeat
+  // that from this side, arriving with a shorter shoe the server has no way to
+  // know was ever wrong.
+  const seen = String(outcomes || "");
+  const bad = [...new Set(seen)].filter((c) => !"PBT".includes(c));
+  if (bad.length) {
+    throw new ShareError("shape", `a coup is P, B or T; found ${bad.join("")}`);
+  }
+  // The same reasoning about length. Sending the last 200 would make
+  // `next_hand_number` describe a different coup than the reader is watching.
+  if (seen.length > 200) {
+    throw new ShareError("shape", `${seen.length} coups is longer than a shoe`);
+  }
+
+  const body = { outcomes: seen };
+  if (table) body.table = String(table).slice(0, 96);
+  return send(base, "/api/v1/predict", body, fetchImpl, signal);
+}
+
+/**
+ * What the server says about itself: the model, and what it achieved.
+ *
+ * Asked separately from a prediction because it changes on a deploy rather
+ * than on a coup, and because a reader should be able to see it without
+ * asking for a recommendation first.
+ */
+async function fetchModel(base, options = {}) {
+  const {
+    fetchImpl = typeof fetch === "function" ? fetch.bind(globalThis) : null,
+    signal = null,
+  } = options;
+
+  if (!base) throw new ShareError("address", "no address");
+  if (!fetchImpl) throw new ShareError("network", "this browser cannot ask");
+  return get(base, "/api/v1/model/version", fetchImpl, signal);
+}
+
 /* ═══ firebase-config.js ═══ */
 /* The Firebase project this build talks to.
  *
@@ -9367,6 +9478,92 @@ async function joinRoomFromUrl() {
   await drainRoom();
 }
 
+/* ---------------------------------------------------------- the server AI --
+ *
+ * A second opinion, shown above this device's own and never in place of it.
+ *
+ * The rule, from `docs/CURRENT_ARCHITECTURE.md` §9 and worth repeating where
+ * the code is: the recommendation below this panel is computed in the browser
+ * and must keep working when the API is unreachable, because that is how the
+ * page is used at a table. Nothing here may touch it.
+ *
+ * And what the server sends back is more than numbers. `/api/v1/predict`
+ * reports which model actually answered, whether it is analytic, fitted or
+ * unfitted, and -- where it has been measured not to -- that it is not reading
+ * your table at all. Showing a probability without those would be this page
+ * claiming an analysis the server explicitly says it did not perform, which is
+ * the one thing the whole surface was built to avoid.
+ */
+
+let srvAsking = false;
+/** The last answer, and the last failure, so a re-render does not lose them. */
+let srvAnswer = null;
+let srvError = null;
+
+function renderServerAI(answer = srvAnswer, error = srvError) {
+  const box = $("srvBox");
+  const body = $("srvBody");
+  if (!box || !body) return;
+  box.hidden = !readServer();
+  body.innerHTML = "";
+
+  const line = (text, cls) => {
+    const el2 = el("p", cls || "ainote");
+    el2.textContent = text;
+    body.appendChild(el2);
+    return el2;
+  };
+
+  if (srvAsking) { line(t("srv.asking")); return; }
+  if (error) {
+    // The failure is said plainly, and then the reader is told the thing that
+    // actually matters: nothing below it changed.
+    line(t("srv.failed", { why: error }), "aiverdict");
+    line(t("srv.beside"));
+    return;
+  }
+  if (!answer) return;
+
+  const rec = answer.recommendation || {};
+  const kind = t("srv.kind." + (answer.model_kind || "analytic"));
+  line(`${t("srv.model")}: ${answer.model_version || "?"} (${kind})`);
+  // A probability the server did not send renders as a dash, never as NaN%.
+  // The shared `pct` multiplies whatever it is given, and a panel whose job is
+  // honest display must not be the place that prints arithmetic on undefined.
+  const share = (v) => (typeof v === "number" && Number.isFinite(v) ? pct(v) : "—");
+  line(`${t("side.B")} ${share(rec.banker_probability)} · `
+     + `${t("side.P")} ${share(rec.player_probability)} · `
+     + `${t("side.T")} ${share(rec.tie_probability)}`);
+
+  // The server's own warnings, rendered because they are true, not because
+  // there was room. A panel that dropped these would be the overclaim.
+  if (answer.does_not_depend_on_your_coups) line(t("srv.flat"), "aiverdict");
+  if (answer.substituted_model) line(t("srv.substituted"), "aiverdict");
+  if (answer.not_a_prediction) line(String(answer.not_a_prediction), "aiverdict");
+  line(t("srv.beside"));
+}
+
+/** Ask, once, on request. Never on a timer and never during entry. */
+async function askServerAI() {
+  const base = readServer();
+  if (!base) { srvAnswer = null; srvError = t("srv.needAddress"); renderServerAI(); return; }
+  if (srvAsking) return;
+  const shoe = openShoe();
+  srvAsking = true;
+  renderServerAI();
+  try {
+    srvAnswer = await askPrediction(base, shoe.o || "",
+                                    { table: state.active || null });
+    srvError = null;
+  } catch (e) {
+    srvAnswer = null;
+    srvError = String((e && e.kind) || (e && e.message) || e);
+  } finally {
+    srvAsking = false;
+    renderServerAI();
+  }
+}
+
 function commit(changedIds, writtenTable = state.active) {
   clampMarks();
   lastWrite = writtenTable;
@@ -10972,6 +11169,9 @@ function render() {
   renderMilestones();
   renderIntegrityAvailability();
   renderPooledStanding();
+  // Whether the panel is there at all follows the address, so it has to be
+  // drawn with the page rather than only when somebody asks.
+  renderServerAI();
   // Whether anything is being recorded depends on the table -- the example
   // corpus records nothing -- so the line that says so is redrawn with it.
   renderCallsNote();
@@ -12593,6 +12793,10 @@ function bindControls() {
   };
 
   bindShare();
+  // On request only. A prediction fetched on every coup would put a network
+  // round trip in front of somebody entering results at a live table, and the
+  // page's own recommendation is already there without one.
+  $("srvAsk").onclick = () => { askServerAI().catch(() => {}); };
 
   // Emptying a table is not deleting it. A table that went wrong -- a shoe read
   // off the wrong board, a session that turned out to be free play -- wants its
