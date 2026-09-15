@@ -9374,6 +9374,8 @@ let roomLastWhy = null;
 const roomReported = new Set();
 /** What the room's last snapshot showed it holding, as an outcomes string. */
 let roomHave = "";
+/** Resolved by the first snapshot, so the catch-up push can wait for it. */
+let roomFirstSnapshot = null;
 
 function roomStorage() {
   return {
@@ -9487,6 +9489,13 @@ async function useRoomShoe(id, localId) {
  * because that is simply not written yet rather than contradicted.
  */
 function adoptFromRoom(seen) {
+  // Before anything else, and before any early return below: whoever is
+  // waiting to hear what the room holds has now heard it.
+  if (roomFirstSnapshot) {
+    const resolve = roomFirstSnapshot;
+    roomFirstSnapshot = null;
+    resolve();
+  }
   roomHave = seen.outcomes;
   if (state.isExample) { renderRoom(); return; }
   // A device arriving at a table already in progress has no shoe open, and
@@ -9645,6 +9654,25 @@ async function joinRoomFromUrl() {
     if (local.id) await useRoomShoe(roomShoeIdFor(local.id), local.id);
   }
   renderRoom();
+
+  // Let the room say what it holds before offering it anything.
+  //
+  // `onSnapshot` answers asynchronously, so without this the catch-up push
+  // runs while this device still believes the room is empty -- and offers
+  // every coup it has. Each one is correctly refused as a duplicate, and each
+  // refusal is a round trip. A second device joining a shoe in progress spent
+  // one per coup already recorded, every join, to establish what a single
+  // snapshot says.
+  //
+  // Bounded, because a room that never answers must not hold the coups
+  // hostage: after this the push happens anyway and the queue keeps them.
+  await new Promise((resolve) => {
+    roomFirstSnapshot = resolve;
+    setTimeout(() => {
+      if (roomFirstSnapshot === resolve) { roomFirstSnapshot = null; resolve(); }
+    }, 2500);
+  });
+
   await pushToRoom(openShoe());
   // Coups owed from a previous visit, which is the whole point of keeping them.
   await drainRoom();
