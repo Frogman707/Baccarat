@@ -616,6 +616,7 @@ footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
     <span class="store"><i class="sdot" id="storeDot"></i><span id="storeLabel"></span></span>
     <span class="store" id="roomBox" hidden><i class="sdot" id="roomDot"></i><span id="roomLabel"></span></span>
     <button class="btn ghost tiny" id="roomInvite" data-i18n="room.invite" hidden></button>
+    <button class="btn ghost tiny" id="roomLeave" data-i18n="room.leave" hidden></button>
   </div>
 </header>
 
@@ -1017,9 +1018,6 @@ const S = {
     ko: "{name} 은 이미 있는 테이블입니다.", en: "There is already a table called {name}.",
     "zh-Hant": "已經有一張叫 {name} 的牌桌。", "zh-Hans": "已经有一张叫 {name} 的牌桌。",
   },
-  "header.noTable": {
-    ko: "테이블 없음", en: "No table", "zh-Hant": "無桌台", "zh-Hans": "无桌台",
-  },
   "header.shoeMeta": {
     ko: "{shoes}슈 수집 · 현재 슈 {coups}판", en: "Shoes {shoes} · this shoe {coups}",
     "zh-Hant": "已收集 {shoes} 靴 · 本靴 {coups} 局", "zh-Hans": "已收集 {shoes} 靴 · 本靴 {coups} 局",
@@ -1097,6 +1095,14 @@ const S = {
     "zh-Hant": "只有看過牌桌的人才知道哪個正確。輸錯的人請自行修正。",
     "zh-Hans": "只有看过牌桌的人才知道哪个正确。输错的人请自行修正。",
   },
+  "room.leave": { ko: "방 나가기", en: "Leave the room", "zh-Hant": "離開房間", "zh-Hans": "离开房间" },
+  "room.leaveConfirm": {
+    ko: "방 {id}에서 나갑니다. 이미 기록된 결과는 그대로 남고, 이 기기만 동기화를 멈춥니다. 계속할까요?",
+    en: "Leave room {id}. The coups already recorded stay where they are; only this device stops syncing. Continue?",
+    "zh-Hant": "離開房間 {id}。已記錄的結果保留，僅本機停止同步。要繼續嗎？",
+    "zh-Hans": "离开房间 {id}。已记录的结果保留，仅本机停止同步。要继续吗？",
+  },
+  "room.left": { ko: "방에서 나왔습니다", en: "Left the room", "zh-Hant": "已離開房間", "zh-Hans": "已离开房间" },
   "room.invite": {
     ko: "이 방 주소 복사",
     en: "Copy the room link",
@@ -9333,6 +9339,32 @@ let roomLocalShoe = "";
 
 /** Coups owed to the room, across reloads. */
 const ROOM_QUEUE_KEY = "baccarat.room.queue.v1";
+/**
+ * The room this device is in, remembered across visits.
+ *
+ * Without this there were two addresses that behaved differently -- the one
+ * carrying `?room=` synced and the bare one did not -- and which one you had
+ * was an accident of how you last opened the page. A room is something you are
+ * in, not something a link does, so it is remembered and the address is only
+ * how you first get there.
+ *
+ * Deliberately unchanged: a reader who has *never* joined a room loads no
+ * Firebase, signs nobody in, and sees no badge. That was the point of the
+ * original design and it still holds for everybody who has not opted in.
+ */
+const ROOM_KEY = "baccarat.room.v1";
+
+function rememberedRoom() {
+  try { return cleanRoomId(localStorage.getItem(ROOM_KEY) || ""); }
+  catch { return ""; }
+}
+
+function rememberRoom(id) {
+  try {
+    if (id) localStorage.setItem(ROOM_KEY, id);
+    else localStorage.removeItem(ROOM_KEY);
+  } catch { /* storage is a courtesy; the session still works without it */ }
+}
 let roomQueue = null;
 let roomSending = false;
 let roomRetry = null;
@@ -9407,8 +9439,11 @@ function renderRoom() {
   const box = $("roomBox");
   if (!box) return;
   box.hidden = !room;
+  const joined = !!room && room.status === "joined";
+  for (const id of ["roomInvite", "roomLeave"]) {
+    if ($(id)) $(id).hidden = !joined;
+  }
   if (!room) return;
-  if ($("roomInvite")) $("roomInvite").hidden = room.status !== "joined";
   if (room.status !== "joined") {
     $("roomDot").className = "sdot " + (room.status === "error" ? "error" : "syncing");
     $("roomLabel").textContent = t("room." + room.status);
@@ -9563,8 +9598,18 @@ function scheduleRoomRetry(ms = 15000) {
  * it reads as what it is rather than as something to rely on.
  */
 async function joinRoomFromUrl() {
-  const id = roomIdFromUrl(typeof location === "undefined" ? "" : location.search);
+  // The address first, then what this device remembers. A link always wins:
+  // being handed one is how you join a room that is not the one you were in.
+  const fromUrl = roomIdFromUrl(typeof location === "undefined" ? "" : location.search);
+  const id = fromUrl || rememberedRoom();
   if (!id) return;
+  rememberRoom(id);
+  // And put it in the address, so from here the two are one address and
+  // copying what is in the bar hands somebody the room.
+  if (!fromUrl && typeof history !== "undefined" && history.replaceState) {
+    try { history.replaceState(null, "", roomUrl(location.href, id)); }
+    catch { /* a file:// page has no history to rewrite */ }
+  }
   const connect = (typeof window !== "undefined" && window.__roomConnect)
     || (() => connectFirebase());
   room = new RoomSync({ connect });
@@ -11313,7 +11358,11 @@ function renderHeader() {
   // offering it only when nothing was selected meant a table could be entered
   // and never left, so putting a phone down on a table you are no longer at
   // left its name standing over an empty board.
-  const blank = el("option", null, t("header.noTable"));
+  // Empty rather than a word. "No table" was the only entry that described
+  // itself instead of naming something, which made it read as a table called
+  // that -- and a blank line is what "none of these" looks like in a list of
+  // names. The select carries its own label for a screen reader.
+  const blank = el("option", null, "");
   blank.value = "";
   blank.selected = !state.active || !state.tables[state.active];
   sel.appendChild(blank);
@@ -12930,6 +12979,32 @@ function bindControls() {
   // reader at the same table gets in. Without this they have to be told to
   // edit a URL by hand, which is how a room id becomes a typo and a second
   // room nobody else is in.
+  // Leaving has to be possible, or being in a room is a one-way door -- and it
+  // is a door this device now walks through on its own on every visit.
+  $("roomLeave").onclick = () => {
+    if (!room) return;
+    if (!confirm(t("room.leaveConfirm", { id: room.roomId }))) return;
+    // The coups already recorded stay where they are, here and in the room.
+    // Leaving is about this device, not about the record.
+    room.close();
+    room = null;
+    roomShoe = "";
+    roomLocalShoe = "";
+    roomHave = "";
+    roomConflictRows = [];
+    rememberRoom("");
+    if (typeof history !== "undefined" && history.replaceState) {
+      try {
+        const url = new URL(location.href);
+        url.searchParams.delete("room");
+        history.replaceState(null, "", url.toString());
+      } catch { /* nothing to rewrite */ }
+    }
+    renderRoom();
+    renderRoomConflicts();
+    flashNote(t("room.left"));
+  };
+
   $("roomInvite").onclick = async () => {
     if (!room || !room.roomId) return;
     const link = roomUrl(location.href, room.roomId);
