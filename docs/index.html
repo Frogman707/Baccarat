@@ -3798,17 +3798,43 @@ const size = (m) => Math.max(m.w, m.h);
  * out and capture a large one.
  */
 function groupBlobs(marks) {
+  // Sorted left to right, so the scan below can stop instead of finishing.
+  //
+  // Every pair used to be compared, which is a frame's mark count squared, and
+  // the mark count is decided by whatever is on the screen rather than by
+  // anything here. Measured on a frame packed edge to edge with small round
+  // marks -- 16,781 of them, which is what a wall of miniature roads reduces
+  // to: 890ms in one pass on a desktop, and a phone's JavaScript is several
+  // times slower than that. Run every two seconds on the thread that also
+  // draws the page.
+  //
+  // Reach is `Math.min(a, b) * 2.2`, and a minimum is never more than either
+  // of its arguments -- so no mark can join this one from further than its own
+  // size by that factor, whatever is out there. In sorted order the marks only
+  // get further away, so the scan stops: the same answer, not an approximation
+  // of it. `tests/test_js_port.py` reads a real screen through this and gets
+  // the same sequences it did before.
+  //
+  // The bound belongs to the mark and not to the frame, which matters on a
+  // real screen: one big blob -- a lit panel, a banner -- would otherwise
+  // widen the window for every small mark in the picture and give most of the
+  // saving back.
+  const by = marks.map((_, i) => i).sort((p, q) => marks[p].cx - marks[q].cx);
+
   const parent = marks.map((_, i) => i);
   const find = (x) => { while (parent[x] !== x) { parent[x] = parent[parent[x]]; x = parent[x]; } return x; };
   const union = (a, b) => { const ra = find(a), rb = find(b); if (ra !== rb) parent[ra] = rb; };
 
-  for (let i = 0; i < marks.length; i++) {
-    for (let j = i + 1; j < marks.length; j++) {
-      const a = size(marks[i]), b = size(marks[j]);
+  for (let oi = 0; oi < by.length; oi++) {
+    const i = by[oi], mi = marks[i], a = size(mi), stop = a * 2.2;
+    for (let oj = oi + 1; oj < by.length; oj++) {
+      const j = by[oj], mj = marks[j];
+      const dx = mj.cx - mi.cx;                                 // sorted: never negative
+      if (dx > stop) break;                                     // nor can any j after it
+      const b = size(mj);
       if (Math.max(a, b) / Math.min(a, b) > 1.8) continue;      // a different board
       const reach = Math.min(a, b) * 2.2;
-      const dx = Math.abs(marks[i].cx - marks[j].cx);
-      const dy = Math.abs(marks[i].cy - marks[j].cy);
+      const dy = Math.abs(mi.cy - mj.cy);
       if (dx <= reach && dy <= reach) union(i, j);
     }
   }
@@ -7907,6 +7933,26 @@ class LiveWatcher {
     this.preview = null;     // canvas the feed is painted into
     this.previewHandle = null;
     this.previewOwner = null;
+    /**
+     * A source being brought up, and the number the attempt bringing it up
+     * holds.
+     *
+     * Opening a camera or a screen share is asynchronous and slow -- a picker
+     * the viewer has to answer, a camera that has to wake -- and the buttons
+     * that ask for one stay pressable throughout. Two presses used to mean two
+     * requests: both read `this.stream` as empty, both were granted, the
+     * second overwrote the first, and `stop` then closed only what it could
+     * see. Measured rather than reasoned about: two `startCamera` calls a tick
+     * apart, and after `stop` the first stream's tracks were still live and
+     * one sampling interval was still firing. On a phone that is the camera
+     * light staying on with nothing left that could turn it off.
+     *
+     * So a start claims the slot before it waits, and carries a number that
+     * `stop` invalidates. An attempt that comes back holding a stale number
+     * closes whatever it was given instead of installing it.
+     */
+    this.starting = null;
+    this.attempt = 0;
   }
 
   get active() { return !!this.stream; }
@@ -7973,7 +8019,10 @@ class LiveWatcher {
   }
 
   async _begin(source, request) {
-    if (this.stream) return true;
+    // Already watching, or already on the way up. Pressing both buttons, or
+    // one of them twice, is one request as far as this is concerned. See
+    // `this.starting`.
+    if (this.stream || this.starting) return true;
     const available = source === "camera" ? LiveWatcher.cameraSupported : LiveWatcher.screenSupported;
     if (!available) {
       this.error = "unsupported";
@@ -7981,9 +8030,16 @@ class LiveWatcher {
       this._emit();
       return false;
     }
+
+    const mine = this.attempt += 1;
+    this.starting = source;
+
+    let stream;
     try {
-      this.stream = await request();
+      stream = await request();
     } catch (e) {
+      if (this.attempt !== mine) return false;     // stopped while the picker was up
+      this.starting = null;
       // A permissions-policy block inside an iframe and an outright refusal
       // both arrive as NotAllowedError; they need different advice, and the
       // page cannot tell them apart, so the UI offers both.
@@ -7996,16 +8052,31 @@ class LiveWatcher {
       return false;
     }
 
+    // Stopped while the picker was up. The watcher never took this stream, so
+    // nothing else is holding it and nothing else can close it -- which is
+    // exactly the leak this is here to stop.
+    if (this.attempt !== mine) {
+      for (const t of stream.getTracks()) t.stop();
+      return false;
+    }
+
+    this.starting = null;
+    this.stream = stream;
     this.error = null;
     this.source = source;
     this.video = document.createElement("video");
     this.video.srcObject = this.stream;
     this.video.muted = true;
     this.video.playsInline = true;
-    await this.video.play().catch(() => {});
     this.canvas = document.createElement("canvas");
+    await this.video.play().catch(() => {});
 
-    for (const track of this.stream.getVideoTracks()) {
+    // Stopped during `play`. `stop` had the stream by then and has already
+    // closed it, so there is nothing left to release here -- only a sampler
+    // not to start for a source that is gone.
+    if (this.attempt !== mine) return false;
+
+    for (const track of stream.getVideoTracks()) {
       track.addEventListener("ended", () => this.stop());
     }
 
@@ -8018,6 +8089,11 @@ class LiveWatcher {
   }
 
   stop() {
+    // Any start still waiting on a picker is no longer wanted. Its number
+    // stops matching, so when it is finally answered it closes what it was
+    // given rather than installing it.
+    this.attempt += 1;
+    this.starting = null;
     if (this.timer) clearInterval(this.timer);
     this.timer = null;
     this._stopPreview();
