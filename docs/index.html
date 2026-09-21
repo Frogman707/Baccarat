@@ -1089,6 +1089,54 @@ const S = {
     "zh-Hant": "第 {n} 局 · {mine} / {theirs}",
     "zh-Hans": "第 {n} 局 · {mine} / {theirs}",
   },
+  "room.drift": {
+    ko: "{n}번째 판부터 이 기기와 방의 기록이 한 판씩 어긋나 있습니다",
+    en: "From coup {n} this device and the room are one coup out of step",
+    "zh-Hant": "從第 {n} 局起，本裝置與房間相差一局",
+    "zh-Hans": "从第 {n} 局起，本设备与房间相差一局",
+  },
+  "room.driftsOnly": {
+    ko: "기록이 어긋난 구간이 {n}군데 있습니다",
+    en: "[n|One stretch|{n} stretches] where the two copies are out of step",
+    "zh-Hant": "有 {n} 處記錄彼此錯開",
+    "zh-Hans": "有 {n} 处记录彼此错开",
+  },
+  "room.driftRow": {
+    ko: "{n}번째 판부터 한 판씩 밀려 있습니다",
+    en: "One coup out of step from coup {n} onwards",
+    "zh-Hant": "自第 {n} 局起相差一局",
+    "zh-Hans": "自第 {n} 局起相差一局",
+  },
+  "room.driftHow": {
+    ko: "판을 잘못 읽은 것이 아니라 한 판을 빠뜨렸거나 두 번 센 것입니다. 이 기기는 방의 기록을 이미 따라갔습니다. 어느 쪽이 맞는지는 그 판을 본 사람만 압니다.",
+    en: "Not a coup read wrongly -- a coup dropped or counted twice. This device has already taken the room's copy. Which is right is still only known to somebody who saw the board.",
+    "zh-Hant": "不是讀錯結果，而是漏記或重複計算了一局。本裝置已採用房間的紀錄。哪一邊正確，只有看過牌桌的人知道。",
+    "zh-Hans": "不是读错结果，而是漏记或重复计算了一局。本设备已采用房间的记录。哪一边正确，只有看过牌桌的人知道。",
+  },
+  "room.settle": {
+    ko: "확인함으로 표시 ({n}개)",
+    en: "Mark [n|it|all {n}] as looked at",
+    "zh-Hant": "標示為已查看（{n} 筆）",
+    "zh-Hans": "标记为已查看（{n} 条）",
+  },
+  "room.settleConfirm": {
+    ko: "{n}개를 확인함으로 표시합니다. 기록은 그대로 남고 이 알림만 사라집니다. 틀린 판은 넣은 사람이 직접 고쳐야 합니다. 계속할까요?",
+    en: "Mark [n|this one|these {n}] as looked at. The record stays as it is and only this notice goes; a coup that is wrong still has to be corrected by whoever entered it. Continue?",
+    "zh-Hant": "將 {n} 筆標示為已查看。紀錄維持不變，只有此提示消失；輸錯的局仍須由輸入者自行更正。要繼續嗎？",
+    "zh-Hans": "将 {n} 条标记为已查看。记录保持不变，只有此提示消失；输错的局仍须由输入者自行更正。要继续吗？",
+  },
+  "room.settled": {
+    ko: "{n}개를 확인함으로 표시했습니다",
+    en: "Marked [n|it|all {n}] as looked at",
+    "zh-Hant": "已將 {n} 筆標示為已查看",
+    "zh-Hans": "已将 {n} 条标记为已查看",
+  },
+  "room.settledSome": {
+    ko: "{all}개 중 {n}개만 표시했습니다. 연결을 확인하고 다시 눌러주세요.",
+    en: "Marked {n} of {all}. Check the connection and press again.",
+    "zh-Hant": "{all} 筆中僅標示 {n} 筆。請檢查連線後再試。",
+    "zh-Hans": "{all} 条中仅标记 {n} 条。请检查连接后重试。",
+  },
   "room.conflictHow": {
     ko: "무엇이 맞는지는 판을 본 사람만 압니다. 잘못 넣은 사람이 자기 결과를 고쳐주세요.",
     en: "Only somebody who saw the board knows which is right. Whoever entered the wrong one corrects their own coup.",
@@ -7046,6 +7094,77 @@ function outcomesFromHands(hands) {
  * anything this device holds beyond the room's end is kept, because it is
  * simply not written yet.
  */
+/**
+ * Whether two copies disagree about coups, or about where the coups are.
+ *
+ * `mergeOutcomes` compares position against position, which is right when the
+ * two copies are lined up and badly wrong when they are not. A reader that
+ * dropped one coup -- a sample that landed between frames, a mark not yet
+ * drawn -- has everything after it shifted by one, and every position from
+ * there on is compared against its neighbour. Measured on an eighty-coup
+ * shoe with one coup missing from position twelve: forty-four disagreements,
+ * out of sixty-eight coups that could have disagreed. The other twenty-four
+ * matched by luck, because there are only three outcomes.
+ *
+ * So the count was never a count of mistakes. It was one mistake, counted
+ * once per coup after it, and the advice that went with it -- whoever entered
+ * the wrong one should correct it -- cannot be followed forty-four times.
+ *
+ * This says which of the two it is. Where the first disagreement is at coup
+ * `n`, there are exactly two ways a single dropped or doubled coup could
+ * explain the rest, and both are cheap to test: take one out of this copy at
+ * `n`, or take one out of the room's. If either lines the remainder up
+ * exactly, that is what happened, and there is one thing wrong rather than
+ * forty-four.
+ *
+ * It does not guess beyond that. Two shifts, or a shift plus a genuine
+ * misread, comes back as `scattered` and is reported coup by coup as before
+ * -- an alignment that needs several corrections to hold is not evidence, it
+ * is a story that fits.
+ */
+function alignment(mine, theirs) {
+  const a = String(mine || "");
+  const b = String(theirs || "");
+  const shared = Math.min(a.length, b.length);
+
+  let first = -1;
+  for (let i = 0; i < shared; i += 1) {
+    if (a[i] !== b[i]) { first = i; break; }
+  }
+  if (first < 0) return { kind: "same", from: 0, side: "", conflicts: [] };
+
+  /** Do these two agree everywhere they overlap? */
+  const linesUp = (x, y) => {
+    const n = Math.min(x.length, y.length);
+    if (!n) return false;                      // nothing left to agree about
+    for (let i = 0; i < n; i += 1) if (x[i] !== y[i]) return false;
+    return true;
+  };
+
+  // One coup too many in this copy, or one too few. Both are ordinary for a
+  // reader watching a screen, and they are the same shift in opposite
+  // directions.
+  const extraHere = linesUp(a.slice(first + 1), b.slice(first));
+  const extraThere = linesUp(a.slice(first), b.slice(first + 1));
+
+  if (extraHere || extraThere) {
+    return {
+      kind: "drift",
+      from: first + 1,
+      // Where both readings fit, the direction is not established, and saying
+      // one would be saying more than is known.
+      side: extraHere && extraThere ? "either" : extraHere ? "mine" : "theirs",
+      conflicts: [],
+    };
+  }
+
+  const conflicts = [];
+  for (let i = first; i < shared; i += 1) {
+    if (a[i] !== b[i]) conflicts.push({ handNumber: i + 1, mine: a[i], theirs: b[i] });
+  }
+  return { kind: "scattered", from: first + 1, side: "", conflicts };
+}
+
 function mergeOutcomes(mine, theirs) {
   const a = String(mine || "");
   const b = String(theirs || "");
@@ -7106,7 +7225,13 @@ function facadeFor(sdk, db, uid) {
     },
     watch(path, onRows) {
       const q = query(collection(db, ...path), orderBy("handNumber"));
-      return onSnapshot(q, (snap) => onRows(snap.docs.map((d) => d.data())));
+      // The document's own name, carried alongside its contents. Without it a
+      // watched row cannot be written back to: the page held every field of a
+      // disagreement except the one thing needed to address it, which is half
+      // of why nothing ever settled one. Last, so the name of the document
+      // wins over a field that happens to be called the same thing.
+      return onSnapshot(q, (snap) =>
+        onRows(snap.docs.map((d) => ({ ...d.data(), id: d.id }))));
     },
   };
 }
@@ -7578,6 +7703,75 @@ class RoomSync {
     } catch {
       // Already reported by the other reader, which is the same conflict.
       return false;
+    }
+  }
+
+  /**
+   * Mark a disagreement settled, so the room stops showing it.
+   *
+   * The collection was write-only in practice. `reportConflict` wrote
+   * `resolved: false`, `watchConflicts` filtered on it, the rules allowed the
+   * update and an emulator test proved the filter worked -- by calling
+   * `update` on the facade itself. Nothing a person could press ever set it,
+   * so the count only went up, and a room that had been read for a few
+   * sessions carried a banner nobody could clear. A test that reaches past
+   * the thing it is testing proves the rule and not the path.
+   *
+   * Settling is not deciding. It says somebody looked, not that the record
+   * has been corrected -- the coup itself is corrected the ordinary way, by
+   * the person who entered the wrong one, and that is a separate act. The row
+   * stays in the collection with `reportedBy` and `reportedAt` intact,
+   * because the rules refuse to let it be deleted and because a disagreement
+   * that happened is part of what happened.
+   */
+  async settleConflict(conflictId) {
+    const f = this.facade;
+    if (!f || !this.roomId || !conflictId) return false;
+    try {
+      await f.update(["rooms", this.roomId, "conflicts", String(conflictId)],
+                     { resolved: true, settledBy: f.uid, settledAt: f.now() });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /** Settle several, reporting how many went through. Failures are not fatal. */
+  async settleConflicts(ids) {
+    let done = 0;
+    for (const id of ids || []) {
+      if (await this.settleConflict(id)) done += 1;
+    }
+    return done;
+  }
+
+  /**
+   * Write down that the two copies are out of step, rather than that dozens of
+   * coups disagree.
+   *
+   * It goes in the same collection, because it is the same kind of thing --
+   * something the room has to be told, that only the device holding the other
+   * copy can detect. It is one row because it is one mistake. `handNumber` is
+   * where they start to differ, which is not necessarily where the coup went
+   * missing: outcomes repeat, so a drop can sit unnoticed behind several
+   * coups that happen to match. The row says what is known.
+   */
+  async reportDrift(shoeId, from, side) {
+    const f = this.facade;
+    if (!f || !this.roomId) return false;
+    try {
+      await f.write(["rooms", this.roomId, "conflicts", `${shoeId}-drift-${handId(from)}`], {
+        shoeId,
+        handNumber: from,
+        drift: true,
+        side: String(side || "either"),
+        resolved: false,
+        reportedBy: f.uid,
+        reportedAt: f.now(),
+      });
+      return true;
+    } catch {
+      return false;                      // already reported by the other reader
     }
   }
 
@@ -9496,21 +9690,58 @@ function renderRoomConflicts() {
   box.innerHTML = "";
   if (box.hidden) return;
 
+  // Two different things end up here and they need different words. A coup
+  // two people read differently is a question only somebody at the table can
+  // answer. Copies that are out of step is one reader having dropped or
+  // doubled a coup, which is not a question about the board at all.
+  const drifts = roomConflictRows.filter((r) => r.drift);
+  const differ = roomConflictRows.filter((r) => !r.drift);
+
   const head = el("p", "aiverdict");
-  head.textContent = t("room.conflicts", { n: roomConflictRows.length });
+  head.textContent = differ.length
+    ? t("room.conflicts", { n: differ.length })
+    : t("room.driftsOnly", { n: drifts.length });
   box.appendChild(head);
-  // Shown, never settled. Which reading is right is not a question the record
-  // can answer, and a room that quietly picked one would be deciding it by
-  // whoever happened to write second.
-  for (const row of roomConflictRows.slice(0, 8)) {
+
+  for (const row of drifts.slice(0, 4)) {
+    const line = el("p", "ainote");
+    line.textContent = t("room.driftRow", { n: row.handNumber });
+    box.appendChild(line);
+  }
+  // Shown, never settled for you. Which reading is right is not a question the
+  // record can answer, and a room that quietly picked one would be deciding it
+  // by whoever happened to write second.
+  for (const row of differ.slice(0, 8)) {
     const line = el("p", "ainote");
     line.textContent = t("room.conflictRow", {
       n: row.handNumber, mine: row.mine, theirs: row.theirs });
     box.appendChild(line);
   }
   const how = el("p", "ainote");
-  how.textContent = t("room.conflictHow");
+  how.textContent = drifts.length && !differ.length
+    ? t("room.driftHow") : t("room.conflictHow");
   box.appendChild(how);
+
+  // Settling is saying somebody looked, not that the record has been
+  // corrected. Without it the collection only ever grew: every one of these
+  // was written `resolved: false` and nothing in the app could write
+  // `resolved: true`, so a room read over a few sessions carried a banner
+  // that could not be cleared.
+  const settle = el("button", "btn ghost");
+  settle.id = "roomSettle";
+  settle.textContent = t("room.settle", { n: roomConflictRows.length });
+  settle.onclick = async () => {
+    if (!room || !confirm(t("room.settleConfirm", { n: roomConflictRows.length }))) return;
+    settle.disabled = true;
+    const ids = roomConflictRows.map((r) => r.id).filter(Boolean);
+    const done = await room.settleConflicts(ids);
+    settle.disabled = false;
+    flashNote(t(done === ids.length ? "room.settled" : "room.settledSome",
+                { n: done, all: ids.length }));
+  };
+  const actions = el("div", "actions");
+  actions.appendChild(settle);
+  box.appendChild(actions);
 }
 
 function renderRoom() {
@@ -9580,13 +9811,27 @@ function adoptFromRoom(seen) {
   // must not leave an empty shoe behind on every join.
   if (!seen.outcomes && !openShoe().id) { renderRoom(); return; }
   const shoe = currentShoe();
-  const { outcomes, conflicts } = mergeOutcomes(shoe.o, seen.outcomes);
+  const { outcomes } = mergeOutcomes(shoe.o, seen.outcomes);
+  // Which of the two it is, before writing anything down. A reader that
+  // dropped one coup has every position after it compared against its
+  // neighbour, and reporting that coup by coup files one mistake dozens of
+  // times -- forty-four of them, measured, for one missing coup in an
+  // eighty-coup shoe. One thing is wrong there, and it is the alignment.
+  const lined = alignment(shoe.o, seen.outcomes);
+  const conflicts = lined.conflicts;
   roomLocalShoe = shoe.id;
   // Write the disagreement down where the room can see it. Here rather than in
   // the queue, because this is the one place that holds both readings -- the
   // queue only learns that a write was refused, not what the other reader saw.
   // Nothing settles it: no rule about which copy wins can say who misread the
   // board.
+  if (lined.kind === "drift") {
+    const key = `${roomShoe}-drift-${lined.from}`;
+    if (!roomReported.has(key)) {
+      roomReported.add(key);
+      room.reportDrift(roomShoe, lined.from, lined.side).catch(() => {});
+    }
+  }
   for (const c of conflicts) {
     const key = `${roomShoe}-${c.handNumber}`;
     if (roomReported.has(key)) continue;
@@ -9601,7 +9846,9 @@ function adoptFromRoom(seen) {
   settleLog();
   render();
   renderRoom();
-  if (conflicts.length) {
+  if (lined.kind === "drift") {
+    flashNote(t("room.drift", { n: lined.from }));
+  } else if (conflicts.length) {
     const c = conflicts[0];
     flashNote(t("room.conflict", { n: c.handNumber, mine: c.mine, theirs: c.theirs }));
   } else if (seen.held) {
