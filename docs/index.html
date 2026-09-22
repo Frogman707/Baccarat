@@ -6156,11 +6156,106 @@ const round6 = (x) => (Number.isFinite(x) ? Math.round(x * 1e6) / 1e6 : 0);
  *
  * Returns how many entries changed.
  */
+/**
+ * Move entries back into line when a shoe gains or loses a coup in the middle.
+ *
+ * A prediction is anchored to a position in a string, and a position is not an
+ * identity. While a shoe only ever grows at its end, the two are the same
+ * thing; the moment a coup arrives in the middle, every anchor after it points
+ * at the coup next door, and `settlePredictions` quietly rescores each of them
+ * against a coup it was never about.
+ *
+ * Measured, on a sixty-coup shoe whose reader later found a coup it had missed
+ * at position twelve: thirty-one of the sixty settled predictions had their
+ * recorded outcome rewritten, the function reported thirty-one settled, and
+ * nothing anywhere said that the score had just changed meaning. The live
+ * reader cannot do this -- `diagnose` refuses a reading that does not share a
+ * prefix -- but a room can, and does: `mergeOutcomes` takes the room's copy
+ * whole, and a room whose other reader dropped a coup hands back a shoe
+ * shifted by one. That is the same drift the room panel now reports, arriving
+ * where it does real damage.
+ *
+ * What the log already holds is enough to detect it. Every settled entry
+ * records the outcome it was settled to, so the entries *are* the shoe as this
+ * device believed it. Where the first settled entry stops matching the
+ * sequence at its own index, exactly two single-coup explanations exist, and
+ * each is checked against every settled entry rather than the first few: one
+ * coup arrived before here, or one went away. If exactly one holds for all of
+ * them, the anchors are moved and every prediction stays attached to the coup
+ * it was about.
+ *
+ * It does not guess past that. Two shifts, or a shift tangled with a genuine
+ * correction, leaves the entries where they are and the old behaviour applies
+ * -- this closes the case that was measured and reachable, and claims nothing
+ * about the ones that are neither.
+ */
+function realign(entries, seq) {
+  // Only entries the sequence still reaches. An entry past the end is the
+  // ordinary undo -- the last coup taken back -- and letting one in here would
+  // read it as a mismatch and, one time in three by luck, shift the whole
+  // record to make a withdrawn coup line up.
+  const settled = entries.filter((e) => e.r && e.i < seq.length);
+  let first = -1;
+  for (const e of settled) {
+    if (seq[e.i] !== e.r) { first = e.i; break; }
+  }
+  if (first < 0) return 0;
+
+  /** Does every settled entry from `first` on match, read `by` places over? */
+  const holds = (by) => {
+    let checked = 0;
+    for (const e of settled) {
+      if (e.i < first) continue;
+      const at = e.i + by;
+      if (at < 0 || at >= seq.length) return 0;      // nothing there to match
+      if (seq[at] !== e.r) return 0;
+      checked += 1;
+    }
+    return checked;
+  };
+
+  const forward = holds(1);                          // a coup arrived before here
+  const back = holds(-1);                            // a coup went away
+  if (!forward && !back) return 0;
+
+  let by = forward ? 1 : -1;
+  if (forward && back) {
+    // Both readings fit, which happens when the coups on either side agree.
+    // The shoe's own length says which way it went; without that it is a
+    // guess, and a guess here is a rescored record.
+    const was = Math.max(...settled.map((e) => e.i)) + 1;
+    if (seq.length === was + 1) by = 1;
+    else if (seq.length === was - 1) by = -1;
+    else return 0;
+  }
+
+  let moved = 0;
+  for (const e of entries) {
+    if (e.i < first) continue;
+    e.i += by;
+    moved += 1;
+  }
+  return moved;
+}
+
 function settlePredictions(log, table, sequences) {
   const t = log.tables[table];
   if (!t) return 0;
   let done = 0;
   const keep = [];
+
+  // Before reading anything at an index, make sure the indices still mean what
+  // they meant. See `realign`.
+  const byShoe = new Map();
+  for (const e of t.entries) {
+    if (!byShoe.has(e.s)) byShoe.set(e.s, []);
+    byShoe.get(e.s).push(e);
+  }
+  for (const [id, entries] of byShoe) {
+    const seq = sequences[id];
+    if (typeof seq === "string") done += realign(entries, seq) ? 1 : 0;
+  }
+
   for (const e of t.entries) {
     const seq = sequences[e.s];
     const known = typeof seq === "string";
