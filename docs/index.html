@@ -2487,6 +2487,12 @@ const S = {
     "zh-Hant": "無法連線到伺服器。請確認位址與伺服器是否運作中。沒有傳送任何資料。",
     "zh-Hans": "无法连接到服务器。请确认地址与服务器是否运行中。没有发送任何数据。",
   },
+  "share.conflicts": {
+    ko: " 기록과 결과가 다른 판이 {n}개 있어 보내지 않았습니다 (예: {table}의 {coup}번째 판 — 기록은 {stored}, 이 기기는 {sent}). 어느 쪽이 맞는지는 그 판을 본 사람만 압니다.",
+    en: " [n|One coup was|{n} coups were] not sent because the record holds a different result (for example {table} coup {coup}: the record says {stored}, this device says {sent}). Which is right is only known to somebody who saw the board.",
+    "zh-Hant": " 有 {n} 局與紀錄結果不同，未送出（例如 {table} 第 {coup} 局：紀錄為 {stored}，本裝置為 {sent}）。哪一邊正確，只有看過牌桌的人知道。",
+    "zh-Hans": " 有 {n} 局与记录结果不同，未发送（例如 {table} 第 {coup} 局：记录为 {stored}，本设备为 {sent}）。哪一边正确，只有看过牌桌的人知道。",
+  },
   "share.done": {
     ko: "슈 {sent}/{shoes}개를 보냈습니다. 새로 들어간 판 {added}개, 이미 있던 판 {same}개.",
     en: "Sent {sent} of {shoes} [shoes|shoe|shoes]. {added} [added|coup|coups] "
@@ -6900,6 +6906,11 @@ async function pushCorpus(base, tables, options = {}) {
     sent: 0,
     added: 0,
     alreadyThere: 0,
+    // Coups the record already holds with a different result. Not written,
+    // and not a failure: the record refuses to pick between two readings of
+    // one coup, and this is where the person who can look at the board hears
+    // that there are two. Kept per coup so the page can name one.
+    conflicts: [],
     failures: [],
     stopped: null,
   };
@@ -6922,6 +6933,9 @@ async function pushCorpus(base, tables, options = {}) {
       report.sent += 1;
       report.added += (landed.added || []).length;
       report.alreadyThere += (landed.already_there || []).length;
+      for (const c of landed.conflicts || []) {
+        report.conflicts.push({ table: job.table, shoe: job.shoe.id, ...c });
+      }
     } catch (e) {
       if (e && e.name === "AbortError") { report.stopped = "cancelled"; break; }
       if (e instanceof ShareError && (e.kind === "auth" || e.kind === "address")) {
@@ -13244,6 +13258,16 @@ function shareSummary(report, base) {
     sent: report.sent, shoes: report.shoes,
     added: report.added, same: report.alreadyThere,
   });
+  if (report.conflicts.length) {
+    // Named, not merely counted: "coup 4 of HANN, the record says P and this
+    // device says B" is something a person can go and check, and a number on
+    // its own is not.
+    const c = report.conflicts[0];
+    text += t("share.conflicts", {
+      n: report.conflicts.length, table: c.table, coup: c.hand_number,
+      stored: c.stored, sent: c.sent,
+    });
+  }
   if (report.failures.length) {
     text += t("share.failed", {
       n: report.failures.length,
