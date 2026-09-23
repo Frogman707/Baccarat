@@ -9126,12 +9126,34 @@ class Store {
    * is not a fact about the corpus but a choice this document made; the caller
    * decides what to keep of its own view. This only hands over what arrived.
    */
-  watchOtherTabs(adopt) {
+  watchOtherTabs(adopt, adoptLog = null) {
     if (typeof window === "undefined" || !window.addEventListener) return;
     window.addEventListener("storage", (e) => {
-      if (e.key !== LS_KEY || !e.newValue) return;
-      const state = sanitiseState(safeParse(e.newValue));
-      if (state) adopt(state);
+      if (!e.newValue) return;
+      if (e.key === LS_KEY) {
+        const state = sanitiseState(safeParse(e.newValue));
+        if (state) adopt(state);
+        return;
+      }
+      // The prediction log, for exactly the same reason as the corpus -- and it
+      // was the half that got left out. Each tab read the log once at startup
+      // and wrote its own copy back whole on every prediction, so a second tab
+      // erased everything the first had predicted since it opened. Measured:
+      // ten predictions on one table in one tab, one prediction on another
+      // table in the second, and the stored log held the one. Those are the
+      // predictions written before their coups were known, which is the only
+      // thing that makes the log worth keeping.
+      //
+      // Taken whole, like the corpus, rather than merged. A merge would have to
+      // know what the other tab deliberately removed -- an undone coup's
+      // prediction, a cleared table -- and a union would bring those back.
+      // Adopting is right for the same reason it is right above: each tab
+      // writes synchronously and adopts before it next writes, so whatever
+      // arrives here already holds everything this tab had.
+      if (e.key === LOG_KEY && adoptLog) {
+        const raw = safeParse(e.newValue);
+        if (raw) adoptLog(raw);
+      }
     });
   }
 
@@ -13621,6 +13643,14 @@ async function boot() {
     invalidate();
     render();
     flashNote(t("store.elsewhere"));
+  }, (raw) => {
+    // Not settled here. The other tab settled it against its own corpus, and
+    // the corpus event for that write arrives first -- storage events are
+    // delivered in the order the writes were made -- but settling against a
+    // corpus that is somehow still behind would read every coup it lacks as
+    // undone and delete those predictions. The next coup here settles it.
+    predictionLog = sanitiseLog(raw);
+    render();
   });
   // Who is signed in, when this page is being served rather than opened as a
   // saved file. A standalone copy has no server to ask, so the whole box stays
