@@ -2867,12 +2867,20 @@ function makeRng(seed) {
     d = d + 1 | 0; a = b ^ b >>> 9; b = c + (c << 3) | 0;
     c = (c << 21 | c >>> 11); c = c + t | 0;
   }
-  return function rng() {
+  const rng = function rng() {
     const t = (a + b | 0) + d | 0;
     d = d + 1 | 0; a = b ^ b >>> 9; b = c + (c << 3) | 0;
     c = (c << 21 | c >>> 11); c = c + t | 0;
     return (t >>> 0) / 4294967296;
   };
+  // Where the generator has got to, and a way back there. For the learner,
+  // which checkpoints its training so an undone coup can be replayed from the
+  // start of its shoe instead of from the start of the record -- and a replay
+  // is only the same replay if the draws it makes are the same draws. Neither
+  // changes a single number the generator produces.
+  rng.state = () => [a, b, c, d];
+  rng.restore = (s) => { [a, b, c, d] = s; };
+  return rng;
 }
 
 /* ------------------------------------------------------------------- shoe */
@@ -5813,7 +5821,64 @@ function newRun({ seed = 7, lr = 0.05, replay = 4 } = {}) {
     seen: [],                            // the sequences consumed, as consumed
     lastProbability: null,
     x: new Float64Array(INPUTS),
+    mark: null,                          // the run as it stood before the open shoe
   };
+}
+
+/**
+ * The run as it stands, before the shoe at index `s` is walked.
+ *
+ * What an undone coup costs is the question this answers. Continuing a run is
+ * cheap because the pass only moves forward; anything that is not a pure
+ * append -- a coup taken back, a coup corrected, a room handing back a shoe
+ * shifted by one -- used to start the network again from nothing and retrain
+ * it over the whole record. Measured at the collection panel's own target of
+ * 1,178 shoes: 1,605ms for one undo, on a desktop, on the thread that draws
+ * the page. A phone is several times slower, and an undo is the most ordinary
+ * thing anyone does at a table.
+ *
+ * Nearly all of those changes land in the shoe being dealt, so one mark is
+ * kept, taken as that shoe begins: the weights, where the generator had got
+ * to, and how long the append-only lists were. Going back to it and walking
+ * forward again touches one shoe instead of the record. About three
+ * kilobytes, because the network is small; the lists are cut back rather than
+ * copied, since nothing before the mark is ever changed.
+ */
+function checkpoint(run, s) {
+  const { net } = run;
+  return {
+    s,
+    w1: Float64Array.from(net.w1), w2: Float64Array.from(net.w2),
+    b1: Float64Array.from(net.b1), b2: Float64Array.from(net.b2),
+    rng: run.rng.state(),
+    past: run.past.length,
+    picks: run.picks.length,
+    lastProbability: run.lastProbability,
+  };
+}
+
+/**
+ * Put the run back where `mark` found it, if the record allows.
+ *
+ * Only when every shoe before the mark is exactly the shoe the run walked:
+ * the mark is a promise about everything before it, and a change further back
+ * breaks it. Returns whether it went back; the caller starts again from
+ * nothing when it did not.
+ */
+function rewind(run, sequences) {
+  const m = run.mark;
+  if (!m || sequences.length < m.s) return false;
+  for (let i = 0; i < m.s; i += 1) {
+    if (sequences[i] !== run.seen[i]) return false;
+  }
+  const { net } = run;
+  net.w1.set(m.w1); net.w2.set(m.w2); net.b1.set(m.b1); net.b2.set(m.b2);
+  run.rng.restore(m.rng);
+  run.past.length = m.past;
+  run.picks.length = m.picks;
+  run.seen.length = m.s;
+  run.lastProbability = m.lastProbability;
+  return true;
 }
 
 /** True when `sequences` only adds coups to what `run` has already consumed. */
@@ -5837,6 +5902,8 @@ function advance(run, sequences) {
   for (let s = 0; s < sequences.length; s += 1) {
     const seq = sequences[s];
     const from = s < run.seen.length ? run.seen[s].length : 0;
+    // The open shoe, starting: this is where an undo will want to come back to.
+    if (s === sequences.length - 1 && from === 0) run.mark = checkpoint(run, s);
     for (let i = from; i < seq.length; i += 1) {
       features(seq, i, x);
       const p = run.net.predict(x);
@@ -5983,10 +6050,15 @@ class Learner {
     this.run = newRun(options);
     this.restarts = 0;
     this.resumes = 0;
+    this.rewinds = 0;
   }
 
   update(sequences, { commission = BANKER_COMMISSION, deff = 1, next = null, from = 0 } = {}) {
     if (extendsRun(this.run, sequences)) this.resumes += 1;
+    // A successful rewind leaves exactly the shoes before the mark, and those
+    // are what it checked -- so the run extends to `sequences` by construction
+    // and asking `extendsRun` again would only repeat the question.
+    else if (rewind(this.run, sequences)) this.rewinds += 1;
     else { this.run = newRun(this.options); this.restarts += 1; }
     advance(this.run, sequences);
     return report(this.run, sequences, { commission, deff, next, from });
