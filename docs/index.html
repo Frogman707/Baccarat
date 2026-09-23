@@ -13650,7 +13650,12 @@ async function boot() {
     // corpus that is somehow still behind would read every coup it lacks as
     // undone and delete those predictions. The next coup here settles it.
     predictionLog = sanitiseLog(raw);
-    render();
+    // Only what the log is drawn into. A whole `render()` here lands a few
+    // milliseconds after the corpus adoption above, whose note -- this view
+    // just changed under you -- is the one thing the person needs to see, and
+    // redrawing the header erased it before it could be read. Caught by
+    // `tests/browser/test_storage.py`, in a real browser with two real tabs.
+    renderVerification();
   });
   // Who is signed in, when this page is being served rather than opened as a
   // saved file. A standalone copy has no server to ask, so the whole box stays
