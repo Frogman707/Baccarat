@@ -6067,6 +6067,62 @@ class Learner {
 
 
 /**
+ * A learner per table, the most recent few kept.
+ *
+ * The page kept one learner for whichever table was on screen, so every
+ * switch was a record that had not merely grown -- a different record -- and
+ * the network was retrained over the whole of it, both ways. Measured at 600
+ * shoes a table: 865ms to switch, 743ms to switch back, on a desktop, on the
+ * thread that draws the page. Two tables in front of you is the reason the
+ * page names for opening a second tab, and one tab with a selector is the
+ * other way of doing the same thing.
+ *
+ * Keeping a learner per table makes a switch back cost nothing, and it is
+ * always safe to keep one: `update` compares the record it is given with the
+ * record it walked, so a table that changed while it was not on screen -- a
+ * live reader bound to it, a room, another tab -- is resumed, rewound or
+ * rebuilt exactly as it would be on screen.
+ *
+ * Two by default, because each carries its replay buffer -- about 19 KB a
+ * shoe -- and the collection target is over a thousand shoes a table. The
+ * least recently used goes first, and a table it lets go of is simply
+ * rebuilt the next time it is shown.
+ */
+class LearnerShelf {
+  constructor(kept = 2, options = {}) {
+    this.kept = Math.max(1, kept | 0);
+    this.options = options;
+    this.byTable = new Map();              // insertion order is recency
+  }
+
+  /** The learner for `table`, made if it is not held, and now the most recent. */
+  for(table) {
+    const key = String(table);
+    let held = this.byTable.get(key);
+    if (held) this.byTable.delete(key);
+    else held = new Learner(this.options);
+    this.byTable.set(key, held);
+    while (this.byTable.size > this.kept) {
+      this.byTable.delete(this.byTable.keys().next().value);
+    }
+    return held;
+  }
+
+  /** A table renamed keeps what it learned; nothing about it changed but a label. */
+  rename(from, to) {
+    const held = this.byTable.get(String(from));
+    if (!held) return;
+    this.byTable.delete(String(from));
+    this.byTable.set(String(to), held);
+  }
+
+  /** A table cleared or deleted takes its learner with it. */
+  forget(table) {
+    this.byTable.delete(String(table));
+  }
+}
+
+/**
  * Whether the network's lead is bigger than the noise it would show anyway.
  *
  * The two bet on the same coups, so the comparison is paired: where they agree
@@ -11510,7 +11566,7 @@ let ledgerCache = null;
 let ledgerFlash = null;
 let learnCache = null;
 /** The walk itself, kept across coups so it is continued and not re-run. */
-const learner = new Learner();
+const learners = new LearnerShelf();
 
 /**
  * The network's walk through this table, and whether it earned the wheel.
@@ -11531,7 +11587,7 @@ function learned() {
   // only ever moves forward, so a corpus that has gained a coup is continued.
   // Re-training cost three quarters of a second per coup at eight hundred
   // shoes, and got worse with every shoe collected.
-  const value = learner.update(shoes().map((s) => s.o).filter(Boolean),
+  const value = learners.for(state.active).update(shoes().map((s) => s.o).filter(Boolean),
                                { deff, next: openShoe().o, from: ledgerFrom() });
   // A model is worth following only if what trained it was baccarat. Where the
   // record cannot be one -- a tie rate whole points off what the pack itself
@@ -13409,6 +13465,7 @@ function bindControls() {
     // predicted nothing.
     renamePredictions(predictionLog, from, to);
     store.saveLog(predictionLog);
+    learners.rename(from, to);
     beforeWriting();
     invalidate();
     store.save(state, []);
@@ -13601,6 +13658,7 @@ function bindControls() {
     // holds figures nothing can be checked against.
     forgetPredictions(predictionLog, name);
     store.saveLog(predictionLog);
+    learners.forget(name);
     state.tables[name] = { shoes: [] };
     // Coups still owed to the room are owed no longer -- they belong to shoes
     // that no longer exist here, and sending them would put this device's
@@ -13624,6 +13682,7 @@ function bindControls() {
     // against, and would quietly re-attach to the next table given that name.
     forgetPredictions(predictionLog, state.active);
     store.saveLog(predictionLog);
+    learners.forget(state.active);
     for (const id of ids) roomQueue?.forget(roomShoeIdFor(id));
     roomHave = "";
     delete state.tables[state.active];
