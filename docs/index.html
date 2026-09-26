@@ -12105,7 +12105,12 @@ function renderVerification() {
     const hit = settled && e.r === e.k;
     tr.appendChild(el("td", settled ? (e.r === "T" ? "wait" : hit ? "hit" : "miss") : "wait",
                       settled ? side(e.r) : t("verify.pendingRow")));
-    tr.appendChild(el("td", null, String(e.c)));
+    // The panel's own words for it, not the stored 0-100: a column of "67"
+    // beside a pick reads as a 67% chance of winning, where it means the
+    // estimate sat two standard errors from the crossover -- for a side that
+    // comes in about half the time. The cut-offs are the panel's, z 1 and 2.
+    tr.appendChild(el("td", null,
+      t("ai.conf." + (e.c >= 67 ? "high" : e.c >= 33 ? "medium" : "low"))));
     tr.appendChild(el("td", null, e.m));
     table.appendChild(tr);
   }
