@@ -2238,6 +2238,12 @@ const S = {
     "zh-Hant": "彙整的牌靴長度不一（平均 {mean} 局，最短 {min}，最長 {max}）。一靴約 80 局，明顯偏短者多半是中途才開始觀察的牌靴 — 會影響形態相關統計量，與洗牌無關。",
     "zh-Hans": "汇总的牌靴长度不一（平均 {mean} 局，最短 {min}，最长 {max}）。一靴约 80 局，明显偏短者多半是中途才开始观察的牌靴 — 会影响形态相关统计量，与洗牌无关。",
   },
+  "pooled.shapeMatched": {
+    ko: "공유된 슈의 길이가 고르지 않습니다 (평균 {mean}판, 최소 {min}, 최대 {max}). 한 슈는 보통 80판쯤이고, 훨씬 짧은 것은 대개 도중부터 본 슈입니다. 짧은 슈는 정직한 슈에서 같은 판 수만큼 잘라 비교했으므로 짧다는 것 자체는 편향으로 읽히지 않습니다 — 다만 그만큼 판 수가 적고, 위 판정의 검출력은 실제로 있는 판 수로 측정한 값입니다.",
+    en: "The pooled shoes are uneven — mean length {mean}, shortest {min}, longest {max}. A shoe runs about 80 coups, and much shorter ones are usually shoes somebody started watching part-way through. Each was measured against the same number of coups from an honest shoe, so being short is not read as a deviation — but short shoes hold fewer coups, and the power in the verdict above is measured on what there is.",
+    "zh-Hant": "彙整的牌靴長度不一（平均 {mean} 局，最短 {min}，最長 {max}）。一靴約 80 局，明顯偏短者多半是中途才開始觀察的牌靴。每一靴都與誠實牌靴中相同局數的片段比較，因此「短」本身不會被判讀為偏差 — 但局數較少，上方判定的檢出力是依實際擁有的局數測得。",
+    "zh-Hans": "汇总的牌靴长度不一（平均 {mean} 局，最短 {min}，最长 {max}）。一靴约 80 局，明显偏短者多半是中途才开始观察的牌靴。每一靴都与诚实牌靴中相同局数的片段比较，因此“短”本身不会被判读为偏差 — 但局数较少，上方判定的检出力是依实际拥有的局数测得。",
+  },
   "pooled.meta": {
     ko: "공유 기록 {shoes}슈 · {coups}판 · 통계 {stats}개 · 귀무 복제 {reps}회 · 검출력은 이 크기에서 서버가 직접 측정한 값 (위쪽 이 기기 판정의 추정값과 다를 수 있습니다)",
     en: "Shared record: {shoes} [shoes|shoe|shoes] · {coups} [coups|coup|coups] · {stats} [stats|statistic|statistics] · {reps} null [reps|replicate|replicates] · power measured by the server at this size (the device verdict above uses an estimate, so the two can differ)",
@@ -3098,6 +3104,7 @@ function beadPlate(outcomes, rows = 6) {
  */
 
 
+
 /** Lags at which serial correlation is measured. */
 const LAGS = [1, 2, 3, 4, 5, 6, 8, 10];
 /** History depths for the conditional-frequency test. */
@@ -3277,22 +3284,61 @@ function computeStatistics(shoes) {
 /* ------------------------------------------------------------------- null */
 
 /**
+ * The shape a null must have to be a null for these shoes: for each shoe, how
+ * many coups its simulated counterpart is cut to, or null to deal it whole.
+ *
+ * A collected shoe is often part of one -- the shoe still being dealt, a table
+ * joined or left part-way through -- and every statistic here moves with
+ * length: a forty-coup shoe has shorter streaks than an eighty-coup one, fewer
+ * pairs to measure a correlation over, and forty coups where a whole shoe has
+ * eighty. Measured against whole simulated shoes, an honest record full of
+ * them read as a deviation: at the default 200 replicates, 2-19% of honest
+ * tables of 5 to 40 shoes with only the shoe still being dealt left open, and
+ * 17-62% of those watched from part-way through every shoe. A test whose whole
+ * job is not to accuse an honest table cannot be wrong that often.
+ *
+ * So a shoe too short to be whole (under SHOE_MIN, which no honest 8-deck
+ * shoe falls below) is matched by the first that-many coups of an honest one,
+ * and its shortness stops being evidence of anything. A shoe long enough to be
+ * whole is dealt whole, and its length stays evidence: `coups_per_shoe` is how
+ * a record running past the cut card, or a different game, shows up. The
+ * Python battery's `null_shape` is the same rule; a test holds them together.
+ */
+function nullShape(shoes) {
+  return shoes.map((shoe) => (shoe.length < SHOE_MIN ? shoe.length : null));
+}
+
+/**
+ * What a null is kept under: the replicates and the shape it was built for.
+ * A key on the number of shoes alone hands back a null of another shape as
+ * soon as a coup lands in a shoe still open.
+ */
+function nullKey(shoes, nReplicates) {
+  return `${nReplicates}|${nullShape(shoes).map((cap) => cap ?? "").join(",")}`;
+}
+
+/**
  * Null distribution of every statistic, from honest simulated shoes.
  *
- * Each replicate is an independent corpus of `nShoes` shoes, so the spread
- * reflects the sample size actually being tested rather than an asymptotic
- * approximation. That is what makes the battery valid on 20 hand-entered
- * shoes as well as on 20,000 collected ones.
+ * Each replicate is an independent corpus of the tested corpus's shape -- as
+ * many shoes, each as long -- so the spread reflects the sample actually being
+ * tested rather than an asymptotic approximation. That is what makes the
+ * battery valid on 20 hand-entered shoes as well as on 20,000 collected ones,
+ * and on a record that caught most of its shoes part-way through. `shape`
+ * comes from `nullShape`; a number is that many whole shoes, and draws exactly
+ * what it always drew.
  *
  * Yields to the caller every `chunk` replicates so a browser can run this
  * without freezing; `onProgress` receives (done, total).
  */
-async function simulatedNull(nShoes, {
+async function simulatedNull(shape, {
   nReplicates = 200, seed = 20240101, onProgress = null, chunk = 5, shouldStop = null,
 } = {}) {
+  const cuts = typeof shape === "number" ? new Array(shape).fill(null) : shape;
   const samples = {};
   for (let i = 0; i < nReplicates; i++) {
-    const corpus = simulate(nShoes, (seed + 1000 * i + 1) | 0);
+    const corpus = simulate(cuts.length, (seed + 1000 * i + 1) | 0)
+      .map((shoe, j) => (cuts[j] == null ? shoe : shoe.slice(0, cuts[j])));
     const stats = computeStatistics(corpus);
     for (const [k, v] of Object.entries(stats)) (samples[k] ||= []).push(v);
     if ((i + 1) % chunk === 0 || i === nReplicates - 1) {
@@ -3453,10 +3499,17 @@ function integrityReport(shoes, nullSamples, { alpha = 0.05, nReplicates = 0 } =
     samples = samples.filter(Number.isFinite);
     if (samples.length < 10) continue;
 
+    // A statistic the shape alone decides comes out the same in every honest
+    // corpus of that shape -- coups per shoe, when every shoe is part of one.
+    // It is not a test of this record: counting it as one passed would add a
+    // check that could not fail. Asked of the values, not of their spread:
+    // 50.6 two hundred times over does not average to exactly 50.6, and the
+    // sd of that is a rounding error that turns into a z-score.
+    if (Math.min(...samples) === Math.max(...samples)) continue;
     const m = mean(samples);
     const variance = samples.reduce((a, x) => a + (x - m) ** 2, 0) / (samples.length - 1);
     const sd = Math.sqrt(variance);
-    const z = sd > 0 ? (value - m) / sd : NaN;
+    const z = (value - m) / sd;
     // Empirical two-sided p: how often the null is at least this extreme.
     const extreme = samples.filter((x) => Math.abs(x - m) >= Math.abs(value - m)).length;
     const p = (1 + extreme) / (samples.length + 1);
@@ -9723,7 +9776,11 @@ function statWhy(key) {
 const store = new Store();
 let state = null;
 let shot = null;            // {imageData, width, height, boards, pick, region}
-let nullCache = new Map();  // nShoes -> null samples
+// Nulls by `nullKey` -- the replicates and the shape they were built for. A
+// coup landing in a shoe still open is a new shape, so the few most recent are
+// kept rather than every one this page has ever built.
+let nullCache = new Map();
+const NULLS_KEPT = 4;
 let integrityRun = null;
 let live = null;            // LiveWatcher, created on first use
 let lastReport = null;      // kept so a language change can redraw the verdict
@@ -12826,12 +12883,12 @@ async function runIntegrity() {
   $("intResult").hidden = true;
 
   const bar = $("intBar"), label = $("intProgressLabel");
-  const key = `${list.length}:${reps}`;
+  const key = nullKey(list, reps);
   let samples = nullCache.get(key);
 
   if (!samples) {
     label.textContent = t("int.building");
-    samples = await simulatedNull(list.length, {
+    samples = await simulatedNull(nullShape(list), {
       nReplicates: reps,
       onProgress: (done, total) => {
         bar.style.width = (done / total) * 100 + "%";
@@ -12843,6 +12900,7 @@ async function runIntegrity() {
     });
     if (!samples) { integrityRun = null; $("intProgress").hidden = true; renderIntegrityAvailability(); return; }
     nullCache.set(key, samples);
+    while (nullCache.size > NULLS_KEPT) nullCache.delete(nullCache.keys().next().value);
   }
 
   lastReport = integrityReport(list, samples, { nReplicates: reps });
@@ -13159,14 +13217,16 @@ function renderPooledResult(rep, table) {
       });
   v.innerHTML = `<b>${headline}.</b> ${body}`;
 
-  // Shoes much shorter than a shoe are the ordinary way a pooled corpus goes
-  // wrong -- several people each starting to watch part-way through -- and it
-  // moves the shape statistics without anything being wrong with the shuffle.
+  // Shoes much shorter than a shoe are the ordinary way a pooled corpus is
+  // uneven -- several people each starting to watch part-way through. A server
+  // that deals its null to the record's shape says so, and then the pieces were
+  // measured against pieces; one that does not measured them against whole
+  // shoes, which moves the shape statistics with nothing wrong in the shuffle.
   const shape = $("pooledShape");
   const uneven = rep.shape && rep.shape.coups_per_shoe_min < 60;
   shape.hidden = !uneven;
   if (uneven) {
-    shape.textContent = t("pooled.shape", {
+    shape.textContent = t(rep.shape.null_matched ? "pooled.shapeMatched" : "pooled.shape", {
       mean: rep.shape.coups_per_shoe_mean,
       min: rep.shape.coups_per_shoe_min,
       max: rep.shape.coups_per_shoe_max,
