@@ -1097,6 +1097,18 @@ const S = {
     "zh-Hant": "設定的模型需要牌面資料，因此由另一個模型作答。",
     "zh-Hans": "设定的模型需要牌面数据，因此由另一个模型作答。",
   },
+  "srv.auth": {
+    ko: "그 서버에 로그인되어 있지 않습니다. 아래 도구 칸의 '공유 기록으로 보내기'에서 로그인하십시오.",
+    en: "Not signed in to that server. Sign in under “Send to the shared record” in the tools below.",
+    "zh-Hant": "尚未登入該伺服器。請在下方工具區的「傳送到共用紀錄」登入。",
+    "zh-Hans": "尚未登录该服务器。请在下方工具区的“发送到共享记录”登录。",
+  },
+  "srv.refused": {
+    ko: "서버가 오류로 답했습니다 (코드 {status}).",
+    en: "The server answered with an error (code {status}).",
+    "zh-Hant": "伺服器回傳錯誤（代碼 {status}）。",
+    "zh-Hans": "服务器返回错误（代码 {status}）。",
+  },
   "srv.failed": {
     ko: "서버에 닿지 못했습니다 ({why}).",
     en: "Could not reach the server ({why}).",
@@ -7543,7 +7555,9 @@ async function send(base, path, body, fetchImpl, signal) {
     // The address answered and has no such route. Usually the shared record is
     // not configured on that server at all, which is a different problem from
     // a wrong address and has a different fix.
-    throw new ShareError("server", "no shared record at that address");
+    const missing = new ShareError("server", "no shared record at that address");
+    missing.status = 404;
+    throw missing;
   }
   if (!answer.ok) {
     let detail = "";
@@ -11058,9 +11072,26 @@ async function joinRoomFromUrl() {
  */
 
 let srvAsking = false;
-/** The last answer, and the last failure, so a re-render does not lose them. */
+/** The last answer, and the last failure, so a re-render does not lose them.
+ *  The failure is kept as what to say -- a key and its values -- rather than
+ *  as a sentence, so a change of language redraws it in the new one. */
 let srvAnswer = null;
 let srvError = null;
+
+/**
+ * What went wrong asking, in terms the reader can act on.
+ *
+ * Every failure used to read "could not reach the server", with the kind in
+ * brackets -- including a server that answered perfectly well to say the
+ * reader was not signed in, which sent them looking for a network problem.
+ */
+function srvTrouble(e) {
+  if (e instanceof ShareError) {
+    if (e.kind === "auth") return { key: e.expired ? "share.expired" : "srv.auth" };
+    if (e.kind === "server" && e.status) return { key: "srv.refused", vars: { status: e.status } };
+  }
+  return { key: "srv.failed", vars: { why: String((e && e.kind) || (e && e.message) || e) } };
+}
 
 function renderServerAI(answer = srvAnswer, error = srvError) {
   const box = $("srvBox");
@@ -11080,7 +11111,7 @@ function renderServerAI(answer = srvAnswer, error = srvError) {
   if (error) {
     // The failure is said plainly, and then the reader is told the thing that
     // actually matters: nothing below it changed.
-    line(t("srv.failed", { why: error }), "aiverdict");
+    line(t(error.key, error.vars), "aiverdict");
     line(t("srv.beside"));
     return;
   }
@@ -11108,7 +11139,7 @@ function renderServerAI(answer = srvAnswer, error = srvError) {
 /** Ask, once, on request. Never on a timer and never during entry. */
 async function askServerAI() {
   const base = readServer();
-  if (!base) { srvAnswer = null; srvError = t("srv.needAddress"); renderServerAI(); return; }
+  if (!base) { srvAnswer = null; srvError = { key: "srv.needAddress" }; renderServerAI(); return; }
   if (srvAsking) return;
   const shoe = openShoe();
   srvAsking = true;
@@ -11119,7 +11150,7 @@ async function askServerAI() {
     srvError = null;
   } catch (e) {
     srvAnswer = null;
-    srvError = String((e && e.kind) || (e && e.message) || e);
+    srvError = srvTrouble(e);
   } finally {
     srvAsking = false;
     renderServerAI();
@@ -14295,8 +14326,12 @@ function bindSignIn() {
   };
 
   $("shareSignOut").onclick = async () => {
-    await signOut(readServer());
+    // Said before the server is told, because it is already true: the session
+    // is forgotten here first, and the form comes back that moment. Said after,
+    // it appeared a network round trip later, beside a form already back --
+    // and a phone with no signal said nothing at all until the request gave up.
     note.textContent = t("share.signedOut");
+    await signOut(readServer());
     renderSignIn();
   };
 
