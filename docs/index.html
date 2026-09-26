@@ -1352,17 +1352,26 @@ const S = {
     "zh-Hant": "在 {n} 局分勝負的局數中，推薦命中 <b>{acc}</b>；同樣局數恆押莊則為 <b>{base}</b> — 差距 <b>{gap}</b>（標準誤 ±{se}）。{call}",
     "zh-Hans": "在 {n} 局分胜负的局数中，推荐命中 <b>{acc}</b>；同样局数恒押庄则为 <b>{base}</b> — 差距 <b>{gap}</b>（标准误 ±{se}）。{call}",
   },
+  // Read after every coup, so "ahead" is held to the boundary the network's
+  // own trust test uses -- see `lead` in verify.js for what one standard
+  // error did instead.
   "verify.callNoise": {
-    ko: "차이가 표준오차 안에 있어 아직 아무 말도 할 수 없습니다.",
-    en: "The gap is inside its own error, so it says nothing yet.",
-    "zh-Hant": "差距仍在誤差範圍內，尚無法據此判斷。",
-    "zh-Hans": "差距仍在误差范围内，尚无法据此判断。",
+    ko: "차이가 우연과 구별되지 않아 아직 아무 말도 할 수 없습니다 — 판마다 다시 확인하는 만큼, 추천이 플레이어를 고른 {n}판에서는 z {bar}는 되어야 앞섰다고 할 수 있습니다 (지금 z {z}).",
+    en: "The gap cannot be told from luck, so it says nothing yet — read after every coup, the {n} [n|coup|coups] where the recommendation named Player [n|needs|need] z {bar} before it counts as ahead (it is at z {z}).",
+    "zh-Hant": "差距尚無法與運氣區分，暫時無法據此判斷 — 每局都重新檢查，推薦選閒的 {n} 局需要達到 z {bar} 才算領先（目前 z {z}）。",
+    "zh-Hans": "差距尚无法与运气区分，暂时无法据此判断 — 每局都重新检查，推荐选闲的 {n} 局需要达到 z {bar} 才算领先（目前 z {z}）。",
+  },
+  "verify.callFew": {
+    ko: "추천이 플레이어를 고른 판이 {n}판뿐이라 아직 아무 말도 할 수 없습니다 — 늘 뱅커와 결과가 갈리는 판은 그 판들뿐이고, 묻기에 200판은 필요합니다.",
+    en: "The recommendation has named Player on only {n} decided [n|coup|coups] — the only coups where it can differ from always backing Banker — so the gap says nothing yet: asking whether it means anything takes 200.",
+    "zh-Hant": "推薦只在 {n} 局分勝負的局中選閒 — 只有這些局會與恆押莊不同 — 要判斷差距是否有意義需要 200 局。",
+    "zh-Hans": "推荐只在 {n} 局分胜负的局中选闲 — 只有这些局会与恒押庄不同 — 要判断差距是否有意义需要 200 局。",
   },
   "verify.callAhead": {
-    ko: "차이가 표준오차보다 큽니다 — 다만 이것은 하나의 표본이고, 이 저장소가 160만 판에서 얻은 답은 그런 차이가 지속되지 않는다는 것이었습니다.",
-    en: "The gap is larger than its error — though this is one sample, and what this repository found over 1.6M coups is that such gaps do not persist.",
-    "zh-Hant": "差距大於其誤差 — 但這僅是一個樣本，而本專案在 160 萬局上得到的結論是這類差距不會持續。",
-    "zh-Hans": "差距大于其误差 — 但这仅是一个样本，而本项目在 160 万局上得到的结论是这类差距不会持续。",
+    ko: "판마다 다시 확인해도 우연으로 설명되지 않을 만큼 앞서 있습니다 — 다만 이것은 하나의 표본이고, 이 저장소가 160만 판에서 얻은 답은 그런 차이가 지속되지 않는다는 것이었습니다.",
+    en: "The gap is beyond what luck gives, even read after every coup — though this is one sample, and what this repository found over 1.6M coups is that such gaps do not persist.",
+    "zh-Hant": "即使每局都重新檢查，差距仍超出運氣所能解釋 — 但這僅是一個樣本，而本專案在 160 萬局上得到的結論是這類差距不會持續。",
+    "zh-Hans": "即使每局都重新检查，差距仍超出运气所能解释 — 但这仅是一个样本，而本项目在 160 万局上得到的结论是这类差距不会持续。",
   },
   "verify.callBehind": {
     ko: "추천이 늘 뱅커보다 뒤처져 있습니다.",
@@ -6305,6 +6314,8 @@ class LearnerShelf {
  */
 const TRUST_ALPHA = 0.025;
 const TRUST_RHO = 200;
+/** Disagreements below which the question is not asked at all; see `verdict`. */
+const TRUST_FLOOR = 200;
 
 function trustBoundary(split) {
   const n = split + TRUST_RHO;
@@ -6327,7 +6338,7 @@ function trustBoundary(split) {
 function verdict(model, base, split = 0) {
   const swing = model.wins - base.wins;
   const z = split > 0 ? swing / Math.sqrt(split) : 0;
-  const ahead = model.units > base.units && split >= 200 && swing >= trustBoundary(split);
+  const ahead = model.units > base.units && split >= TRUST_FLOOR && swing >= trustBoundary(split);
   return {
     lead: model.units - base.units,
     z,
@@ -6336,7 +6347,7 @@ function verdict(model, base, split = 0) {
     bar: split > 0 ? trustBoundary(split) / Math.sqrt(split) : NaN,
     trusted: ahead,
     reason: ahead ? "ahead"
-      : split < 200 ? "tooFew"
+      : split < TRUST_FLOOR ? "tooFew"
       : model.units <= base.units ? "behind"
       : "noise",
   };
@@ -6364,6 +6375,7 @@ function verdict(model, base, split = 0) {
  * counting is done with proper scoring rules rather than hit rate alone,
  * because hit rate on its own cannot tell a confident model from a lucky one.
  */
+
 
 /** Storage format. Bumped only when a stored entry would be read wrongly. */
 const LOG_VERSION = 1;
@@ -6706,6 +6718,7 @@ function scorePredictions(log, table) {
     baseline: rate(roll.baseHits, roll.decided),
     edge: roll.decided ? (roll.hits - roll.baseHits) / roll.decided : NaN,
     edgeError: edgeError(roll),
+    ...lead(roll),
     backedAccuracy: rate(roll.backedHits, roll.backedDecided),
     meanLogLoss: rate(roll.logLoss, roll.settled),
     meanBrier: rate(roll.brier, roll.settled),
@@ -6763,6 +6776,48 @@ function edgeError(roll) {
   if (!n) return NaN;
   const mean = (roll.hits - roll.baseHits) / n;
   return Math.sqrt(Math.max(0, roll.against / n - mean * mean) / n);
+}
+
+/**
+ * What the gap to always-Banker can be called, read as often as it is read.
+ *
+ * The panel reads this record after every coup. It called a gap bigger than
+ * one standard error "larger than its error", in green, and a recommendation
+ * with no edge at all reaches that sooner or later: measured, at some point
+ * in 62-77% of sessions within 200 decided coups and 76-82% by 3,000,
+ * whichever share of the time it named Player. The first coup could do it
+ * alone -- one lucky Player call, and the error of a single coup reads as
+ * zero.
+ *
+ * The gap moves only where the recommendation named Player, by one either
+ * way: exactly the walk the network's trust test holds to Robbins' boundary
+ * in `learn.js`, so it is held to the same boundary here, with the same
+ * floor. A recommendation with no edge, read after every coup to 3,000,
+ * crossed it in none of 800 sessions.
+ *
+ *   ahead     beyond the boundary
+ *   behind    more than one standard error behind -- which a recommendation
+ *             with no edge that names Player is expected to be anyway, since
+ *             Banker wins more of the coups that are decided
+ *   tooFew    Player named on fewer decided coups than the floor
+ *   noise     none of those
+ */
+function lead(roll) {
+  if (!roll.decided) return { call: null, z: NaN, bar: NaN };
+  const n = roll.against;
+  const swing = roll.hits - roll.baseHits;
+  const gap = swing / roll.decided;
+  const call = n >= TRUST_FLOOR && swing >= trustBoundary(n) ? "ahead"
+    : gap < -edgeError(roll) ? "behind"
+    : n < TRUST_FLOOR ? "tooFew"
+    : "noise";
+  return {
+    call,
+    // How far ahead, and how far the boundary asks for, in standard errors
+    // of the walk -- to say beside a gap that has not reached it.
+    z: n > 0 ? swing / Math.sqrt(n) : 0,
+    bar: n > 0 ? trustBoundary(n) / Math.sqrt(n) : NaN,
+  };
 }
 
 /**
@@ -12087,8 +12142,10 @@ function renderVerification() {
     grid.appendChild(d);
   };
   tile(t("verify.hitRate"), pct(s.accuracy, 2), t("verify.decided", { n: s.decided.toLocaleString() }));
+  // Coloured by the call below, not by the error alone: a gap one error up is
+  // where a recommendation with no edge spends a tenth of its looks.
   tile(t("verify.vsBanker"), (gap >= 0 ? "+" : "−") + pct(Math.abs(gap), 2),
-       "±" + pct(se, 2), Math.abs(gap) <= se ? "" : gap > 0 ? "up" : "down");
+       "±" + pct(se, 2), s.call === "ahead" ? "up" : s.call === "behind" ? "down" : "");
   tile(t("verify.logLoss"), s.meanLogLoss.toFixed(4), t("verify.lower"));
   tile(t("verify.brier"), s.meanBrier.toFixed(4), t("verify.lower"));
   if (Number.isFinite(s.calibrationError)) {
@@ -12105,8 +12162,10 @@ function renderVerification() {
     base: pct(s.baseline, 2),
     gap: (gap >= 0 ? "+" : "−") + pct(Math.abs(gap), 2),
     se: pct(se, 2),
-    call: t(Math.abs(gap) <= se ? "verify.callNoise"
-      : gap > 0 ? "verify.callAhead" : "verify.callBehind"),
+    call: t({ ahead: "verify.callAhead", behind: "verify.callBehind",
+              tooFew: "verify.callFew", noise: "verify.callNoise" }[s.call], {
+      n: s.against.toLocaleString(), z: s.z.toFixed(2), bar: s.bar.toFixed(2),
+    }),
   });
 
   const table = el("table");
