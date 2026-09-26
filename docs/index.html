@@ -6236,8 +6236,10 @@ class LearnerShelf {
  * This is Robbins' normal-mixture boundary. For heads minus tails over n fair
  * tosses, the chance it ever reaches sqrt((n + RHO)(2 ln(1/ALPHA) + ln((n +
  * RHO)/RHO))) is at most ALPHA, however long it runs and however often it is
- * looked at (Ville's inequality). Measured over twenty thousand
- * disagreements, a network with no edge crossed it in 0.85% of sessions.
+ * looked at (Ville's inequality). Measured, a network with no edge crossed
+ * it at some point in 0.37% of sessions by a thousand disagreements, 0.90%
+ * by five thousand and 1.07% by twenty thousand -- against 4.1%, 6.6% and
+ * 8.9% for the fixed 2.5 on the same kind of walk.
  * RHO sets where it is tightest: it asks for z 4.45 at the floor of 200, 3.32
  * at a thousand, and grows only like a logarithm after that. The price is
  * time -- a network winning 55% of the disagreements is trusted after a
