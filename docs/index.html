@@ -855,6 +855,7 @@ footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
     <h2 data-i18n="collect.h"></h2>
     <p class="sub" data-i18n="collect.sub"></p>
     <div id="milestones"></div>
+    <p id="collectPieces" class="note" hidden></p>
   </section>
 
   <section class="panel c7">
@@ -2090,6 +2091,12 @@ const S = {
   "collect.ms3": { ko: "돈이 되는 편향", en: "Bias worth money", "zh-Hant": "有利可圖的偏差", "zh-Hans": "有利可图的偏差" },
   "collect.ms3note": { ko: "편향이 수익이 되기 시작하는 지점", en: "where a bias starts to pay", "zh-Hant": "偏差開始能獲利的臨界點", "zh-Hans": "偏差开始能盈利的临界点" },
   "collect.msLabel": { ko: "{label} — {bias} 편향까지 탐지", en: "{label} — detects a {bias} bias", "zh-Hant": "{label} — 可偵測 {bias} 偏差", "zh-Hans": "{label} — 可检测 {bias} 偏差" },
+  "collect.pieces": {
+    ko: "{total}슈 중 {n}슈는 도중에 본 슈의 일부라, 이 기록은 온전한 슈 {worth}개 분량으로 셉니다. 검정이 잡아낼 수 있는 편향은 슈의 개수가 아니라 담긴 판 수로 정해집니다.",
+    en: "{n} of these {total} [total|shoe|shoes] [n|is|are] part of a shoe, so this record counts as {worth} whole [worth|shoe|shoes]: what the test can detect is set by the coups a record holds, not by how many shoes they came from.",
+    "zh-Hant": "這 {total} 靴中有 {n} 靴只是中途觀察到的部分牌靴，因此這份紀錄按 {worth} 靴完整牌靴計算：檢定能抓出的偏差取決於紀錄中的局數，而不是牌靴的數目。",
+    "zh-Hans": "这 {total} 靴中有 {n} 靴只是中途观察到的部分牌靴，因此这份记录按 {worth} 靴完整牌靴计算：检验能抓出的偏差取决于记录中的局数，而不是牌靴的数目。",
+  },
   "collect.msCount": { ko: "{have} / {need}슈", en: "{have} / {need} [need|shoe|shoes]", "zh-Hant": "{have} / {need} 靴", "zh-Hans": "{have} / {need} 靴" },
 
   /* ------------------------------------------------------------ integrity */
@@ -3126,6 +3133,22 @@ function detectableBias(nShoes) {
   return b0 * Math.sqrt(n0 / nShoes);
 }
 
+/**
+ * How many whole shoes' worth of coups these are.
+ *
+ * What the battery can detect is set by the coups it has to look at, and
+ * `detectableBias` is anchored on eighty whole shoes. Counted by its shoes, a
+ * record caught part-way through claims the power of shoes it does not have:
+ * a hundred twenty-coup pieces are twenty-five shoes' worth, and were counted
+ * as a hundred. A shoe long enough to be whole counts as one, as in the
+ * anchor; a piece counts for the coups it holds.
+ */
+function wholeShoes(shoes) {
+  let worth = 0;
+  for (const shoe of shoes) worth += shoe.length >= SHOE_MIN ? 1 : shoe.length / SHOE_MEAN;
+  return worth;
+}
+
 /** Shoes needed to detect `bias` at 80% power. Inverse of the above. */
 function shoesForBias(bias) {
   if (bias <= 0) return -1;
@@ -3527,7 +3550,9 @@ function integrityReport(shoes, nullSamples, { alpha = 0.05, nReplicates = 0 } =
   const flagged = findings.filter((f) => corrections[f.statistic]?.significant_bh);
 
   const nCoups = shoes.reduce((a, s) => a + s.length, 0);
-  const bias = detectableBias(nShoes);
+  // In whole shoes' worth: a record of pieces has the power of its coups.
+  const worth = wholeShoes(shoes);
+  const bias = detectableBias(worth);
   const enough = bias <= BANKER_BREAKEVEN_GAP;
 
   // The verdict is three facts, not a sentence: a deviation was found; or none
@@ -3544,7 +3569,11 @@ function integrityReport(shoes, nullSamples, { alpha = 0.05, nReplicates = 0 } =
     detectable_bias: bias,
     sufficient: enough,
     breakeven_gap: BANKER_BREAKEVEN_GAP,
-    shoes_needed: shoesForBias(BANKER_BREAKEVEN_GAP),
+    whole_shoes: worth,
+    // In shoes like these, the way the server says it: closing a factor in
+    // detectable bias costs its square in shoes. For a record of whole shoes
+    // this is `shoesForBias` exactly.
+    shoes_needed: Math.ceil(nShoes * (bias / BANKER_BREAKEVEN_GAP) ** 2),
   };
 }
 
@@ -12082,8 +12111,10 @@ function shareSub(o) {
 
 function renderKpis() {
   const o = observed();
-  const bias = detectableBias(o.shoes);
-  const shape = shoeShape(shoes().filter((s) => s.o.length).map((s) => s.o.length));
+  const held = shoes().filter((s) => s.o.length).map((s) => s.o);
+  // What these coups can detect, not what as many whole shoes could.
+  const bias = detectableBias(wholeShoes(held));
+  const shape = shoeShape(held.map((s) => s.length));
   const tiles = [
     {
       k: t("state.shoes"), v: o.shoes.toLocaleString(),
@@ -12816,7 +12847,19 @@ function renderShoes() {
 }
 
 function renderMilestones() {
-  const n = shoes().filter((s) => s.o.length).length;
+  // Counted in whole shoes' worth, the unit the milestones were measured in.
+  // A shoe caught part-way through is part of one, and says so underneath.
+  const held = shoes().filter((s) => s.o.length).map((s) => s.o);
+  const worth = wholeShoes(held);
+  const n = Math.floor(worth + 1e-9);
+  const pieces = held.filter((s) => s.length < SHOE_MIN).length;
+  const note = $("collectPieces");
+  note.hidden = !pieces;
+  if (pieces) {
+    note.textContent = t("collect.pieces", {
+      n: pieces, total: held.length, worth: n.toLocaleString(),
+    });
+  }
   const box = $("milestones");
   box.innerHTML = "";
   for (const m of MILESTONES) {
