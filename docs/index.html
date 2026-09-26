@@ -1302,10 +1302,10 @@ const S = {
     "zh-Hans": "<b>采用基本估计。</b>神经网络并未领先。",
   },
   "learn.noise": {
-    ko: "<b>기본 추정을 씁니다.</b> 학습 모델이 앞서 있지만 (z {z}) 우연과 구별되지 않습니다.",
-    en: "<b>Using the base estimate.</b> The network is ahead (z {z}) but not by more than chance.",
-    "zh-Hant": "<b>採用基本估計。</b>神經網路雖領先（z {z}），但與運氣無法區分。",
-    "zh-Hans": "<b>采用基本估计。</b>神经网络虽领先（z {z}），但与运气无法区分。",
+    ko: "<b>기본 추정을 씁니다.</b> 학습 모델이 앞서 있지만 (z {z}) 우연과 구별되지 않습니다 — 판마다 다시 확인하는 만큼, 지금은 z {bar}는 되어야 합니다.",
+    en: "<b>Using the base estimate.</b> The network is ahead (z {z}) but not by more than chance — asked after every coup, it needs z {bar} here.",
+    "zh-Hant": "<b>採用基本估計。</b>神經網路雖領先（z {z}），但與運氣無法區分 — 每局都重新檢查，此時需要 z {bar}。",
+    "zh-Hans": "<b>采用基本估计。</b>神经网络虽领先（z {z}），但与运气无法区分 — 每局都重新检查，此时需要 z {bar}。",
   },
   "learn.tooFew": {
     ko: "<b>기본 추정을 씁니다.</b> 두 추천이 갈린 판이 {n}판뿐입니다 — 어느 쪽이 나은지 묻기에 200판은 필요합니다.",
@@ -6223,18 +6223,46 @@ class LearnerShelf {
 }
 
 /**
+ * How far ahead the network has to be, over `split` disagreements, before it
+ * is trusted.
+ *
+ * The page asks after every coup, so the question is not whether a lead is
+ * unusual at one look but whether a network with no edge would ever reach
+ * it. A fixed z of 2.5 -- one time in 160 at a single look -- was reached at
+ * some point by a network with no edge in 4.1% of sessions by a thousand
+ * disagreements and 8.9% by twenty thousand, measured; and each time, the
+ * panel said the network was ahead by more than chance would give.
+ *
+ * This is Robbins' normal-mixture boundary. For heads minus tails over n fair
+ * tosses, the chance it ever reaches sqrt((n + RHO)(2 ln(1/ALPHA) + ln((n +
+ * RHO)/RHO))) is at most ALPHA, however long it runs and however often it is
+ * looked at (Ville's inequality). Measured over twenty thousand
+ * disagreements, a network with no edge crossed it in 0.85% of sessions.
+ * RHO sets where it is tightest: it asks for z 4.45 at the floor of 200, 3.32
+ * at a thousand, and grows only like a logarithm after that. The price is
+ * time -- a network winning 55% of the disagreements is trusted after a
+ * median of 913 of them rather than 454 -- and it is the price of the
+ * sentence on screen being true. A tie among the disagreements settles
+ * neither side and moves nothing, which only makes the walk tamer than the
+ * one the bound is for.
+ */
+const TRUST_ALPHA = 0.025;
+const TRUST_RHO = 200;
+
+function trustBoundary(split) {
+  const n = split + TRUST_RHO;
+  return Math.sqrt(n * (2 * Math.log(1 / TRUST_ALPHA) + Math.log(n / TRUST_RHO)));
+}
+
+/**
  * Whether the network's lead is bigger than the noise it would show anyway.
  *
  * The two bet on the same coups, so the comparison is paired: where they agree
  * they win and lose together and nothing is learned, and where they disagree
  * exactly one of them wins. So the evidence is entirely in the `split` coups
  * they picked differently, and under "the two are equally good" the number the
- * network takes of those is a fair coin.
- *
- * Its win count minus the estimate's is the same thing as heads minus tails
- * over those coups, which makes the test a plain sign test: divide by the root
- * of the split. Two and a half is about one time in eighty in the direction
- * being asked about.
+ * network takes of those is a fair coin -- its win count minus the estimate's
+ * is heads minus tails, held to `trustBoundary`.
  *
  * The floor of 200 is there because below it the test has almost no power, and
  * a decision made on less is a coin flip wearing a number.
@@ -6242,10 +6270,13 @@ class LearnerShelf {
 function verdict(model, base, split = 0) {
   const swing = model.wins - base.wins;
   const z = split > 0 ? swing / Math.sqrt(split) : 0;
-  const ahead = model.units > base.units && z >= 2.5 && split >= 200;
+  const ahead = model.units > base.units && split >= 200 && swing >= trustBoundary(split);
   return {
     lead: model.units - base.units,
     z,
+    // The z the boundary asks for at this many disagreements, to say beside
+    // a lead that has not reached it.
+    bar: split > 0 ? trustBoundary(split) / Math.sqrt(split) : NaN,
     trusted: ahead,
     reason: ahead ? "ahead"
       : split < 200 ? "tooFew"
@@ -12079,7 +12110,7 @@ function renderLearned() {
   verdict.innerHTML =
     l.reason === "record" ? t("learn.record")
     : l.reason === "ahead" ? t("learn.usingModel", { lead: signed(l.lead), z })
-    : l.reason === "noise" ? t("learn.noise", { z })
+    : l.reason === "noise" ? t("learn.noise", { z, bar: l.bar.toFixed(2) })
     : l.reason === "tooFew" ? t("learn.tooFew", { n: l.split.toLocaleString() })
     : t("learn.behind");
 }
