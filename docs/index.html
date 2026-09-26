@@ -2316,6 +2316,24 @@ const S = {
     "zh-Hant": "{model} · 已結算 {settled} 筆中指出 {called} 筆 · 命中 {hits} 筆",
     "zh-Hans": "{model} · 已结算 {settled} 笔中指出 {called} 笔 · 命中 {hits} 笔",
   },
+  "calls.rateVs": {
+    ko: "적중률 {rate} · 같은 판에 늘 뱅커 {base} · 차이 {gap} (표준오차 ±{se})",
+    en: "hit rate {rate} · always Banker on the same coups {base} · gap {gap} (standard error ±{se})",
+    "zh-Hant": "命中率 {rate} · 同樣局數一律押莊 {base} · 差距 {gap}（標準誤 ±{se}）",
+    "zh-Hans": "命中率 {rate} · 同样局数一律押庄 {base} · 差距 {gap}（标准误 ±{se}）",
+  },
+  "calls.pushed": {
+    ko: "무승부로 무효 {n}건",
+    en: "{n} pushed on a tie",
+    "zh-Hant": "和局退回 {n} 筆",
+    "zh-Hans": "和局退回 {n} 笔",
+  },
+  "calls.tieBets": {
+    ko: "타이 지목 {n}건 중 적중 {hits}건",
+    en: "{n} Tie [n|call|calls], {hits} right",
+    "zh-Hant": "押和 {n} 筆，命中 {hits} 筆",
+    "zh-Hans": "押和 {n} 笔，命中 {hits} 笔",
+  },
   "calls.rate": {
     ko: "적중률 {rate}",
     en: "hit rate {rate}",
@@ -13173,16 +13191,36 @@ function renderSharedScore(score) {
 
   for (const book of models) {
     const row = el("div", "verifyrow");
-    row.appendChild(el("span", "", t("calls.row", {
+    // What is not in the rate, said beside it: a side called on a coup that
+    // came in a tie pushed, and a Tie call is a different bet.
+    const apart = [];
+    if (book.pushed) apart.push(t("calls.pushed", { n: book.pushed.toLocaleString() }));
+    if (book.tie_calls) {
+      apart.push(t("calls.tieBets", {
+        n: book.tie_calls.toLocaleString(), hits: (book.tie_hits || 0).toLocaleString(),
+      }));
+    }
+    row.appendChild(el("span", "", [t("calls.row", {
       model: `${book.model} ${book.version}`,
       settled: (book.settled || 0).toLocaleString(),
       called: (book.called || 0).toLocaleString(),
       hits: (book.hits || 0).toLocaleString(),
-    })));
+    }), ...apart].join(" · ")));
     // A rate over no calls is nothing, not zero -- the same rule the panel
-    // above this one follows, and the reason `/score` sends null for it.
-    row.appendChild(el("span", "", book.hit_rate === null || book.hit_rate === undefined
-      ? "—" : t("calls.rate", { rate: pct(book.hit_rate, 2) })));
+    // above this one follows, and the reason `/score` sends null for it. And
+    // a rate is quoted beside always backing Banker on the same coups, as the
+    // panel above quotes its own; only a server too old to send that gets
+    // the rate on its own.
+    const rated = typeof book.hit_rate === "number";
+    const beside = rated && [book.banker_rate, book.edge, book.edge_error]
+      .every((x) => typeof x === "number");
+    row.appendChild(el("span", "", !rated ? "—"
+      : beside ? t("calls.rateVs", {
+        rate: pct(book.hit_rate, 2), base: pct(book.banker_rate, 2),
+        gap: (book.edge >= 0 ? "+" : "−") + pct(Math.abs(book.edge), 2),
+        se: pct(book.edge_error, 2),
+      })
+      : t("calls.rate", { rate: pct(book.hit_rate, 2) })));
     rows.appendChild(row);
   }
 
