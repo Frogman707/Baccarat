@@ -734,6 +734,7 @@ footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
       <span class="v" id="aiSide"></span>
       <span class="betbadge" id="aiBetBadge"></span>
     </div>
+    <p class="ainote" id="aiBetWhy" hidden></p>
     <!-- A second opinion, above this device's own and never in place of it.
          Everything below the divider is computed in this browser and keeps
          working with no network, which is how the page is used at a table. -->
@@ -1672,6 +1673,21 @@ const S = {
   "ai.betGo": { ko: "베팅 권장", en: "Worth backing", "zh-Hant": "建議下注", "zh-Hans": "建议下注" },
   "ai.betHold": { ko: "참고용 · 베팅 권장 안 함", en: "Reference only \u00b7 not worth backing",
     "zh-Hant": "僅供參考 \u00b7 不建議下注", "zh-Hans": "仅供参考 \u00b7 不建议下注" },
+  // Beside the badge when the estimate's expectation is positive and the
+  // table's share has not cleared the line it is held to: the two figures on
+  // screen would otherwise seem to disagree. See `backingCleared`.
+  "ai.betWhy": {
+    ko: "추정 기대값은 플러스지만, 판마다 다시 보는 만큼 공정한 테이블도 가끔 이 정도는 보입니다 — 승부 난 이 {n}판에서 {side} 비율이 <b>{need}</b>에 이르러야 베팅 권장이 됩니다 (지금 {now}).",
+    en: "The estimate's expectation is positive, but read after every coup a fair table shows this now and then — over these {n} decided [n|coup|coups], {side}'s share has to reach <b>{need}</b> before backing it is called worth it (it is at {now}).",
+    "zh-Hant": "推估的期望值為正，但每局都重新檢查時，公平牌桌也不時出現這種程度 — 在這 {n} 局分勝負的局數中，{side}的比率需達到 <b>{need}</b> 才算值得下注（目前 {now}）。",
+    "zh-Hans": "推估的期望值为正，但每局都重新检查时，公平牌桌也不时出现这种程度 — 在这 {n} 局分胜负的局数中，{side}的比率需达到 <b>{need}</b> 才算值得下注（目前 {now}）。",
+  },
+  "ai.betWhyFew": {
+    ko: "추정 기대값은 플러스지만, 판마다 다시 보는 만큼 공정한 테이블도 가끔 이 정도는 보입니다 — 승부 난 {n}판으로는 어떤 비율도 아직 그 기준을 넘을 수 없습니다.",
+    en: "The estimate's expectation is positive, but read after every coup a fair table shows this now and then — and over {n} decided [n|coup|coups] no share can clear the line yet.",
+    "zh-Hant": "推估的期望值為正，但每局都重新檢查時，公平牌桌也不時出現這種程度 — 僅 {n} 局分勝負的局數，任何比率都還無法越過該線。",
+    "zh-Hans": "推估的期望值为正，但每局都重新检查时，公平牌桌也不时出现这种程度 — 仅 {n} 局分胜负的局数，任何比率都还无法越过该线。",
+  },
   "ai.confidence": { ko: "신뢰도", en: "Confidence", "zh-Hant": "信心度", "zh-Hans": "信心度" },
   "ai.margin": { ko: "오차범위", en: "Margin", "zh-Hant": "誤差範圍", "zh-Hans": "误差范围" },
   "ai.cardsLeft": { ko: "남은 카드", en: "Cards left", "zh-Hant": "剩餘牌數", "zh-Hans": "剩余牌数" },
@@ -1922,17 +1938,34 @@ const S = {
     "zh-Hant": "<b>不下注。</b>本桌莊家比率 <b>{q}</b> 已越過{line}損益平衡線，但 95% 信賴區間 <b>{lo}–{hi}</b> 仍橫跨該線。僅 {n} 局，單憑運氣就能拉開這樣的差距 — 區間必須整段越過該線才具意義。",
     "zh-Hans": "<b>不下注。</b>本桌庄家比率 <b>{q}</b> 已越过{line}盈亏平衡线，但 95% 置信区间 <b>{lo}–{hi}</b> 仍横跨该线。仅 {n} 局，单凭运气就能拉开这样的差距 — 区间必须整段越过该线才具意义。",
   },
+  // The 95% interval clears a line at this reading, and the page reads it
+  // after every coup: an honest table's interval does that now and then, so
+  // this is not the verdict above. See `backingCleared` in predict.js.
+  "scale.verdictRelook": {
+    ko: "<b>베팅 안 함.</b> 이 테이블의 뱅커 비율은 <b>{q}</b>이고, 95% 신뢰구간 <b>{lo}–{hi}</b>이 지금 이 순간에는 {line} 손익분기선을 넘습니다. 하지만 이 페이지는 판마다 다시 보고, 공정한 테이블의 구간도 가끔 그렇게 넘습니다 — 매번 보는 것까지 셈하면, 이 {n}판에서 뱅커 비율이 <b>{need}</b> {dir}이어야 합니다.",
+    en: "<b>No bet.</b> This table's Banker share is <b>{q}</b>, and its 95% interval <b>{lo}–{hi}</b> clears the {line} break-even at this reading. But the page reads it after every coup, and an honest table's interval clears a line that way now and then — counting every reading, over these {n} [n|coup|coups] the Banker share has to get {dir} <b>{need}</b>.",
+    "zh-Hant": "<b>不下注。</b>本桌莊家比率為 <b>{q}</b>，95% 信賴區間 <b>{lo}–{hi}</b> 在此刻越過{line}損益平衡線。但本頁每局都會重新檢查，公平牌桌的區間也不時如此越線 — 計入每次檢查，在這 {n} 局中莊家比率需{dir} <b>{need}</b>。",
+    "zh-Hans": "<b>不下注。</b>本桌庄家比率为 <b>{q}</b>，95% 置信区间 <b>{lo}–{hi}</b> 在此刻越过{line}盈亏平衡线。但本页每局都会重新检查，公平牌桌的区间也不时如此越线 — 计入每次检查，在这 {n} 局中庄家比率需{dir} <b>{need}</b>。",
+  },
+  "scale.verdictRelookFew": {
+    ko: "<b>베팅 안 함.</b> 이 테이블의 뱅커 비율은 <b>{q}</b>이고, 95% 신뢰구간 <b>{lo}–{hi}</b>이 지금 이 순간에는 {line} 손익분기선을 넘습니다. 하지만 이 페이지는 판마다 다시 보고, 공정한 테이블의 구간도 가끔 그렇게 넘습니다 — 매번 보는 것까지 셈하면, 승부 난 {n}판으로는 어떤 비율도 아직 그 선을 넘을 수 없습니다.",
+    en: "<b>No bet.</b> This table's Banker share is <b>{q}</b>, and its 95% interval <b>{lo}–{hi}</b> clears the {line} break-even at this reading. But the page reads it after every coup, and an honest table's interval clears a line that way now and then — counting every reading, no share over {n} decided [n|coup|coups] can clear it yet.",
+    "zh-Hant": "<b>不下注。</b>本桌莊家比率為 <b>{q}</b>，95% 信賴區間 <b>{lo}–{hi}</b> 在此刻越過{line}損益平衡線。但本頁每局都會重新檢查，公平牌桌的區間也不時如此越線 — 計入每次檢查，僅 {n} 局分勝負的局數，任何比率都還無法越過該線。",
+    "zh-Hans": "<b>不下注。</b>本桌庄家比率为 <b>{q}</b>，95% 置信区间 <b>{lo}–{hi}</b> 在此刻越过{line}盈亏平衡线。但本页每局都会重新检查，公平牌桌的区间也不时如此越线 — 计入每次检查，仅 {n} 局分胜负的局数，任何比率都还无法越过该线。",
+  },
+  "scale.above": { ko: "이상", en: "above", "zh-Hant": "高於", "zh-Hans": "高于" },
+  "scale.below": { ko: "이하", en: "below", "zh-Hant": "低於", "zh-Hans": "低于" },
   "scale.verdictBanker": {
-    ko: "<b>이례적입니다.</b> 이 테이블의 뱅커 비율 신뢰구간(<b>{lo}–{hi}</b>)이 뱅커 손익분기선 <b>51.282%</b>를 통째로 넘습니다. 아래 무결성 검정을 돌려 판독 오류·덱 수·규칙 차이부터 배제하세요.",
-    en: "<b>Unusual.</b> This table's Banker-share interval (<b>{lo}–{hi}</b>) sits entirely above the Banker break-even of <b>51.282%</b>. Run the integrity test below and rule out a reading error, a different deck count and non-standard rules first.",
-    "zh-Hant": "<b>異常。</b>本桌莊家比率的信賴區間（<b>{lo}–{hi}</b>）整段高於莊家損益平衡線 <b>51.282%</b>。請先執行下方的完整性檢定，排除判讀錯誤、副數不同與規則差異。",
-    "zh-Hans": "<b>异常。</b>本桌庄家比率的置信区间（<b>{lo}–{hi}</b>）整段高于庄家盈亏平衡线 <b>51.282%</b>。请先执行下方的完整性检验，排除判读错误、副数不同与规则差异。",
+    ko: "<b>이례적입니다.</b> 이 테이블의 뱅커 비율 신뢰구간(<b>{lo}–{hi}</b>)이 뱅커 손익분기선 <b>51.282%</b>를 통째로 넘고, 판마다 다시 보는 것까지 셈해도 넘어서 있습니다. 아래 무결성 검정을 돌려 판독 오류·덱 수·규칙 차이부터 배제하세요.",
+    en: "<b>Unusual.</b> This table's Banker-share interval (<b>{lo}–{hi}</b>) sits entirely above the Banker break-even of <b>51.282%</b>, and the share is past it even counting every reading. Run the integrity test below and rule out a reading error, a different deck count and non-standard rules first.",
+    "zh-Hant": "<b>異常。</b>本桌莊家比率的信賴區間（<b>{lo}–{hi}</b>）整段高於莊家損益平衡線 <b>51.282%</b>，即使計入每局的重新檢查仍然超過。請先執行下方的完整性檢定，排除判讀錯誤、副數不同與規則差異。",
+    "zh-Hans": "<b>异常。</b>本桌庄家比率的置信区间（<b>{lo}–{hi}</b>）整段高于庄家盈亏平衡线 <b>51.282%</b>，即使计入每局的重新检查仍然超过。请先执行下方的完整性检验，排除判读错误、副数不同与规则差异。",
   },
   "scale.verdictPlayer": {
-    ko: "<b>이례적입니다.</b> 신뢰구간(<b>{lo}–{hi}</b>)이 플레이어 손익분기선 <b>50.000%</b> 아래에 통째로 있습니다. 아래 무결성 검정으로 확인하세요.",
-    en: "<b>Unusual.</b> The interval (<b>{lo}–{hi}</b>) sits entirely below the Player break-even of <b>50.000%</b>. Check it with the integrity test below.",
-    "zh-Hant": "<b>異常。</b>信賴區間（<b>{lo}–{hi}</b>）整段低於閒家損益平衡線 <b>50.000%</b>。請以下方的完整性檢定確認。",
-    "zh-Hans": "<b>异常。</b>置信区间（<b>{lo}–{hi}</b>）整段低于闲家盈亏平衡线 <b>50.000%</b>。请以下方的完整性检验确认。",
+    ko: "<b>이례적입니다.</b> 신뢰구간(<b>{lo}–{hi}</b>)이 플레이어 손익분기선 <b>50.000%</b> 아래에 통째로 있고, 판마다 다시 보는 것까지 셈해도 그 아래입니다. 아래 무결성 검정으로 확인하세요.",
+    en: "<b>Unusual.</b> The interval (<b>{lo}–{hi}</b>) sits entirely below the Player break-even of <b>50.000%</b>, and the share is past it even counting every reading. Check it with the integrity test below.",
+    "zh-Hant": "<b>異常。</b>信賴區間（<b>{lo}–{hi}</b>）整段低於閒家損益平衡線 <b>50.000%</b>，即使計入每局的重新檢查仍然低於。請以下方的完整性檢定確認。",
+    "zh-Hans": "<b>异常。</b>置信区间（<b>{lo}–{hi}</b>）整段低于闲家盈亏平衡线 <b>50.000%</b>，即使计入每局的重新检查仍然低于。请以下方的完整性检验确认。",
   },
 
   /* --------------------------------------------------------------- boards */
@@ -2806,6 +2839,26 @@ const BASE_TIE = 0.095156;
 /** Distance from a fresh shoe to the Banker break-even: the yardstick for
  *  "a bias big enough to be worth money". */
 const BANKER_BREAKEVEN_GAP = BANKER_BREAKEVEN - BASE_BANKER_SHARE;
+
+/**
+ * Robbins' normal-mixture boundary, for a walk read after every step.
+ *
+ * For a sum of `n` steps each within one of its mean either way, with that
+ * mean at most zero, the chance the sum ever reaches this -- at any step,
+ * however often it is looked at -- is at most `alpha` (Ville's inequality).
+ * `rho` sets where it is tightest. A walk whose steps span less is held to
+ * this times their half-span: a coin counted against a fixed share moves by
+ * one or nothing, so by half of one about its mean.
+ *
+ * The page asks its questions after every coup, which is what makes a line
+ * drawn for one look the wrong line: crossed by luck sooner or later on most
+ * honest tables. See `trustBoundary` in learn.js and `backingCleared` in
+ * predict.js for the two it is used for, and what the fixed lines did.
+ */
+function mixtureBoundary(n, alpha, rho) {
+  const m = n + rho;
+  return Math.sqrt(m * (2 * Math.log(1 / alpha) + Math.log(m / rho)));
+}
 
 /** Point values per rank: 10/J/Q/K are four ranks worth 0, A-9 one each. */
 const RANKS_PER_VALUE = [4, 1, 1, 1, 1, 1, 1, 1, 1, 1];
@@ -5390,6 +5443,49 @@ function edges(q, tieP) {
 }
 
 /**
+ * Whether this table's own share has cleared a break-even line by more than
+ * an honest table reaches when it is read after every coup.
+ *
+ * Two things on the page said a side was worth money. The badge beside the
+ * pick said "worth backing" wherever the estimate's expectation was above
+ * zero; the verdict under the scale said "unusual" wherever the share's 95%
+ * interval cleared a break-even line. Each is a fair statement at one look,
+ * and the page takes a look after every coup. Measured over 300 fair tables
+ * read that way: "worth backing" appeared at some point on 13% by 5,000
+ * decided coups and 22% by 60,000, and "unusual" on 36% within the first
+ * 1,000 and 40% by 60,000 -- a streak early on is enough to clear an
+ * interval drawn for one look.
+ *
+ * So a side counts as clearing only when the table's share is past its line
+ * by the always-valid boundary: a Banker win counted against the Banker
+ * break-even moves by one or nothing, half of one about its mean, so the
+ * count is held to half of `mixtureBoundary`. Where the Banker share is at or
+ * below break-even -- which every honest table's is -- the chance of ever
+ * reaching it is at most BACKING_ALPHA however long the table is watched;
+ * measured, none of the same 300 did. Counts are in effective coups, the
+ * same clustering discount `posterior` applies.
+ *
+ * `bankerAbove` and `bankerBelow` are the Banker shares that would clear the
+ * two lines at this many coups, for saying how far off a table is.
+ */
+const BACKING_ALPHA = 0.025;
+const BACKING_RHO = 200;
+
+function backingCleared(n, q, deff = 1) {
+  const nEff = n > 0 ? n / Math.max(1, deff) : 0;
+  if (!nEff || !Number.isFinite(q)) {
+    return { B: false, P: false, bankerAbove: NaN, bankerBelow: NaN };
+  }
+  const reach = (0.5 * mixtureBoundary(nEff, BACKING_ALPHA, BACKING_RHO)) / nEff;
+  return {
+    B: q - BANKER_BREAKEVEN >= reach,
+    P: PLAYER_BREAKEVEN - q >= reach,
+    bankerAbove: BANKER_BREAKEVEN + reach,
+    bankerBelow: PLAYER_BREAKEVEN - reach,
+  };
+}
+
+/**
  * What produced a prediction, written into every logged one.
  *
  * A stored prediction is only re-readable if you know what made it. These are
@@ -5504,6 +5600,10 @@ function posterior(sample = {}) {
 
   return {
     q, se, tie, decided, z, pick, edge: e[pick],
+    // The table's own share against the break-even lines, read as often as
+    // the page reads it. A positive expectation is not a bet until this says
+    // so too: see `backingCleared`.
+    cleared: backingCleared(n, qObs, deff),
     informed: n > 0,
     // How much of the estimate is this table's own data rather than the prior.
     // The prior is deliberately heavy -- it is worth about seven thousand
@@ -6318,8 +6418,7 @@ const TRUST_RHO = 200;
 const TRUST_FLOOR = 200;
 
 function trustBoundary(split) {
-  const n = split + TRUST_RHO;
-  return Math.sqrt(n * (2 * Math.log(1 / TRUST_ALPHA) + Math.log(n / TRUST_RHO)));
+  return mixtureBoundary(split, TRUST_ALPHA, TRUST_RHO);
 }
 
 /**
@@ -11710,8 +11809,16 @@ function renderPrediction() {
   // figures below it. The paragraph that used to spell the same thing out in
   // words is gone: on every coup it said at length what the badge and a
   // negative expectation already say in two places.
+  //
+  // And a positive expectation is a fact about the estimate at this look,
+  // while the badge is read after every coup: on its own it said "worth
+  // backing" at some point on a fifth of fair tables. The table's share has
+  // to have cleared the break-even line by more than luck gives an honest
+  // table read that often -- see `backingCleared` -- and where the estimate
+  // is positive and the share has not got there, the line under the badge
+  // says how far it has to go, so the two figures do not seem to disagree.
   const evChosen = edges(p.q, p.tie)[chosen];
-  const worthBacking = evChosen > 0;
+  const worthBacking = evChosen > 0 && p.cleared[chosen];
   const pick = $("aiSide");
   pick.textContent = side(chosen);
   pick.className = "v " + chosen;
@@ -11719,6 +11826,20 @@ function renderPrediction() {
   const badge = $("aiBetBadge");
   badge.textContent = t(worthBacking ? "ai.betGo" : "ai.betHold");
   badge.className = "betbadge " + (worthBacking ? "go" : "hold");
+
+  const betWhy = $("aiBetWhy");
+  betWhy.hidden = worthBacking || !(evChosen > 0);
+  if (betWhy.hidden) betWhy.innerHTML = "";
+  else {
+    // The chosen side's own share of the decided coups, and the share that
+    // would clear its line at this count.
+    const need = chosen === "B" ? p.cleared.bankerAbove : 1 - p.cleared.bankerBelow;
+    const now = chosen === "B" ? o.q : 1 - o.q;
+    betWhy.innerHTML = need > 1
+      ? t("ai.betWhyFew", { n: o.n.toLocaleString() })
+      : t("ai.betWhy", { side: side(chosen), need: pct(need, 2), now: pct(now, 2),
+                         n: o.n.toLocaleString() });
+  }
 
   // Written down here, where the recommendation is finished and before the
   // coup it is about has happened. That ordering is the whole guarantee: the
@@ -12662,8 +12783,13 @@ function renderScale() {
   p.push(`<line x1="${x(BASE_BANKER_SHARE)}" y1="${yBand - 3}" x2="${x(BASE_BANKER_SHARE)}" y2="${yBand + hBand + 3}" stroke="${C("--ink-3")}" stroke-width="1" stroke-dasharray="3 3"/>`);
   p.push(`<text x="${x(BASE_BANKER_SHARE)}" y="${yFreshLabel}" text-anchor="middle" font-size="10.5" fill="${C("--ink-3")}">${t("scale.freshShoe")}</text>`);
 
+  // The same test the badge beside the pick is held to, so the two never say
+  // different things about one table: past a break-even line counting every
+  // reading, not only this one. See `backingCleared`.
+  const cleared = backingCleared(o.n, o.q, Math.max(1, (o.inflate ?? 1) ** 2));
+
   if (hasInterval(o)) {
-    const clears = o.lo > BANKER_BREAKEVEN || o.hi < PLAYER_BREAKEVEN;
+    const clears = cleared.B || cleared.P;
     const col = clears ? C("--accent") : C("--ink");
     const clamp = (q) => Math.min(HI, Math.max(LO, q));
     const off = o.q > HI || o.q < LO;
@@ -12697,12 +12823,24 @@ function renderScale() {
   if (!hasInterval(o)) {
     note.className = "verdict neutral";
     note.innerHTML = t("scale.verdictWaiting", { eb: pct(e.B, 3), ep: pct(e.P, 3), n: o.n });
-  } else if (o.lo > BANKER_BREAKEVEN) {
+  } else if (cleared.B) {
     note.className = "verdict flag";
     note.innerHTML = t("scale.verdictBanker", { lo: pct(o.lo, 2), hi: pct(o.hi, 2) });
-  } else if (o.hi < PLAYER_BREAKEVEN) {
+  } else if (cleared.P) {
     note.className = "verdict flag";
     note.innerHTML = t("scale.verdictPlayer", { lo: pct(o.lo, 2), hi: pct(o.hi, 2) });
+  } else if (o.lo > BANKER_BREAKEVEN || o.hi < PLAYER_BREAKEVEN) {
+    // The interval clears a line at this reading and the share has not
+    // cleared it counting every reading: measured, the case an honest table
+    // was called "unusual" in at some point four times in ten.
+    const up = o.lo > BANKER_BREAKEVEN;
+    const need = up ? cleared.bankerAbove : cleared.bankerBelow;
+    note.className = "verdict neutral";
+    note.innerHTML = t(need > 1 || need < 0 ? "scale.verdictRelookFew" : "scale.verdictRelook", {
+      q: pct(o.q, 2), lo: pct(o.lo, 2), hi: pct(o.hi, 2), n: o.n.toLocaleString(),
+      line: up ? t("side.B") : t("side.P"),
+      need: pct(need, 2), dir: t(up ? "scale.above" : "scale.below"),
+    });
   } else if (o.q >= PLAYER_BREAKEVEN && o.q <= BANKER_BREAKEVEN) {
     note.className = "verdict neutral";
     note.innerHTML = t("scale.verdictDead", { q: pct(o.q, 2), lo: pct(o.lo, 2), hi: pct(o.hi, 2) });
