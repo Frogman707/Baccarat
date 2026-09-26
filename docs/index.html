@@ -1335,8 +1335,8 @@ const S = {
   "verify.lower": { ko: "낮을수록 좋음", en: "lower is better", "zh-Hant": "越低越好", "zh-Hans": "越低越好" },
   "verify.calib": { ko: "확률 오차", en: "Calibration error", "zh-Hant": "機率誤差", "zh-Hans": "概率误差" },
   "verify.calibSub": {
-    ko: "말한 확률 − 실제", en: "stated minus observed",
-    "zh-Hant": "宣稱機率 − 實際", "zh-Hans": "宣称概率 − 实际",
+    ko: "말한 확률 − 실제 · 이 판 수에선 ±{noise}까지는 운", en: "stated minus observed · up to ±{noise} is luck at this count",
+    "zh-Hant": "宣稱機率 − 實際 · 此局數下 ±{noise} 以內屬運氣", "zh-Hans": "宣称概率 − 实际 · 此局数下 ±{noise} 以内属运气",
   },
   "verify.none": {
     ko: "아직 채점된 추천이 없습니다. 판이 들어오면 직전 추천부터 채점됩니다.",
@@ -6283,7 +6283,7 @@ const LOG_CAP = 2000;
  */
 const LOG_CEILING = LOG_CAP * 2;
 
-/** Calibration bins: the share assigned to the side that was named. */
+/** Calibration bins: the named side's chance of winning a decided coup. */
 const CALIBRATION_BINS = 10;
 
 /** An empty log, which is also the shape `sanitiseLog` returns for rubbish. */
@@ -6294,10 +6294,14 @@ function emptyLog() {
 /** An empty roll-up: every figure the scorer needs, and nothing else. */
 function emptyRoll() {
   return {
-    n: 0, settled: 0, decided: 0, hits: 0, baseHits: 0,
+    n: 0, settled: 0, decided: 0, hits: 0, baseHits: 0, against: 0,
     backed: 0, backedDecided: 0, backedHits: 0, abstained: 0,
     logLoss: 0, brier: 0,
-    bins: Array.from({ length: CALIBRATION_BINS }, () => ({ n: 0, hits: 0 })),
+    // Per tenth of stated probability: how many, how many came in, and the
+    // sum of what was stated -- so a bin is held to what it was told rather
+    // than to its midpoint. Named `cal`, not the `bins` an older build stored:
+    // those were filled from a different probability and cannot be added in.
+    cal: Array.from({ length: CALIBRATION_BINS }, () => ({ n: 0, hits: 0, said: 0 })),
   };
 }
 
@@ -6543,6 +6547,9 @@ function foldInto(roll, e) {
   const hit = e.k === e.r;
   if (hit) roll.hits += 1;
   if (e.r === "B") roll.baseHits += 1;        // always backing Banker
+  // Where the two rules part company: only there can the gap between them
+  // move, so its error is counted from these.
+  if (e.k !== "B") roll.against += 1;
   if (e.b) {
     roll.backedDecided += 1;
     if (hit) roll.backedHits += 1;
@@ -6550,12 +6557,18 @@ function foldInto(roll, e) {
     roll.abstained += 1;
   }
 
-  // Calibration on the share given to the side that was named: of the coups
-  // where the app said 52%, how many came in?
-  const said = e.k === "B" ? pB : pP;
+  // Calibration: of the coups where the app gave the named side 51%, how many
+  // came in? Its chance of winning a decided coup, because that is what a hit
+  // is counted over. `p` shares a coup among Player, Banker and the tie, so
+  // the named side's own share carries the tie's part too -- 45.86% for a
+  // Banker that wins 50.68% of decided coups -- and held against a hit rate
+  // that leaves ties out, the true probabilities read as five points out.
+  const said = (e.k === "B" ? pB : pP) / ((pB + pP) || 1);
   const bin = Math.min(CALIBRATION_BINS - 1, Math.max(0, Math.floor(said * CALIBRATION_BINS)));
-  roll.bins[bin].n += 1;
-  if (hit) roll.bins[bin].hits += 1;
+  const c = roll.cal[bin];
+  c.n += 1;
+  c.said += said;
+  if (hit) c.hits += 1;
 }
 
 /**
@@ -6586,19 +6599,24 @@ function scorePredictions(log, table) {
     accuracy: rate(roll.hits, roll.decided),
     baseline: rate(roll.baseHits, roll.decided),
     edge: roll.decided ? (roll.hits - roll.baseHits) / roll.decided : NaN,
+    edgeError: edgeError(roll),
     backedAccuracy: rate(roll.backedHits, roll.backedDecided),
     meanLogLoss: rate(roll.logLoss, roll.settled),
     meanBrier: rate(roll.brier, roll.settled),
-    calibration: roll.bins.map((b, i) => ({
+    calibration: roll.cal.map((b, i) => ({
       from: i / CALIBRATION_BINS,
       to: (i + 1) / CALIBRATION_BINS,
       n: b.n,
+      stated: rate(b.said, b.n),
       observed: rate(b.hits, b.n),
     })),
     // How far the stated confidence sits from what happened, averaged over the
     // bins that have anything in them. This is the number that says whether a
     // probability on screen can be read as a probability.
     calibrationError: calibrationError(roll),
+    // And what an honest one would show anyway at this count, since a gap
+    // is never exactly zero: it is what the error is read against.
+    calibrationNoise: calibrationNoise(roll),
   };
 }
 
@@ -6608,22 +6626,72 @@ function merge(into, from) {
                      "backedDecided", "backedHits", "abstained", "logLoss", "brier"]) {
     into[key] += Number(from[key]) || 0;
   }
-  const bins = Array.isArray(from.bins) ? from.bins : [];
-  for (let i = 0; i < into.bins.length; i += 1) {
-    into.bins[i].n += Number(bins[i]?.n) || 0;
-    into.bins[i].hits += Number(bins[i]?.hits) || 0;
+  // An older build did not count where the rules parted. Taking every one of
+  // its decided coups as a parting can only widen the error, never narrow it.
+  into.against += Number.isFinite(Number(from.against))
+    ? Number(from.against) : Number(from.decided) || 0;
+  const cal = Array.isArray(from.cal) ? from.cal : [];
+  for (let i = 0; i < into.cal.length; i += 1) {
+    into.cal[i].n += Number(cal[i]?.n) || 0;
+    into.cal[i].hits += Number(cal[i]?.hits) || 0;
+    into.cal[i].said += Number(cal[i]?.said) || 0;
   }
 }
 
-/** Expected calibration error: each bin's gap, weighted by how full it is. */
+/**
+ * The standard error of the gap to always-Banker, from the coups it was
+ * measured on.
+ *
+ * The two rules are scored on the same coups, so the gap is a mean of
+ * per-coup differences: nothing where both named Banker, and one either way
+ * where the recommendation named Player. Its error follows from how often
+ * that happened. The figure this replaces, the square root of 0.5/n, was
+ * called a bound and is one only for a rule that parts from Banker half the
+ * time: for one that names Player nine times in ten it is a quarter too
+ * small, and a gap with no edge behind it was called larger than its error
+ * 48% of the time rather than 33%. For one that rarely parts it was more
+ * than twice too large.
+ */
+function edgeError(roll) {
+  const n = roll.decided;
+  if (!n) return NaN;
+  const mean = (roll.hits - roll.baseHits) / n;
+  return Math.sqrt(Math.max(0, roll.against / n - mean * mean) / n);
+}
+
+/**
+ * Expected calibration error: each bin's gap between what came in and what
+ * was stated, weighted by how full the bin is -- the same figure as
+ * `calibration_curve` in baccarat/eval/metrics.py. Held to the bin's
+ * midpoint instead, as it once was, a model saying 50.7% into the 50-60%
+ * bin was marked four points out for being right.
+ */
 function calibrationError(roll) {
   let seen = 0, sum = 0;
-  roll.bins.forEach((b, i) => {
-    if (!b.n) return;
-    const mid = (i + 0.5) / CALIBRATION_BINS;
-    sum += b.n * Math.abs(b.hits / b.n - mid);
+  for (const b of roll.cal) {
+    if (!b.n) continue;
+    sum += Math.abs(b.hits - b.said);       // n times |observed - stated|
     seen += b.n;
-  });
+  }
+  return seen ? sum / seen : NaN;
+}
+
+/**
+ * The calibration error a perfectly stated probability shows anyway.
+ *
+ * A bin of n coups at stated p comes in at p give or take sqrt(p(1-p)/n),
+ * and the mean size of that miss is sqrt(2/pi) of it. So a hundred decided
+ * coups show about four points of "error" with nothing wrong, and it takes
+ * thousands before the figure can say anything smaller.
+ */
+function calibrationNoise(roll) {
+  let seen = 0, sum = 0;
+  for (const b of roll.cal) {
+    if (!b.n) continue;
+    const p = Math.min(1, Math.max(0, b.said / b.n));
+    sum += Math.sqrt((2 / Math.PI) * p * (1 - p) * b.n);
+    seen += b.n;
+  }
   return seen ? sum / seen : NaN;
 }
 
@@ -11901,11 +11969,8 @@ function renderVerification() {
     return;
   }
 
-  // The gap's error, from the coups it was measured on. Two rules disagreeing
-  // on a share of the coups is a paired comparison, but the difference of two
-  // rates over the same n is bounded by this and it is the honest, simple
-  // bound to print beside a figure somebody is about to over-read.
-  const se = Math.sqrt(0.5 / s.decided);
+  // The gap's error, from the coups it was measured on: see `edgeError`.
+  const se = s.edgeError;
   const gap = s.edge;
 
   const tile = (k, v, sub, cls) => {
@@ -11921,7 +11986,10 @@ function renderVerification() {
   tile(t("verify.logLoss"), s.meanLogLoss.toFixed(4), t("verify.lower"));
   tile(t("verify.brier"), s.meanBrier.toFixed(4), t("verify.lower"));
   if (Number.isFinite(s.calibrationError)) {
-    tile(t("verify.calib"), pct(s.calibrationError, 1), t("verify.calibSub"));
+    // With what luck alone would show beside it: a hundred coups of perfectly
+    // stated probabilities read about four points out.
+    tile(t("verify.calib"), pct(s.calibrationError, 1),
+         t("verify.calibSub", { noise: pct(s.calibrationNoise, 1) }));
   }
 
   verdict.className = "aiverdict";
