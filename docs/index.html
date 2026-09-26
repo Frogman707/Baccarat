@@ -87,6 +87,15 @@ header{position:sticky; top:0; z-index:20; background:var(--surface);
 select,input[type=text],textarea{
   font:inherit; color:var(--ink); background:var(--surface-2);
   border:1px solid var(--line-2); border-radius:7px; padding:5px 9px}
+/* The record's address and the sign-in beside it. A url and a password field
+   are neither `text` nor styled by the rule above, and were left to the
+   browser's own look -- and, on a phone, its own small type. */
+#shareServer,.signin input{
+  font:inherit; color:var(--ink); background:var(--surface-2);
+  border:1px solid var(--line-2); border-radius:7px; padding:5px 9px; min-width:0}
+.signin{margin-top:8px; align-items:center}
+.signin input{flex:1 1 9em}
+.signin .who{font-size:12.5px; color:var(--ink-2)}
 #shoeMeta{font-family:var(--mono); font-size:12.5px; color:var(--ink-2); font-variant-numeric:tabular-nums}
 .badge{font-size:11px; padding:2px 8px; border-radius:20px; background:var(--accent-soft);
        color:var(--accent); border:1px solid var(--accent); font-weight:500}
@@ -532,6 +541,7 @@ footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
   .themebtn{width:40px; height:40px}
   .themebtn svg{width:18px; height:18px}
   textarea{min-height:88px; font-size:16px}      /* 16px stops iOS zooming on focus */
+  #shareServer,.signin input{min-height:44px; font-size:16px}
 }
 @media (max-width:620px){
   main{padding:12px; gap:12px}
@@ -942,6 +952,20 @@ footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
                  style="flex:1 1 16em;min-width:0">
           <button class="btn" id="sharePush" data-i18n="share.push"></button>
         </div>
+        <form class="actions signin" id="shareSignIn">
+          <input id="shareUser" name="username" type="text" autocomplete="username"
+                 autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="32"
+                 data-i18n-ph="share.user" data-i18n-aria="share.user">
+          <input id="sharePass" name="password" type="password"
+                 autocomplete="current-password" maxlength="256"
+                 data-i18n-ph="share.pass" data-i18n-aria="share.pass">
+          <button class="btn" id="shareSignInBtn" type="submit" data-i18n="share.signIn"></button>
+        </form>
+        <div class="actions signin" id="shareSignedIn" hidden>
+          <span class="who" id="shareWho"></span>
+          <button class="btn ghost" id="shareSignOut" type="button" data-i18n="share.signOut"></button>
+        </div>
+        <p class="note" id="signInNote"></p>
         <p class="note" id="shareNote"></p>
 
         <label class="note" style="display:flex;gap:8px;align-items:flex-start;margin-top:10px">
@@ -2238,16 +2262,16 @@ const S = {
     "zh-Hans": "尚未设置共享地址。请于工具 → 共享中填入。",
   },
   "pooled.auth": {
-    ko: "그 서버에 로그인되어 있지 않습니다. 서버 주소를 브라우저에서 열어 로그인한 뒤 다시 시도하세요.",
-    en: "Not signed in to that server. Open its address in the browser, sign in, and try again.",
-    "zh-Hant": "尚未登入該伺服器。請在瀏覽器開啟其位址登入後再試。",
-    "zh-Hans": "尚未登录该服务器。请在浏览器打开其地址登录后再试。",
+    ko: "그 서버에 로그인되어 있지 않습니다. 아래 도구 칸의 <b>공유 기록으로 보내기</b>에서 로그인한 뒤 다시 시도하십시오.",
+    en: "Not signed in to that server. Sign in under <b>Send to the shared record</b> in the tools below, then try again.",
+    "zh-Hant": "尚未登入該伺服器。請在下方工具區的<b>傳送到共用紀錄</b>登入後再試。",
+    "zh-Hans": "尚未登录该服务器。请在下方工具区的<b>发送到共享记录</b>登录后再试。",
   },
   "pooled.authTls": {
-    ko: "그 서버에 로그인되어 있지 않습니다. 로그인했는데도 계속 이렇게 나온다면 주소가 <b>http</b> 이기 때문입니다 — 다른 사이트로는 세션이 가지 않고, 평문 서버는 갈 수 있는 쿠키를 가질 수 없습니다. 기록 서버를 <b>https</b> 로 서비스하세요.",
-    en: "Not signed in to that server. If you did sign in and this keeps coming back, it is because the address is <b>http</b>: a session is not sent to another site, and a server without TLS cannot hold the cookie that would be. Serve the record over <b>https</b>.",
-    "zh-Hant": "尚未登入該伺服器。若已登入仍持續出現，原因是位址為 <b>http</b> — 工作階段不會送往另一個網站，而未加密的伺服器也無法持有能跨站的 Cookie。請以 <b>https</b> 提供紀錄伺服器。",
-    "zh-Hans": "尚未登录该服务器。若已登录仍持续出现，原因是地址为 <b>http</b> — 会话不会送往另一个网站，而未加密的服务器也无法持有能跨站的 Cookie。请以 <b>https</b> 提供记录服务器。",
+    ko: "그 서버에 로그인되어 있지 않습니다. 그리고 주소가 <b>http</b> 입니다 — https 로 열린 페이지는 암호화되지 않은 서버를 부를 수 없고, 그 밖의 곳에서는 비밀번호가 암호화 없이 네트워크를 지나갑니다. 기록 서버를 <b>https</b> 로 서비스하십시오.",
+    en: "Not signed in to that server, and the address is <b>http</b>: a page opened over https cannot call an unencrypted server at all, and from anywhere else the password crosses the network unencrypted. Serve the record over <b>https</b>.",
+    "zh-Hant": "尚未登入該伺服器，而且位址為 <b>http</b> — 以 https 開啟的頁面無法呼叫未加密的伺服器，在其他地方密碼則會未加密地經過網路。請以 <b>https</b> 提供紀錄伺服器。",
+    "zh-Hans": "尚未登录该服务器，而且地址为 <b>http</b> — 以 https 打开的页面无法调用未加密的服务器，在其他地方密码则会未加密地经过网络。请以 <b>https</b> 提供记录服务器。",
   },
   "pooled.network": {
     ko: "서버에 닿지 못했습니다: {why}",
@@ -2518,15 +2542,19 @@ const S = {
   "share.why": {
     ko: "기록이 이 브라우저에만 있으면 두 사람이 모을 때 기록도 둘로 갈라집니다. "
       + "셔플이 치우쳤는지는 하나로 모은 기록에만 물을 수 있습니다. 서버가 없으면 "
-      + "비워 두십시오 — 나머지는 전부 그대로 동작합니다.",
+      + "비워 두십시오 — 나머지는 전부 그대로 동작합니다. 보내려면 그 서버의 계정으로 "
+      + "로그인해야 하고, 계정은 서버의 Master 계정이 만듭니다.",
     en: "A corpus kept in this browser splits in two the moment two people "
       + "collect. Whether a shuffle is biased is a question you can only ask of "
       + "one record. Leave it empty if you have no server: everything else "
-      + "works the same.",
+      + "works the same. Sending needs an account on that server, which its "
+      + "Master account creates.",
     "zh-Hant": "紀錄只存在這個瀏覽器時，兩個人蒐集就會分成兩份紀錄。洗牌是否有偏差，"
-      + "只能對合而為一的紀錄提問。沒有伺服器就留空 — 其餘功能完全不變。",
+      + "只能對合而為一的紀錄提問。沒有伺服器就留空 — 其餘功能完全不變。傳送需要以該伺服器的"
+      + "帳號登入，帳號由伺服器的 Master 帳號建立。",
     "zh-Hans": "记录只存在这个浏览器时，两个人收集就会分成两份记录。洗牌是否有偏差，"
-      + "只能对合而为一的记录提问。没有服务器就留空 — 其余功能完全不变。",
+      + "只能对合而为一的记录提问。没有服务器就留空 — 其余功能完全不变。发送需要以该服务器的"
+      + "账号登录，账号由服务器的 Master 账号创建。",
   },
   "share.placeholder": {
     ko: "https://내-서버:8000", en: "https://my-server:8000",
@@ -2559,10 +2587,62 @@ const S = {
     "zh-Hant": "請先填寫伺服器位址。", "zh-Hans": "请先填写服务器地址。",
   },
   "share.auth": {
-    ko: "그 서버에 먼저 로그인해야 합니다. 새 탭에서 {url} 을 열어 로그인한 뒤 다시 보내십시오.",
-    en: "Sign in to that server first. Open {url} in a tab, sign in, then send again.",
-    "zh-Hant": "請先登入該伺服器。在新分頁開啟 {url} 登入後再傳送。",
-    "zh-Hans": "请先登录该服务器。在新标签页打开 {url} 登录后再发送。",
+    ko: "먼저 주소 아래 칸에서 그 서버의 계정으로 로그인한 뒤 다시 보내십시오.",
+    en: "Sign in to that server first, just below the address, then send again.",
+    "zh-Hant": "請先在位址下方以該伺服器的帳號登入，再重新傳送。",
+    "zh-Hans": "请先在地址下方以该服务器的账号登录，再重新发送。",
+  },
+  "share.expired": {
+    ko: "로그인이 만료되었습니다 — 한동안 쓰지 않았거나 로그인한 지 오래되었습니다. 다시 로그인해 주십시오.",
+    en: "Your sign-in has expired: it was left unused for a while, or it is too old. Sign in again.",
+    "zh-Hant": "登入已過期 — 閒置了一段時間，或登入太久。請重新登入。",
+    "zh-Hans": "登录已过期 — 闲置了一段时间，或登录太久。请重新登录。",
+  },
+  "share.user": { ko: "아이디", en: "Username", "zh-Hant": "帳號", "zh-Hans": "账号" },
+  "share.pass": { ko: "비밀번호", en: "Password", "zh-Hant": "密碼", "zh-Hans": "密码" },
+  "share.signIn": { ko: "로그인", en: "Sign in", "zh-Hant": "登入", "zh-Hans": "登录" },
+  "share.signOut": { ko: "로그아웃", en: "Sign out", "zh-Hant": "登出", "zh-Hans": "退出登录" },
+  "share.signedIn": {
+    ko: "{user} 계정으로 로그인되어 있습니다.", en: "Signed in as {user}.",
+    "zh-Hant": "已以 {user} 帳號登入。", "zh-Hans": "已以 {user} 账号登录。",
+  },
+  "share.signingIn": {
+    ko: "로그인하는 중…", en: "Signing in…", "zh-Hant": "登入中…", "zh-Hans": "登录中…",
+  },
+  "share.signedOut": {
+    ko: "로그아웃했습니다.", en: "Signed out.", "zh-Hant": "已登出。", "zh-Hans": "已退出登录。",
+  },
+  "share.needBoth": {
+    ko: "아이디와 비밀번호를 모두 적어 주십시오.", en: "Write both the username and the password.",
+    "zh-Hant": "請填寫帳號與密碼。", "zh-Hans": "请填写账号与密码。",
+  },
+  "share.wrong": {
+    ko: "아이디 또는 비밀번호가 맞지 않습니다.", en: "Wrong username or password.",
+    "zh-Hant": "帳號或密碼不正確。", "zh-Hans": "账号或密码不正确。",
+  },
+  "share.tooMany": {
+    ko: "틀린 시도가 너무 많습니다. {min}분 뒤에 다시 하십시오.",
+    en: "Too many wrong attempts. Try again in {min} [min|minute|minutes].",
+    "zh-Hant": "錯誤嘗試次數過多，請於 {min} 分鐘後再試。",
+    "zh-Hans": "错误尝试次数过多，请于 {min} 分钟后再试。",
+  },
+  "share.noSignIn": {
+    ko: "그 주소에는 로그인할 곳이 없습니다 — 로그인이 필요 없는 서버이거나, 기록 서버의 주소가 아닙니다.",
+    en: "That address has nowhere to sign in: either the server needs no sign-in, or it is not the record server's address.",
+    "zh-Hant": "該位址沒有可登入之處 — 可能是不需要登入的伺服器，或不是紀錄伺服器的位址。",
+    "zh-Hans": "该地址没有可登录之处 — 可能是不需要登录的服务器，或不是记录服务器的地址。",
+  },
+  "share.oldServer": {
+    ko: "그 서버는 앱 안에서 하는 로그인을 아직 모릅니다 — 이전 버전입니다. 서버를 새로 배포해야 합니다.",
+    en: "That server does not know about signing in from the page yet: it is an older version, and needs redeploying.",
+    "zh-Hant": "該伺服器尚不支援在頁面內登入 — 是舊版本，需要重新部署。",
+    "zh-Hans": "该服务器尚不支持在页面内登录 — 是旧版本，需要重新部署。",
+  },
+  "share.signInTls": {
+    ko: "서버에 닿지 못했습니다. 주소가 http 입니다 — https 로 열린 페이지는 암호화되지 않은 서버를 부를 수 없고, 그 밖의 곳에서는 비밀번호가 암호화 없이 네트워크를 지나갑니다. 기록 서버를 https 로 서비스하십시오.",
+    en: "Could not reach the server. The address is http: a page opened over https cannot call an unencrypted server at all, and from anywhere else the password crosses the network unencrypted. Serve the record over https.",
+    "zh-Hant": "無法連線到伺服器。位址為 http — 以 https 開啟的頁面無法呼叫未加密的伺服器，在其他地方密碼則會未加密地經過網路。請以 https 提供紀錄伺服器。",
+    "zh-Hans": "无法连接到服务器。地址为 http — 以 https 打开的页面无法调用未加密的服务器，在其他地方密码则会未加密地经过网络。请以 https 提供记录服务器。",
   },
   "share.unreachable": {
     ko: "서버에 닿지 못했습니다. 주소와 서버가 떠 있는지 확인해 주십시오. 보낸 판은 없습니다.",
@@ -7141,11 +7221,12 @@ function normaliseServer(raw) {
 /**
  * Whether a session could even reach this address from this page.
  *
- * A session cookie is not sent to another *site*, and a record on plain HTTP
- * cannot hold the relaxed cookie that would be -- browsers discard it. So an
- * address like `http://my-box:8000` opened from the published page is a dead
- * end that looks exactly like being signed out: the reader signs in, comes
- * back, and is a stranger again, for ever, with nothing to say why.
+ * An address like `http://my-box:8000` is a dead end that looks exactly like
+ * being signed out. A page opened over https -- the published one -- cannot
+ * call it at all; from anywhere else a password sent to it crosses the
+ * network unencrypted; and the cookie from signing in on its own page is not
+ * sent to it from another *site*, since a record on plain HTTP cannot hold
+ * the relaxed cookie that would be. Nothing on screen would say why.
  *
  * Same-machine addresses are fine over plain HTTP and are the ordinary way to
  * try this out, so they are not warned about.
@@ -7177,6 +7258,230 @@ function saveServer(base) {
   } catch {
     /* a browser with no storage still sends, it just forgets the address */
   }
+}
+
+/* ------------------------------------------------------------ signing in */
+
+/**
+ * Where the sessions with record servers are kept.
+ *
+ * Signing in used to mean opening the server's own page in another tab and
+ * relying on its cookie to come back with this page's calls. Where it does,
+ * it still works. But a cookie set by another site is one Safari does not
+ * keep -- and every browser on an iPhone is Safari underneath -- so there the
+ * reader signed in, came back, and was a stranger on every call, with nothing
+ * either side could do about it. So the page signs in itself: the server
+ * hands back a token (`POST /api/token`) and the page sends it as a header,
+ * which no browser setting blocks.
+ */
+const SESSION_KEY = "baccarat.share.session.v1";
+
+/** What this page holds when the browser will not keep anything. */
+const heldHere = {};
+const watchers = new Set();
+
+function sessions() {
+  let stored = {};
+  try {
+    const parsed = JSON.parse(localStorage.getItem(SESSION_KEY) || "{}");
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) stored = parsed;
+  } catch { /* unreadable or refused: what this page holds is all there is */ }
+  return { ...stored, ...heldHere };
+}
+
+function keepSessions(all) {
+  for (const k of Object.keys(heldHere)) delete heldHere[k];
+  try {
+    if (Object.keys(all).length) localStorage.setItem(SESSION_KEY, JSON.stringify(all));
+    else localStorage.removeItem(SESSION_KEY);
+  } catch {
+    // Signed in for as long as the page is open, then: the one thing worse
+    // than forgetting at a reload is refusing to sign in at all.
+    Object.assign(heldHere, all);
+  }
+}
+
+/** Be told when a session starts or ends, whoever ended it. */
+function onSessionChange(fn) {
+  watchers.add(fn);
+  return () => watchers.delete(fn);
+}
+
+function changed(base) {
+  for (const fn of watchers) {
+    try { fn(base); } catch { /* one watcher failing must not stop the rest */ }
+  }
+}
+
+/**
+ * The session this browser holds with one server, or null.
+ *
+ * Kept per address, so a token only ever goes back to the server that issued
+ * it: pointing the page somewhere else must not hand that server a way into
+ * the first one. And dropped here as soon as the server could no longer honour
+ * it -- after its whole life, or after sitting idle longer than the server
+ * allows -- so the page never says "signed in" about a session that is gone.
+ */
+function readSession(base, now = Date.now()) {
+  if (!base) return null;
+  const held = sessions()[base];
+  if (!held || typeof held !== "object" || typeof held.token !== "string" || !held.token) {
+    return null;
+  }
+  const alive = now < Number(held.at) + Number(held.life) * 1000
+    && now < Number(held.seen) + Number(held.idle) * 1000;
+  if (!alive) {
+    forgetSession(base);
+    return null;
+  }
+  return held;
+}
+
+function forgetSession(base) {
+  const all = sessions();
+  if (!(base in all)) return;
+  delete all[base];
+  keepSessions(all);
+  changed(base);
+}
+
+/** A call the server answered with this session: the idle clock starts again. */
+function touchSession(base, held, now = Date.now()) {
+  if (!held) return;
+  const all = sessions();
+  if (!all[base] || all[base].token !== held.token) return;
+  all[base] = { ...all[base], seen: now };
+  keepSessions(all);
+}
+
+function bearer(held) {
+  return held ? { Authorization: `Bearer ${held.token}` } : {};
+}
+
+/**
+ * A refusal, told apart from a session that has just ended.
+ *
+ * A 401 to a token this page sent means the server no longer honours it --
+ * its life ran out, it sat idle, or it was ended somewhere else -- and keeping
+ * it would leave the page saying "signed in" beside every refusal. A 403 is a
+ * session that is good and not allowed this, and is kept.
+ */
+function refused(base, held, status) {
+  const expired = !!held && status === 401;
+  if (expired) forgetSession(base);
+  const failed = new ShareError("auth", "not signed in");
+  failed.status = status;
+  failed.expired = expired;
+  return failed;
+}
+
+/**
+ * Sign in to a record server, from this page.
+ *
+ * The same check as the server's own sign-in page -- the same limiter, the
+ * same answer that never says which half was wrong -- with the session handed
+ * back rather than left in a cookie. The password is sent once, to the
+ * address the reader typed, and is not kept anywhere.
+ */
+async function signIn(base, username, password, options = {}) {
+  const {
+    fetchImpl = typeof fetch === "function" ? fetch.bind(globalThis) : null,
+    now = Date.now,
+  } = options;
+
+  if (!base) throw new ShareError("address", "no address");
+  if (!fetchImpl) throw new ShareError("network", "this browser cannot send");
+
+  let answer;
+  try {
+    answer = await fetchImpl(base + "/api/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      // Nothing from any earlier visit to that site is wanted here, and
+      // nothing should be left behind by this one: the session is the token.
+      credentials: "omit",
+      mode: "cors",
+      body: JSON.stringify({ username: String(username ?? "").trim(),
+                             password: String(password ?? "") }),
+    });
+  } catch (e) {
+    throw new ShareError("network", String((e && e.message) || e));
+  }
+
+  if (answer.status === 401 || answer.status === 429) {
+    let detail = {};
+    try { detail = (await answer.json()) || {}; } catch { /* the status says enough */ }
+    // A server from before this door existed turns it away at its login gate
+    // -- "sign in first", a 401 -- and read as a wrong password that sends
+    // somebody to retype a password that was right. It is a server to update.
+    if (answer.status === 401 && detail.detail === "sign in first") {
+      const outdated = new ShareError("server", "no sign-in for pages at that server");
+      outdated.status = 401;
+      outdated.outdated = true;
+      throw outdated;
+    }
+    const failed = new ShareError("auth", String(detail.detail || "not signed in"));
+    failed.status = answer.status;
+    failed.retryAfter = Number(detail.retry_after) || 0;
+    throw failed;
+  }
+  if (answer.status === 404) {
+    const missing = new ShareError("server", "no sign-in at that address");
+    missing.status = 404;
+    throw missing;
+  }
+  if (!answer.ok) {
+    const failed = new ShareError("server", `the server said ${answer.status}`);
+    failed.status = answer.status;
+    throw failed;
+  }
+
+  const body = await answer.json();
+  if (!body || typeof body.token !== "string" || !body.token) {
+    throw new ShareError("server", "the server sent no session");
+  }
+  const at = now();
+  const all = sessions();
+  all[base] = {
+    token: body.token,
+    user: String(body.username || username || ""),
+    master: !!body.is_master,
+    at,
+    seen: at,
+    // What the server said, so this page drops the session when it does. The
+    // fallbacks are the server's own figures, for an answer that left them out.
+    life: Number(body.expires_in) > 0 ? Number(body.expires_in) : 12 * 3600,
+    idle: Number(body.idle_timeout) > 0 ? Number(body.idle_timeout) : 2 * 3600,
+  };
+  keepSessions(all);
+  changed(base);
+  return all[base];
+}
+
+/**
+ * Sign out here, and end the session on the server.
+ *
+ * Forgotten here first and whatever happens next: somebody pressing "sign
+ * out" on a phone that has lost its connection has still signed out of this
+ * phone. The server's copy then ends when it would have anyway.
+ */
+async function signOut(base, options = {}) {
+  const {
+    fetchImpl = typeof fetch === "function" ? fetch.bind(globalThis) : null,
+  } = options;
+
+  const held = readSession(base);
+  forgetSession(base);
+  if (!held || !fetchImpl) return;
+  try {
+    await fetchImpl(base + "/api/logout", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...bearer(held) },
+      credentials: "omit",
+      mode: "cors",
+      body: "{}",
+    });
+  } catch { /* signed out here either way */ }
 }
 
 /**
@@ -7212,14 +7517,16 @@ function handsOf(shoe) {
 }
 
 async function send(base, path, body, fetchImpl, signal) {
+  const held = readSession(base);
   let answer;
   try {
     answer = await fetchImpl(base + path, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      // The session is a cookie, and this is usually a different origin from
-      // the page -- without this the request arrives as a stranger and the
-      // whole push fails on the first shoe with a 401 nobody can explain.
+      // The session this page signed in with, where it has one. Otherwise a
+      // cookie from signing in on the server's own page, which is why the
+      // credentials are still included: where the browser keeps that cookie
+      // it is a session too, and the header wins where there are both.
+      headers: { "Content-Type": "application/json", ...bearer(held) },
       credentials: "include",
       mode: "cors",
       body: JSON.stringify(body),
@@ -7230,7 +7537,7 @@ async function send(base, path, body, fetchImpl, signal) {
     throw new ShareError("network", String((e && e.message) || e));
   }
   if (answer.status === 401 || answer.status === 403) {
-    throw new ShareError("auth", "not signed in");
+    throw refused(base, held, answer.status);
   }
   if (answer.status === 404) {
     // The address answered and has no such route. Usually the shared record is
@@ -7252,16 +7559,19 @@ async function send(base, path, body, fetchImpl, signal) {
     failed.status = answer.status;
     throw failed;
   }
+  touchSession(base, held);
   return answer.json();
 }
 
 async function get(base, path, fetchImpl, signal) {
+  const held = readSession(base);
   let answer;
   try {
     answer = await fetchImpl(base + path, {
       method: "GET",
-      // As with the push: the session is a cookie and this is usually a
-      // different origin from the page.
+      // As with the push: the token where this page has one, a cookie where
+      // the browser kept one.
+      headers: bearer(held),
       credentials: "include",
       mode: "cors",
       signal,
@@ -7271,7 +7581,7 @@ async function get(base, path, fetchImpl, signal) {
     throw new ShareError("network", String((e && e.message) || e));
   }
   if (answer.status === 401 || answer.status === 403) {
-    throw new ShareError("auth", "not signed in");
+    throw refused(base, held, answer.status);
   }
   if (answer.status === 404) {
     throw new ShareError("server", "no shared record at that address");
@@ -7289,6 +7599,7 @@ async function get(base, path, fetchImpl, signal) {
     failed.status = answer.status;
     throw failed;
   }
+  touchSession(base, held);
   return answer.json();
 }
 
@@ -7530,6 +7841,9 @@ async function pushCorpus(base, tables, options = {}) {
       if (e && e.name === "AbortError") { report.stopped = "cancelled"; break; }
       if (e instanceof ShareError && (e.kind === "auth" || e.kind === "address")) {
         report.stopped = e.kind;
+        // A session that ended during the push reads differently from never
+        // having signed in, and the reader needs to know which.
+        report.expired = !!e.expired;
         break;
       }
       report.failures.push({
@@ -12453,6 +12767,7 @@ function render() {
   // Whether anything is being recorded depends on the table -- the example
   // corpus records nothing -- so the line that says so is redrawn with it.
   renderCallsNote();
+  renderSignIn();
 }
 
 function renderHeader() {
@@ -13507,7 +13822,7 @@ function bindSharedScore() {
       note.textContent = "";
     } catch (e) {
       note.innerHTML = e instanceof ShareError && e.kind === "auth"
-        ? t(authKey())
+        ? t(authKey(e))
         : t("pooled.server", { why: String((e && e.message) || e) });
     } finally {
       button.disabled = false;
@@ -13596,8 +13911,9 @@ let pooledShown = null;
 /** The minimum both batteries take. Said here because the note names it. */
 const POOLED_MIN_SHOES = 3;
 
-/** "Not signed in", or the reason signing in will not help. */
-function authKey() {
+/** "Not signed in", "signed out by the server", or why signing in will not help. */
+function authKey(e) {
+  if (e && e.expired) return "share.expired";
   return needsTls(readServer()) ? "pooled.authTls" : "pooled.auth";
 }
 
@@ -13658,7 +13974,7 @@ async function runPooledIntegrity() {
   } catch (e) {
     if (e && e.name === "AbortError") { pooledSay(null); return; }
     if (e instanceof ShareError) {
-      if (e.kind === "auth") pooledSay(authKey());
+      if (e.kind === "auth") pooledSay(authKey(e));
       else if (e.kind === "network") pooledSay("pooled.network", { why: e.message });
       // The battery refuses below three shoes with a 422. `/tables` above
       // should have caught that already; this is here for the case where
@@ -13874,7 +14190,10 @@ function bindShare() {
       note.textContent = t("share.badAddress");
     }
     renderCallsNote();
+    // A session is with one server, so another address is another question.
+    renderSignIn();
   };
+  bindSignIn();
 
   const calls = $("shareCalls");
   if (calls) {
@@ -13916,10 +14235,10 @@ function bindShare() {
           note.textContent = t("share.sending", { done, total });
         },
       });
-      note.textContent = shareSummary(report, base);
+      note.textContent = shareSummary(report);
     } catch (e) {
       note.textContent = e instanceof ShareError && e.kind === "auth"
-        ? t("share.auth", { url: base })
+        ? t(e.expired ? "share.expired" : "share.auth")
         : t("share.unreachable");
     } finally {
       button.disabled = false;
@@ -13927,9 +14246,97 @@ function bindShare() {
   };
 }
 
+/**
+ * Signing in to the record, from this page.
+ *
+ * Only for the record: everything else on this page works without an account
+ * and always has, and nothing here asks for one until somebody wants to send.
+ * A form, so the phone offers the password it saved and offers to save a new
+ * one -- which is the difference between a password somebody can use at a
+ * table and one they write on a note beside it.
+ */
+function bindSignIn() {
+  const form = $("shareSignIn");
+  if (!form) return;
+  const user = $("shareUser");
+  const pass = $("sharePass");
+  const go = $("shareSignInBtn");
+  const note = $("signInNote");
+
+  form.onsubmit = async (event) => {
+    event.preventDefault();
+    let base;
+    try {
+      base = normaliseServer($("shareServer").value);
+    } catch {
+      note.textContent = t("share.badAddress");
+      return;
+    }
+    if (!base) { note.textContent = t("share.noAddress"); return; }
+    if (!user.value.trim() || !pass.value) { note.textContent = t("share.needBoth"); return; }
+    $("shareServer").value = base;
+    saveServer(base);
+
+    go.disabled = true;
+    note.textContent = t("share.signingIn");
+    try {
+      await signIn(base, user.value, pass.value);
+      note.textContent = "";
+    } catch (e) {
+      note.textContent = signInTrouble(e, base);
+    } finally {
+      // Never left in the field: a phone put down on a table is a phone
+      // somebody else can pick up.
+      pass.value = "";
+      go.disabled = false;
+      renderSignIn();
+      renderCallsNote();
+    }
+  };
+
+  $("shareSignOut").onclick = async () => {
+    await signOut(readServer());
+    note.textContent = t("share.signedOut");
+    renderSignIn();
+  };
+
+  // Ended by a refusal in the middle of a send, or in another tab.
+  onSessionChange(() => renderSignIn());
+  window.addEventListener("storage", (e) => {
+    if (e.key === SESSION_KEY || e.key === null) renderSignIn();
+  });
+  renderSignIn();
+}
+
+function renderSignIn() {
+  const form = $("shareSignIn");
+  const done = $("shareSignedIn");
+  if (!form || !done) return;
+  const held = readSession(readServer());
+  form.hidden = !!held;
+  done.hidden = !held;
+  $("shareWho").textContent = held ? t("share.signedIn", { user: held.user }) : "";
+}
+
+/** Why signing in did not work, in the terms somebody can act on. */
+function signInTrouble(e, base) {
+  if (e instanceof ShareError) {
+    if (e.outdated) return t("share.oldServer");
+    if (e.status === 429) {
+      return t("share.tooMany", { min: Math.max(1, Math.ceil((e.retryAfter || 900) / 60)) });
+    }
+    if (e.status === 401) return t("share.wrong");
+    if (e.kind === "network") return t(needsTls(base) ? "share.signInTls" : "share.unreachable");
+    // Only a missing route is "nowhere to sign in". A server that is there and
+    // failing -- a 500, a 503 while its database wakes -- is said as itself.
+    if (e.status === 404) return t("share.noSignIn");
+  }
+  return t("pooled.server", { why: String((e && e.message) || e) });
+}
+
 /** What a push did, in the terms somebody would ask about it. */
-function shareSummary(report, base) {
-  if (report.stopped === "auth") return t("share.auth", { url: base });
+function shareSummary(report) {
+  if (report.stopped === "auth") return t(report.expired ? "share.expired" : "share.auth");
   if (report.stopped === "address") return t("share.badAddress");
   if (report.stopped === "network" && !report.sent) return t("share.unreachable");
 
