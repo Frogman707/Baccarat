@@ -3144,10 +3144,32 @@ const CONDITION_DEPTHS = [1, 2, 3];
  */
 const MEASURED_ANCHOR = [80, 0.023];
 
-/** Smallest streak bias `nShoes` can detect at 80% power. */
-function detectableBias(nShoes) {
+/**
+ * The same measurement against a 100-replicate null, the quick option the
+ * page offers beside 200 and 400.
+ *
+ * It is not the same test. A null of 100 cannot put a p-value below 1/101,
+ * and Benjamini-Hochberg over seventeen statistics then needs four of them
+ * down there at once before it will flag anything, where 200 needs two. At
+ * 80 shoes, 80 trials a strength, power went 2.3% -> 55.0%, 2.5% -> 68.8%,
+ * 2.7% -> 81.3%: the threshold is 2.7%, where 200 and 400 replicates both
+ * reach 90% at 2.3%. The difference narrows with the record -- at 320 shoes
+ * 100 replicates reach 80% at 1.2%, below the 1.35% the square root carries
+ * this anchor to -- so scaling from it errs on the side of saying less.
+ */
+const MEASURED_ANCHOR_QUICK = [80, 0.027];
+
+/**
+ * Smallest streak bias `nShoes` can detect at 80% power, against a null of
+ * `replicates`: the 200-replicate anchor from 200 up, the quick one below.
+ *
+ * The count is named, not positional, because this is handed to `map` --
+ * where a second positional parameter receives the index, and quietly asks
+ * every entry after the first about a null of one, two, three replicates.
+ */
+function detectableBias(nShoes, { replicates = 200 } = {}) {
   if (nShoes <= 0) return Infinity;
-  const [n0, b0] = MEASURED_ANCHOR;
+  const [n0, b0] = replicates >= 200 ? MEASURED_ANCHOR : MEASURED_ANCHOR_QUICK;
   return b0 * Math.sqrt(n0 / nShoes);
 }
 
@@ -3569,8 +3591,11 @@ function integrityReport(shoes, nullSamples, { alpha = 0.05, nReplicates = 0 } =
 
   const nCoups = shoes.reduce((a, s) => a + s.length, 0);
   // In whole shoes' worth: a record of pieces has the power of its coups.
+  // And at the null's own size, read from the null rather than taken on
+  // trust from the caller: 100 replicates is a less sensitive test than 200.
   const worth = wholeShoes(shoes);
-  const bias = detectableBias(worth);
+  const replicates = Math.max(0, ...Object.values(nullSamples).map((v) => v.length || 0));
+  const bias = detectableBias(worth, { replicates });
   const enough = bias <= BANKER_BREAKEVEN_GAP;
 
   // The verdict is three facts, not a sentence: a deviation was found; or none
