@@ -2149,6 +2149,17 @@ const S = {
     "zh-Hant": "{total} 項統計量中有 {n} 項在 Benjamini-Hochberg 校正後仍超出正常範圍：{names}。在視為發現之前，請依序排除平凡的原因 — 判讀錯誤、副數並非八副、切牌深度不同、非標準規則，或資料混合了多張桌台。全部排除之後，這才算是洗牌並非隨機的證據。",
     "zh-Hans": "{total} 项统计量中有 {n} 项在 Benjamini-Hochberg 校正后仍超出正常范围：{names}。在视为发现之前，请依序排除平凡的原因 — 判读错误、副数并非八副、切牌深度不同、非标准规则，或数据混合了多张桌台。全部排除之后，这才算是洗牌并非随机的证据。",
   },
+  // Measured: honest tables, the verdict run after every shoe from the third
+  // to the sixtieth, 200 of them -- 5.5% flagged at some point, none of those
+  // flagged at each of the five shoes after, 91% clear again by the
+  // sixtieth; a 3% streak bias flagged 95.5% of the time and still flagged
+  // at the sixtieth shoe in 96% of those.
+  "int.relook": {
+    ko: "그리고 슈마다 다시 검정하면 정직한 테이블도 가끔 걸립니다 — 60슈까지 약 18번에 한 번이고, 그런 판정은 다음 다섯 슈를 버티지 못했습니다. 진짜 편향은 슈가 늘어도 계속 다시 나타납니다. 다시 나타나지 않는 판정은 믿기 전에 몇 슈 뒤에 한 번 더 확인하세요.",
+    en: "And asked again after every shoe, an honest table is flagged now and then — about one time in eighteen by the sixtieth shoe, and no such flag lasted the five shoes after it. A real deviation keeps coming back as shoes are added; check again a few shoes later before believing one that does not.",
+    "zh-Hant": "此外，每一靴都重新檢定時，誠實的桌台也會偶爾被標記 — 到第六十靴約每十八次一次，而這樣的標記沒有一次撐過之後的五靴。真正的偏差會隨著靴數增加反覆出現；沒有再出現的判定，相信之前請幾靴後再檢查一次。",
+    "zh-Hans": "此外，每一靴都重新检验时，诚实的桌台也会偶尔被标记 — 到第六十靴约每十八次一次，而这样的标记没有一次撑过之后的五靴。真正的偏差会随着靴数增加反复出现；没有再出现的判定，相信之前请几靴后再检查一次。",
+  },
   "int.verdictInsufficient": {
     ko: "{total}개 통계 전부 정상 범위 안입니다. 다만 {shoes}슈로는 {bias} 이상의 편향만 잡아낼 수 있고, 돈이 되기 시작하는 지점은 {gap}입니다. 즉 \"이상 없음\"이 아직 \"정상임을 확인했다\"는 뜻은 아닙니다. {need}슈까지 모아야 결론이 됩니다.",
     en: "All {total} [total|statistic|statistics] [total|is|are] inside the normal range. But {shoes} [shoes|shoe|shoes] can only catch a bias of {bias} or larger, and {gap} is where a bias starts to be worth money — so \"nothing found\" does not yet mean \"confirmed honest\". About {need} [need|shoe|shoes] would settle it.",
@@ -13175,10 +13186,12 @@ function renderIntegrityResult(rep) {
   const kind = rep.verdict_kind;
   const headline = t({ flag: "int.headFlag", clean: "int.headClean", insufficient: "int.headInsufficient" }[kind]);
   const body = {
+    // With what re-asking does to it: a verdict run again after every shoe
+    // gives an honest table its turn now and then. See `int.relook`.
     flag: () => t("int.verdictFlag", {
       n: rep.flagged.length, total: rep.findings.length,
       names: rep.flagged.map(statLabel).join(", "),
-    }),
+    }) + " " + t("int.relook"),
     clean: () => t("int.verdictClean", {
       total: rep.findings.length, shoes: rep.n_shoes.toLocaleString(),
       gap: pct(rep.breakeven_gap, 2),
@@ -13407,7 +13420,7 @@ function renderPooledResult(rep, table) {
     ? t("pooled.verdictFlag", {
         shoes, coups, n: rep.flagged.length, total: rep.findings.length,
         names: rep.flagged.map(statLabel).join(", "),
-      })
+      }) + " " + t("int.relook")
     : kind === "clean"
     ? t("pooled.verdictClean", {
         shoes, coups, total: rep.findings.length, gap: pct(rep.breakeven_gap, 2),
