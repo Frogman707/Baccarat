@@ -5952,7 +5952,7 @@ function newRun({ seed = 7, lr = 0.05, replay = 4 } = {}) {
     opts: { seed, lr, replay },
     net: new Net(seed),
     rng: makeRng(seed ^ 0x5f3759df),
-    past: [],                            // features and answers already seen
+    past: [],                            // decided coups already seen: shoe, coup, shoe, coup...
     picks: [],                           // the network's pick for each coup, in order
     seen: [],                            // the sequences consumed, as consumed
     lastProbability: null,
@@ -6031,7 +6031,20 @@ function extendsRun(run, sequences) {
   return true;
 }
 
-/** Walk `run` forward over whatever `sequences` has that it has not seen. */
+/**
+ * Walk `run` forward over whatever `sequences` has that it has not seen.
+ *
+ * The replay buffer holds where each decided coup is -- its shoe and its
+ * place in it -- and not a copy of what the network was shown there. It used
+ * to hold the copy: a 25-number vector per coup, about 16 KB a shoe measured,
+ * so 14 MB for a table of 900 shoes, twice over for the two tables the shelf
+ * keeps, on a phone. The vector is a pure function of the shoe up to that
+ * coup (`features` reads nothing past `i`), and every shoe the run has seen
+ * is kept in `seen` and never changes behind it -- a change sends the run
+ * back to its mark or to nothing, and the positions after that go with it.
+ * So drawing a coup and computing its vector again gives the same numbers,
+ * bit for bit, the network the same steps, and the panel the same answer.
+ */
 function advance(run, sequences) {
   const { lr, replay } = run.opts;
   const x = run.x;
@@ -6040,6 +6053,8 @@ function advance(run, sequences) {
     const from = s < run.seen.length ? run.seen[s].length : 0;
     // The open shoe, starting: this is where an undo will want to come back to.
     if (s === sequences.length - 1 && from === 0) run.mark = checkpoint(run, s);
+    // Before its coups, not after: a replay can draw from the shoe being walked.
+    run.seen[s] = seq;
     for (let i = from; i < seq.length; i += 1) {
       features(seq, i, x);
       const p = run.net.predict(x);
@@ -6049,18 +6064,21 @@ function advance(run, sequences) {
       // Only now may the coup be learned from.
       const outcome = seq[i];
       if (outcome !== "T") {
-        const side = outcome === "B" ? 1 : 0;
-        const snapshot = Float64Array.from(x);
-        run.net.learn(x, side, lr);
-        run.past.push({ x: snapshot, side });
-        for (let r = 0; r < replay && run.past.length > 1; r += 1) {
-          const drawn = run.past[(run.rng() * run.past.length) | 0];
-          run.net.predict(drawn.x);
-          run.net.learn(drawn.x, drawn.side, lr);
+        run.net.learn(x, outcome === "B" ? 1 : 0, lr);
+        run.past.push(s, i);
+        const held = run.past.length / 2;
+        for (let r = 0; r < replay && held > 1; r += 1) {
+          const k = ((run.rng() * held) | 0) * 2;
+          const shoe = run.seen[run.past[k]];
+          const at = run.past[k + 1];
+          // `x` is free again: this coup has been learned from, and the next
+          // one fills it afresh.
+          features(shoe, at, x);
+          run.net.predict(x);
+          run.net.learn(x, shoe[at] === "B" ? 1 : 0, lr);
         }
       }
     }
-    run.seen[s] = seq;
   }
   return run;
 }
@@ -6219,10 +6237,11 @@ class Learner {
  * live reader bound to it, a room, another tab -- is resumed, rewound or
  * rebuilt exactly as it would be on screen.
  *
- * Two by default, because each carries its replay buffer -- about 19 KB a
- * shoe -- and the collection target is over a thousand shoes a table. The
- * least recently used goes first, and a table it lets go of is simply
- * rebuilt the next time it is shown.
+ * Two by default, the two tables in front of you. Each learner holds about
+ * 1 KB a shoe -- where its replayed coups are, not copies of them; see
+ * `advance` -- which at the collection target of over a thousand shoes a
+ * table is about a megabyte. The least recently used goes first, and a
+ * table it lets go of is simply rebuilt the next time it is shown.
  */
 class LearnerShelf {
   constructor(kept = 2, options = {}) {
