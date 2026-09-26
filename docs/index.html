@@ -5486,6 +5486,56 @@ function backingCleared(n, q, deff = 1) {
 }
 
 /**
+ * How sure the table's own share is about the side named -- held to the line a
+ * table read after every coup is held to, like the badge beside it.
+ *
+ * It was the estimate's distance from the crossover in its own standard
+ * errors, "medium" at one and "high" at two: fair statements at one look, and
+ * the page looks after every coup. Measured over 300 fair tables read that
+ * way, "high" appeared at some point on 6% by 20,000 decided coups and 17% by
+ * 60,000, and "medium or high" on 67% and 88% -- beside a pick whose two sides
+ * differ, on a fair table, by a twentieth of a point.
+ *
+ * So the level is the table's share past the crossover on the named side,
+ * counted the way `backingCleared` counts it (a coin against a fixed share,
+ * half the mixture boundary, effective coups): "high" at the badge's own
+ * CONFIDENCE_ALPHA.high, "medium" at the looser CONFIDENCE_ALPHA.medium, "low"
+ * short of both. Measured on the same 300: "high" at some point on 1.3% by
+ * 60,000, "medium or high" on 6.3%, where a medium line at 0.25 gave 16%; and
+ * a table dealing Banker 53% of decided coups still reaches medium in every
+ * one of 40 (median 2,295) and high in every one (median 3,053).
+ *
+ * The score is the 0-100 figure the log stores: 33 at the
+ * medium line and 67 at the high one, straight between, and floored, so the
+ * bands the record reads -- `bandOf`, the recent-record words -- fall exactly
+ * where the words do.
+ */
+const CONFIDENCE_ALPHA = { medium: 0.1, high: 0.025 };
+
+function confidenceLines(nEff) {
+  return {
+    medium: 0.5 * mixtureBoundary(nEff, CONFIDENCE_ALPHA.medium, BACKING_RHO),
+    high: 0.5 * mixtureBoundary(nEff, CONFIDENCE_ALPHA.high, BACKING_RHO),
+  };
+}
+
+function sideConfidence(n, q, deff = 1, pick = "B") {
+  const nEff = n > 0 ? n / Math.max(1, deff) : 0;
+  if (!nEff || !Number.isFinite(q)) return { level: "low", score: 0 };
+  // How far past the crossover, toward the side named, in effective coups.
+  const lean = (pick === "P" ? SIDE_CROSSOVER - q : q - SIDE_CROSSOVER) * nEff;
+  const { medium, high } = confidenceLines(nEff);
+  const raw = lean <= 0 ? 0
+    : lean < medium ? (33 * lean) / medium
+    : lean < high ? 33 + (34 * (lean - medium)) / (high - medium)
+    : 67 + 33 * Math.min(1, (lean - high) / high);
+  return {
+    level: lean >= high ? "high" : lean >= medium ? "medium" : "low",
+    score: Math.min(100, Math.floor(raw)),
+  };
+}
+
+/**
  * What produced a prediction, written into every logged one.
  *
  * A stored prediction is only re-readable if you know what made it. These are
@@ -5499,8 +5549,13 @@ function backingCleared(n, q, deff = 1) {
  * point is not the number; it is that a record spanning a change says which
  * side of it each row is on, so a run of misses under an old rule cannot be
  * quietly averaged into a new rule's score.
+ *
+ * f2: the confidence stored with each call, and whether backing it was judged
+ * worth it, are held to the always-valid line (`sideConfidence`,
+ * `backingCleared`). The side named is unchanged, so the model versions -- the
+ * ones the shared record keeps its books under -- are too.
  */
-const FEATURE_VERSION = "f1";
+const FEATURE_VERSION = "f2";
 const BASE_MODEL_VERSION = "base-1";
 
 /**
@@ -5597,6 +5652,7 @@ function posterior(sample = {}) {
   const e = edges(q, tie);
   const pick = sidePick(q, se);
   const z = se > 0 ? Math.abs(q - SIDE_CROSSOVER) / se : 0;
+  const sure = sideConfidence(n, qObs, deff, pick);
 
   return {
     q, se, tie, decided, z, pick, edge: e[pick],
@@ -5613,7 +5669,10 @@ function posterior(sample = {}) {
     weight: nEff / (PRIOR_STRENGTH + nEff),
     n, coups,
     probability: { P: decided * (1 - q), B: decided * q, T: tie },
-    confidence: z >= 2 ? "high" : z >= 1 ? "medium" : "low",
+    // Read as often as the page reads it: see `sideConfidence`. `z` above is
+    // the estimate's own distance, which the explanation beside it quotes.
+    confidence: sure.level,
+    confidenceScore: sure.score,
     moved: Math.abs(q - BASE_BANKER_SHARE),
   };
 }
@@ -5777,25 +5836,20 @@ function projectStake({ q, tieP, side = "B", unit = 1, bankroll = 0,
 }
 
 /**
- * How many more decided coups it would take to reach a given confidence.
+ * How many more decided coups, at this share, would take the side named to
+ * "high" -- on the line `sideConfidence` draws, which is the question the
+ * label answers, so the count and the label cannot disagree.
  *
- * Confidence here is `z = |q - crossover| / se`, and neither term is a setting:
- * the first is what the table has produced, the second is how much of it there
- * is. So "raise the confidence" has exactly one answer -- collect more -- and
- * the only useful thing the app can add is *how much* more.
+ * "Raise the confidence" has exactly one answer -- collect more -- and the
+ * only useful thing the app can add is how much more. The line grows with the
+ * count and the share's lead grows faster, so there is one crossing, found by
+ * search over effective coups; a clustered record is told what its own coups
+ * are worth.
  *
- * Solved by search rather than algebra because the posterior's standard error
- * moves with the estimate, which moves with the sample. The search is over the
- * effective sample size, so a clustered record is told the truth about what its
- * own coups are worth.
- *
- * Returns null where the question has no answer: before anything has been
- * decided, and for a table sitting so near the crossover that no amount of
- * collecting separates it from one (the sample grows, the estimate stays put,
- * and z climbs so slowly that the honest answer is "not in any session").
+ * Null where the question has no answer: before anything has been decided,
+ * for a share on the other side of the crossover from the side named, and
+ * for one so near it that no session separates the two.
  */
-const CONFIDENCE_Z = { medium: 1, high: 2 };
-
 /**
  * Past this, the answer is "no" rather than a number.
  *
@@ -5809,27 +5863,22 @@ const CONFIDENCE_Z = { medium: 1, high: 2 };
 const PRACTICAL_HORIZON = 100_000;
 const SEARCH_CAP = 8_000_000;
 
-function coupsForConfidence(sample = {}, targetZ = 2) {
+function coupsForConfidence(sample = {}, pick = "B") {
   const { n = 0, q: qObserved, inflate } = sample;
   if (!n || !Number.isFinite(qObserved)) return null;
   const deff = Number.isFinite(inflate) ? Math.max(1, inflate ** 2) : 1;
+  const lean = pick === "P" ? SIDE_CROSSOVER - qObserved : qObserved - SIDE_CROSSOVER;
+  if (!(lean > 0)) return null;
 
-  const zAt = (nEff) => {
-    const a = PRIOR_A + qObserved * nEff;
-    const b = PRIOR_B + (1 - qObserved) * nEff;
-    const q = a / (a + b);
-    const se = Math.sqrt((q * (1 - q)) / (a + b + 1));
-    return se > 0 ? Math.abs(q - SIDE_CROSSOVER) / se : 0;
-  };
-
+  const reached = (nEff) => lean * nEff >= confidenceLines(nEff).high;
   const have = n / deff;
-  if (zAt(have) >= targetZ) return 0;
-  if (zAt(SEARCH_CAP) < targetZ) return null;          // never, at this share
+  if (reached(have)) return 0;
+  if (!reached(SEARCH_CAP)) return null;               // never, at this share
 
   let lo = have, hi = SEARCH_CAP;
   for (let i = 0; i < 60; i += 1) {
     const mid = (lo + hi) / 2;
-    if (zAt(mid) >= targetZ) hi = mid; else lo = mid;
+    if (reached(mid)) hi = mid; else lo = mid;
   }
   // Back out of effective coups into real ones: clustering means a real coup
   // is worth less than one, so more of them are needed.
@@ -7369,7 +7418,10 @@ function callBody(shoe, entry) {
 
 /** Where a 0-100 confidence sits, in the words the schema uses. */
 function bandOf(confidence) {
-  if (confidence >= 66) return "STRONG";
+  // The lines the panel's own words are drawn at: 67 is "high", 33 is
+  // "medium" (`sideConfidence`). This said 66, so a call one short of high
+  // on screen went to the record as the strongest band.
+  if (confidence >= 67) return "STRONG";
   if (confidence >= 33) return "LEAN";
   return "WEAK";
 }
@@ -11689,11 +11741,9 @@ function renderCallsNote() {
   note.innerHTML = lines.join("<br>");
 }
 
-/** Standard errors from the crossover, as a 0-100 figure the log can store. */
+/** The confidence as the 0-100 figure the log stores: see `sideConfidence`. */
 function confidenceScore(p) {
-  if (!Number.isFinite(p.se) || p.se <= 0) return 0;
-  const z = Math.abs(p.q - SIDE_CROSSOVER) / p.se;
-  return Math.max(0, Math.min(100, Math.round((z / 3) * 100)));
+  return Number.isFinite(p.confidenceScore) ? p.confidenceScore : 0;
 }
 
 /**
@@ -11913,7 +11963,7 @@ function renderPrediction() {
     // saying what would make it strong. The distance to "high" is the only
     // useful thing to put beside it, and on a fair table that distance is
     // honestly infinite, because there is nothing there to become sure of.
-    { k: t("ai.confidence"), v: t("ai.conf." + p.confidence), sub: confidenceDistance(o) },
+    { k: t("ai.confidence"), v: t("ai.conf." + p.confidence), sub: confidenceDistance(o, p.pick) },
     { k: t("ai.margin"), v: "±" + (1.96 * p.se * 100).toFixed(3) + "%p" },
     { k: t("ai.cardsLeft"), v: String(p.cardsLeft), sub: t("ai.estimated") },
   ];
@@ -12622,9 +12672,9 @@ async function showSignedInAs() {
 }
 
 /** What it would take to move the confidence, in coups. */
-function confidenceDistance(o) {
+function confidenceDistance(o, pick) {
   if (!o.n) return "";
-  const need = coupsForConfidence(o, 2);
+  const need = coupsForConfidence(o, pick);
   if (need === null) return t("ai.confNever");
   if (need === 0) return t("ai.confReached");
   return t("ai.confNeed", { n: need.toLocaleString() });
