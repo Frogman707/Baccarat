@@ -627,7 +627,6 @@ footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
     <button class="btn ghost" id="renameTable" data-i18n="header.renameTable"></button>
     <button class="btn ghost" id="clearTable" data-i18n="header.clearTable"></button>
     <button class="btn ghost" id="resetBtn" data-i18n="header.deleteTable"></button>
-    <span id="exampleBadge" class="badge" data-i18n="header.example" hidden></span>
     <span class="spacer"></span>
     <span id="shoeMeta"></span>
     <span id="whoBox" class="whobox" hidden>
@@ -1050,7 +1049,6 @@ const S = {
   },
   "header.addTable": { ko: "+ 테이블", en: "+ Table", "zh-Hant": "+ 桌台", "zh-Hans": "+ 桌台" },
   "header.tableAria": { ko: "테이블 선택", en: "Select table", "zh-Hant": "選擇桌台", "zh-Hans": "选择桌台" },
-  "header.example": { ko: "예시 데이터", en: "Sample data", "zh-Hant": "範例資料", "zh-Hans": "示例数据" },
   "header.langAria": { ko: "언어", en: "Language", "zh-Hant": "語言", "zh-Hans": "语言" },
   "header.newTablePrompt": {
     ko: "테이블 이름 (예: HANN-Speed-03)", en: "Table name (e.g. HANN-Speed-03)",
@@ -1724,6 +1722,12 @@ const S = {
     "zh-Hant": "<b>期望值為正。</b>每手 {unit} 押{side}，一個月（{hands} 手）為 <b>{mean}</b>，95% 區間 <b>{lo} 至 {hi}</b>。但這只有在本桌真的偏斜時才成立，請先通過下方的完整性檢定。要 <b>{need} 手</b>之後才與運氣分得開。",
     "zh-Hans": "<b>期望值为正。</b>每手 {unit} 押{side}，一个月（{hands} 手）为 <b>{mean}</b>，95% 区间 <b>{lo} 至 {hi}</b>。但这只有在本桌真的偏斜时才成立，请先通过下方的完整性检验。要 <b>{need} 手</b>之后才与运气分得开。",
   },
+  "stake.idle": {
+    ko: "판이 쌓이면 이 설정으로 예상 손익을 계산합니다.",
+    en: "Once coups come in, the expected result is worked out from these settings.",
+    "zh-Hant": "有了牌局後，會依這些設定計算預期損益。",
+    "zh-Hans": "有了牌局后，会按这些设置计算预期损益。",
+  },
   "stake.note": {
     ko: "한 판 베팅액을 기준으로 계산하며, 원금은 비율을 보여주는 데만 씁니다. 판수는 시간당 판수 × 하루 시간 × 한 달 일수입니다. 평균은 판수에 비례해 커지고 폭은 제곱근으로만 커지므로, 판이 쌓일수록 운의 비중이 줄어듭니다 — 줄어들 뿐, 사라지지는 않습니다.",
     en: "Computed from the stake a hand; the bankroll only sets the percentage column. Hands are hands an hour x hours a day x days a month. The mean grows with the number of hands and the spread only with its square root, so luck's share shrinks as hands accumulate -- shrinks, not disappears.",
@@ -1781,6 +1785,12 @@ const S = {
     en: "Above is what this table actually produced, over {n} [n|coup|coups]. The estimate for the next one is <b>Banker {b} · Player {p} · Tie {t}</b> — shrunk toward a fair 8-deck shoe, which is why it differs, and the count carries {share}% of it.",
     "zh-Hant": "上方是本桌實際產生的 {n} 局統計。下一局的估計為 <b>莊 {b} · 閒 {p} · 和 {t}</b> — 已朝公正的 8 副牌靴收縮，故與實測不同，實測佔其中 {share}%。",
     "zh-Hans": "上方是本桌实际产生的 {n} 局统计。下一局的估计为 <b>庄 {b} · 闲 {p} · 和 {t}</b> — 已朝公正的 8 副牌靴收缩，故与实测不同，实测占其中 {share}%。",
+  },
+  "ai.idleStart": {
+    ko: "아직 판이 없습니다. 화면 공유를 시작하면 AI 예측과 기록이 나옵니다.",
+    en: "No coups yet. Start screen sharing, and the prediction and the records appear.",
+    "zh-Hant": "尚無牌局。開始分享畫面後，就會顯示 AI 預測與紀錄。",
+    "zh-Hans": "尚无牌局。开始共享屏幕后，就会显示 AI 预测与记录。",
   },
   "ai.estimateFresh": {
     ko: "아직 판이 없습니다. 위는 공정한 8덱 슈의 값이고, 판이 들어오는 대로 이 테이블의 집계로 바뀝니다.",
@@ -1988,6 +1998,12 @@ const S = {
     en: "x-axis: P(Banker | not tie) · the bar is a 95% confidence interval",
     "zh-Hant": "橫軸：P(莊 | 排除和局) · 橫線為 95% 信賴區間",
     "zh-Hans": "横轴：P(庄 | 排除和局) · 横线为 95% 置信区间",
+  },
+  "scale.idle": {
+    ko: "판이 들어오면 이 테이블이 눈금의 어디에 있는지 표시합니다.",
+    en: "Once coups come in, this shows where this table sits on the scale.",
+    "zh-Hant": "有了牌局後，會標出這張桌子在刻度上的位置。",
+    "zh-Hans": "有了牌局后，会标出这张桌子在刻度上的位置。",
   },
   "scale.verdictWaiting": {
     ko: "<b>베팅 안 함.</b> 새 슈의 P(뱅커 | 타이 제외)는 <b>50.68%</b>로 두 손익분기선 사이에 있습니다 — 뱅커 <b>{eb}</b>, 플레이어 <b>{ep}</b>, 둘 다 손실입니다. 이 테이블의 값을 재려면 승부가 난 10판과 양쪽이 최소 한 번씩은 나와야 합니다 (현재 {n}판).",
@@ -2393,12 +2409,6 @@ const S = {
     "zh-Hant": "請先於上方填入共用紀錄位址。",
     "zh-Hans": "请先于上方填入共享记录地址。",
   },
-  "calls.exampleOff": {
-    ko: "예시 데이터에서는 기록하지 않습니다. 실제 테이블을 하나 만드세요.",
-    en: "Nothing is recorded from the example data. Make a real table first.",
-    "zh-Hant": "範例資料不會被記錄。請先建立一張實際桌台。",
-    "zh-Hans": "示例数据不会被记录。请先建立一张实际牌桌。",
-  },
   "calls.tally": {
     ko: "기록됨 {sent} · 못 보냄 {missed} · 늦음 {late}",
     en: "recorded {sent} · not sent {missed} · too late {late}",
@@ -2613,13 +2623,6 @@ const S = {
   "share.nothing": {
     ko: "보낼 판이 없습니다.", en: "There is nothing to send.",
     "zh-Hant": "沒有可傳送的資料。", "zh-Hans": "没有可发送的数据。",
-  },
-  "share.example": {
-    ko: "예시 데이터는 보내지 않습니다. 실제로 모은 판만 공유 기록에 들어갑니다.",
-    en: "Example data is not sent. Only coups you actually collected belong in "
-      + "a shared record.",
-    "zh-Hant": "範例資料不會傳送。只有實際蒐集到的局數才屬於共用紀錄。",
-    "zh-Hans": "示例数据不会发送。只有实际收集到的局数才属于共享记录。",
   },
   "share.badAddress": {
     ko: "주소가 http:// 또는 https:// 로 시작해야 합니다.",
@@ -10464,10 +10467,15 @@ function sanitiseState(raw) {
   // an `active` that was already written in its cleaned form while the table
   // beside it was not -- inconsistent, but it names a real table, and landing
   // on a different one would be the very thing this is here to prevent.
-  const active = typeof raw.active === "string"
-    ? (renamed.get(raw.active)
-       ?? (Object.prototype.hasOwnProperty.call(tables, raw.active) ? raw.active : names[0]))
-    : names[0];
+  // No table chosen is a choice too -- the blank entry at the top of the
+  // selector, where a guest starts from -- and it survives a reload like any
+  // other. Only a name that is missing or unreadable falls back to the first.
+  const active = raw.active === null
+    ? null
+    : typeof raw.active === "string"
+      ? (renamed.get(raw.active)
+         ?? (Object.prototype.hasOwnProperty.call(tables, raw.active) ? raw.active : names[0]))
+      : names[0];
   return { tables, active, isExample: !!raw.isExample };
 }
 
@@ -10566,11 +10574,17 @@ let predictionLog = emptyLog();
 
 const newShoeId = () => "S" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 
-function exampleState() {
-  const shoes = simulate(4, 20240101).map((o, i) => ({
-    id: `EXAMPLE-${i + 1}`, o, closed: i < 3, t: Date.now() - (4 - i) * 3.6e6,
-  }));
-  return { tables: { "Demo": { shoes } }, active: "Demo", isExample: true };
+/**
+ * What the page opens on: what was kept, or no table at all.
+ *
+ * It used to open on a demo corpus, so that every panel had something in it.
+ * But the page is somebody's table from the first second -- a guest arrives,
+ * shares the table's screen, and the first coup read makes their table -- and
+ * a demo's figures in front of them read as figures about their table. A demo
+ * kept from those days carries its flag, and opens empty too.
+ */
+function startingState(kept) {
+  return kept && !kept.isExample ? kept : { tables: {}, active: null };
 }
 
 /**
@@ -11058,7 +11072,6 @@ function adoptFromRoom(seen) {
     resolve();
   }
   roomHave = seen.outcomes;
-  if (state.isExample) { renderRoom(); return; }
   // A device arriving at a table already in progress has no shoe open, and
   // that is exactly when the room's coups matter most -- so a shoe is started
   // to receive them. Only when there is something to receive: an empty room
@@ -11114,7 +11127,7 @@ function adoptFromRoom(seen) {
 
 /** Send coups this device recorded to the room. Never blocks the page. */
 async function pushToRoom(shoe, tableName) {
-  if (!room || room.status !== "joined" || !shoe?.id || state.isExample) return;
+  if (!room || room.status !== "joined" || !shoe?.id) return;
   // The room is one table. The first table written to takes it if it has none
   // yet; after that a coup on any other table is that table's alone -- sent,
   // it moved the whole room onto another table's shoe.
@@ -11237,7 +11250,7 @@ async function joinRoomFromUrl() {
   // The table the room is recorded into: the one it was kept in last time, or
   // the one on screen now.
   loadRoomBinding(id);
-  if (!roomTable && !state.isExample && state.active && state.tables[state.active]) {
+  if (!roomTable && state.active && state.tables[state.active]) {
     roomTable = state.active;
     saveRoomBinding();
   }
@@ -11480,17 +11493,12 @@ function loadAsNewShoe(seq, boundTo = null) {
  * Two things have to be true before a coup can be stored, and every writer
  * needs both, so they are settled in one place.
  *
- * The seeded example exists so the page opens showing what it does; the first
- * real entry replaces it rather than mixing with it. And there has to be a
- * table at all -- deleting the last one now leaves none, because a selector
- * showing a table nobody asked for is worse than a selector showing nothing.
- * Whatever writes first is what brings one into being, which is what "press
- * start and it begins a new one" means.
+ * There has to be a table -- a first visit has none, and deleting the last one
+ * leaves none, because a selector showing a table nobody asked for is worse
+ * than a selector showing nothing. Whatever writes first is what brings one
+ * into being, which is what "press start and it begins a new one" means.
  */
 function beforeWriting() {
-  if (state.isExample) {
-    state = { tables: {}, active: null, isExample: false };
-  }
   if (!state.active || !state.tables[state.active]) state.active = freshTableName();
   state.tables[state.active] ||= { shoes: [] };
   return state.active;
@@ -11721,12 +11729,7 @@ function onLiveRead(seq, board, repeats, { afterClear = false } = {}) {
     // Not refused, though. Pointing the shared window at another table really
     // does produce a deep reading with nothing in common, and that is a thing
     // people do. So it is offered instead of taken.
-    // Never against the seeded example. It is there so the page opens showing
-    // what it does, not because anyone collected it, and the first real
-    // reading replaces it rather than being compared with it -- which on a
-    // first visit is every reading, and would put this warning in front of
-    // someone who has done nothing wrong.
-    if (!restart && !state.isExample && seq.length > RESTART_DEPTH) {
+    if (!restart && seq.length > RESTART_DEPTH) {
       setLiveWarn(
         t("live.deepReset", { read: seq.length, cur: current.length }),
         {
@@ -11810,10 +11813,22 @@ function renderLiveSources() {
 
 /** The last pin reported, so the log says it once rather than every sample. */
 let livePinned = null;
+/** Whether the reader was running at the last report, so a change is seen once. */
+let liveWasActive = false;
 /** Whether the preview is waiting for a box to be dragged on it. */
 let livePicking = false;
 
 function onLiveState(st) {
+  // Sharing is what starts the page, so starting or stopping it on a table
+  // with nothing in it moves the panels between their zeros and their figures.
+  // Only on the change, not on every sample; and not before the corpus is
+  // loaded -- a browser with neither screen nor camera is told so while the
+  // controls are being bound, before there is any state to read, and reading
+  // it there stopped the whole page from drawing.
+  if (!!st.active !== liveWasActive) {
+    liveWasActive = !!st.active;
+    if (state && !tableCoups()) render();
+  }
   $("liveIdle").hidden = st.active || !!st.error;
   $("liveActive").hidden = !st.active;
   $("liveError").hidden = !st.error;
@@ -12171,7 +12186,7 @@ function measure() {
  */
 function logPrediction(p, chosen, worthBacking) {
   const name = state.active;
-  if (!name || !state.tables[name] || state.isExample) return;
+  if (!name || !state.tables[name]) return;
   const shoe = openShoe(name);
   if (!shoe.id) return;
 
@@ -12252,7 +12267,7 @@ function saveCallsFlag(on) {
 
 /** On, addressed, and not the example corpus -- which is nobody's table. */
 function recordingIsOn() {
-  return recordingCalls && !!state && !state.isExample && !!readServer();
+  return recordingCalls && !!state && !!readServer();
 }
 
 /**
@@ -12309,7 +12324,6 @@ function renderCallsNote() {
   // nothing is right for that moment; the render that follows says the rest.
   if (!state) { note.textContent = ""; return; }
   if (!readServer()) { note.textContent = t("calls.needAddress"); return; }
-  if (state.isExample) { note.textContent = t("calls.exampleOff"); return; }
 
   const lines = [t("calls.tally", callTally)];
   if (callTally.missed || callTally.late) {
@@ -12382,7 +12396,57 @@ function observedShares(o) {
   };
 }
 
+/**
+ * Nothing read, and nothing being read: the page before anyone has started.
+ *
+ * Every figure is at zero then. Sharing the screen is what starts it, so the
+ * prediction and the rest appear the moment the screen is being read -- the
+ * first coup gets its call like every other -- and not a moment before.
+ */
+function notStarted() {
+  return !tableCoups() && !(live && live.active);
+}
+
+/** The prediction panel before anything has started: zeros, and what starts it. */
+function renderPredictionIdle() {
+  const bars = $("aiBars");
+  bars.innerHTML = "";
+  for (const code of ["P", "B", "T"]) {
+    const row = el("div", "aibar " + code);
+    row.appendChild(el("span", "n", side(code)));
+    const track = el("div", "track");
+    const fill = el("i");
+    fill.style.width = "0%";
+    track.appendChild(fill);
+    row.appendChild(track);
+    row.appendChild(el("span", "p", pct(0, 2)));
+    row.appendChild(deltaChip(0));
+    bars.appendChild(row);
+  }
+  const pick = $("aiSide");
+  pick.textContent = "\u2014";
+  pick.className = "v";
+  $("aiBetBadge").hidden = true;
+  for (const id of ["aiBetWhy", "aiRecord", "aiHold"]) $(id).hidden = true;
+  $("aiFacts").innerHTML = "";
+  $("aiWhy").innerHTML = "";
+  $("aiEstimate").textContent = t("ai.idleStart");
+}
+
 function renderPrediction() {
+  // Nothing started: no table chosen, or one with nothing in it and no screen
+  // being read. Every figure is zero and no side is named. Named from the
+  // fair-shoe prior then, the recommendation read as one about this table,
+  // which a guest who has just arrived and pressed nothing has not got.
+  // Nothing is logged either: the record holds what the panel showed.
+  if (notStarted()) {
+    renderPredictionIdle();
+    renderBetOutcome();
+    renderLearned();
+    renderVerification();
+    $("aiDisclaimer").textContent = t("ai.disclaimer");
+    return;
+  }
   const p = predict();
   const o = observed();
   const shares = observedShares(o);
@@ -12451,6 +12515,7 @@ function renderPrediction() {
   pick.className = "v " + chosen;
 
   const badge = $("aiBetBadge");
+  badge.hidden = false;
   badge.textContent = t(worthBacking ? "ai.betGo" : "ai.betHold");
   badge.className = "betbadge " + (worthBacking ? "go" : "hold");
 
@@ -13069,7 +13134,6 @@ function renderHeader() {
   $("shoeMeta").textContent = t("header.shoeMeta", {
     shoes: shoes().filter((s) => s.o.length).length, coups: shoe.o.length,
   }) + (shoe.o.length ? " · " + t("header.shoeTally", tally) : "");
-  $("exampleBadge").hidden = !state.isExample;
 }
 
 /**
@@ -13263,6 +13327,17 @@ function confidenceDistance(o, pick) {
 }
 
 function renderStake() {
+  // Before the first coup there is no estimate of this table to put money
+  // against. The settings stay, so a plan can be written first; the sums wait.
+  const idle = notStarted();
+  $("stakeTable").hidden = idle;
+  if (idle) {
+    const v = $("stakeVerdict");
+    v.className = "aiverdict";
+    v.textContent = t("stake.idle");
+    $("stakeNote").textContent = t("stake.note");
+    return;
+  }
   const p = predict();
   const cfg = stakeSettings();
   const side_ = edges(p.q, p.tie).B >= edges(p.q, p.tie).P ? "B" : "P";
@@ -13452,7 +13527,10 @@ function renderScale() {
 
   const e = edges(BASE_BANKER_SHARE, BASE_TIE);
   const note = $("scaleNote");
-  if (!hasInterval(o)) {
+  if (notStarted()) {
+    note.className = "verdict neutral";
+    note.textContent = t("scale.idle");
+  } else if (!hasInterval(o)) {
     note.className = "verdict neutral";
     note.innerHTML = t("scale.verdictWaiting", { eb: pct(e.B, 3), ep: pct(e.P, 3), n: o.n });
   } else if (cleared.B) {
@@ -14479,7 +14557,6 @@ function bindShare() {
     // The example corpus is there to show the page working, and it is nobody's
     // table. Putting it in a record several people measure a shuffle from is
     // the one way this button could do real harm.
-    if (state.isExample) { note.textContent = t("share.example"); return; }
 
     let base;
     try {
@@ -14903,9 +14980,6 @@ function bindControls() {
     // deleted record into everybody else's.
     for (const id of ids) for (const name of roomNamesOf(id)) roomQueue?.forget(name);
     roomHave = "";
-    // An example is not a table anybody collected, so clearing it means
-    // leaving the example behind rather than emptying it in place.
-    state.isExample = false;
     await store.deleteShoes(ids);
     commit([]);
   };
@@ -14933,7 +15007,6 @@ function bindControls() {
     // Nothing invented in its place. Deleting the last table leaves the
     // selector blank, and whatever is started next brings a table with it.
     state.active = Object.keys(state.tables)[0] || null;
-    state.isExample = false;
     await store.deleteShoes(ids);
     commit([]);
   };
@@ -14955,7 +15028,7 @@ function bindControls() {
     saveRoomBinding();
     live.stop();
     liveLog(t("live.logStopped"));
-    state = { tables: {}, active: null, isExample: false };
+    state = { tables: {}, active: null };
     predictionLog = emptyLog();
     store.saveLog(predictionLog);
     await store.deleteShoes(ids);
@@ -15037,9 +15110,11 @@ async function boot() {
   // open a second tab in the first place.
   store.watchOtherTabs((incoming) => {
     const here = state.active;
-    state = incoming;
-    // Unless that table is what the other tab deleted.
+    state = startingState(incoming);
+    // Unless that table is what the other tab deleted. And no table chosen here
+    // stays no table chosen, for the same reason.
     if (here && state.tables[here]) state.active = here;
+    else if (!here) state.active = null;
     discardPendingReadings();
     invalidate();
     render();
@@ -15080,7 +15155,7 @@ async function boot() {
     $(id).classList.toggle("on", currentTheme() === name);
   }
 
-  state = store.readLocal() || exampleState();
+  state = startingState(store.readLocal());
   predictionLog = sanitiseLog(store.readLog());
   settleLog();
   invalidate();
@@ -15096,7 +15171,7 @@ async function boot() {
 
   await store.connect();
   const loaded = await store.load();
-  if (loaded && Object.keys(loaded.tables || {}).length) {
+  if (loaded && !loaded.isExample && Object.keys(loaded.tables || {}).length) {
     state = loaded;
     // Coups that arrived from the shared store settle predictions this view
     // made before it had them.
