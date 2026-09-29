@@ -59,6 +59,11 @@
 *{box-sizing:border-box}
 body{margin:0; background:var(--bg); color:var(--ink); font-family:var(--sans);
      font-size:14px; line-height:1.55; -webkit-font-smoothing:antialiased}
+/* Korean wraps between words, not inside them: "결과" broken over two lines
+   as "결 / 과" reads as two words, and a narrow column did it to every label.
+   A word too long for its line still breaks. Korean only -- Chinese has no
+   spaces to break at, and would then wrap only at its punctuation. */
+html:lang(ko){word-break:keep-all; overflow-wrap:break-word}
 .m{font-family:var(--mono); font-variant-numeric:tabular-nums}
 /* An author display rule outranks the UA's, so without this a styled
    element keeps drawing after the code sets `hidden` on it. */
@@ -144,6 +149,18 @@ h2{font-size:14px; font-weight:600; margin:0 0 3px; letter-spacing:-.005em}
    not a class: the renders rewrite the class of several of these on every
    coup, and a class marker went with it. */
 body.simple [data-full-only]{display:none !important}
+body.simple #aiLedger .aifact{border-bottom:none}
+/* The guest's view at a desk: the board under the reader and beside the
+   prediction, so the two are on one screen. Without the full view's panels
+   the left column was the reader alone, over an empty band as tall as the
+   prediction, and the board was pushed below both. The second row is the
+   flexible one, so the prediction's height goes there and the board sits
+   straight under the reader. */
+@media (min-width:941px){
+  body.simple main{grid-template-rows:auto 1fr}
+  body.simple #aiPanel{grid-column:8 / span 5; grid-row:1 / span 2}
+  body.simple #boardPanel{grid-column:1 / span 7; grid-row:2}
+}
 .viewtoggle{display:flex; justify-content:center; padding:4px 0 10px}
 .roomfold{margin:12px 0 0}
 .roomfold details{border:1px solid var(--line-2); border-radius:10px; background:var(--accent-soft)}
@@ -214,6 +231,7 @@ body.simple [data-full-only]{display:none !important}
 #liveCanvas.picking{cursor:crosshair; border-color:var(--accent)}
 #livePickHint{margin-top:8px; color:var(--accent); font-size:12px}
 .livebar{display:flex; align-items:center; gap:9px; flex-wrap:wrap; margin-top:11px}
+.livestate{display:flex; align-items:center; gap:9px; min-width:0}
 .livebar select{font-size:12.5px; padding:4px 8px}
 .livebar .btn{padding:5px 12px; font-size:12.5px}
 .btn.tiny{padding:3px 9px; font-size:11.5px; margin-left:auto; flex:0 0 auto}
@@ -309,6 +327,10 @@ table.stake tr:last-child td{border-bottom:none}
        margin:15px 0 13px; padding:11px 14px; border-radius:9px;
        border:1px solid var(--line-2); background:var(--surface-2)}
 .airec .k{font-size:12.5px; font-weight:600; color:var(--ink-2)}
+/* Where the label, the side and the judgment do not fit on one line -- English
+   on a phone -- the judgment goes under them, rather than the label being
+   broken over two lines to make room for it. */
+.airec{flex-wrap:wrap; row-gap:8px}
 .airec .v{font-size:17px; font-weight:600; letter-spacing:-.01em}
 .airec .v.P{color:var(--player)} .airec .v.B{color:var(--banker)} .airec .v.T{color:var(--tie)}
 .aigrid{display:grid; grid-template-columns:1fr 1fr; gap:9px 16px}
@@ -366,6 +388,7 @@ table.stake tr:last-child td{border-bottom:none}
 #aiLedger{grid-template-columns:1fr; gap:0; margin-top:12px; margin-bottom:12px}
 #aiLedger .aifact{padding:6px 0}
 #aiLedger .aifact:last-child{border-bottom:none}
+#aiLedger .aifact .k{flex:0 0 auto}
 .ainote{font-size:11.5px; color:var(--ink-3); line-height:1.55; margin:13px 0 0}
 .verifygrid{display:grid; grid-template-columns:repeat(auto-fit,minmax(108px,1fr)); gap:9px;
             margin-top:10px}
@@ -459,6 +482,12 @@ table.stake tr:last-child td{border-bottom:none}
 
 .boards{display:flex; gap:22px; flex-wrap:wrap}
 .boardbox{min-width:0}
+/* The big road is the long one. It takes whatever its line leaves beside the
+   bead plate -- scrolling, and keeping to its newest column -- rather than
+   dropping to a line of its own the moment it is wider than that. No wider
+   than it is, though: an empty road does not stretch to push the rest away. */
+.boardbox.bigroad{flex:1 1 280px; max-width:max-content}
+.derived{display:flex; gap:22px; flex-wrap:wrap; min-width:0}
 .blabel{font-size:11px; color:var(--ink-3); margin-bottom:6px; letter-spacing:.02em}
 .roadscroll{overflow-x:auto; padding-bottom:4px}
 .gridrow{display:flex; gap:2px; margin-bottom:2px}
@@ -587,7 +616,7 @@ footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
   #kpis{grid-template-columns:1fr 1fr; gap:8px}
   .tile .v{font-size:19px}
   .aigrid{grid-template-columns:1fr}
-  .boards{gap:16px}
+  .boards,.derived{gap:16px}
   .result{gap:12px; padding:12px 14px; min-height:58px}
   .result .rdot{width:28px; height:28px}
   .result .rword{font-size:19px}
@@ -596,6 +625,7 @@ footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
   .livebox{padding:20px 14px}
   .actions{gap:7px}
   footer{padding-bottom:96px}          /* clear of the entry bar */
+  body.simple footer{padding-bottom:40px}   /* which the guest's view does not have */
 }
 
 /* ── the quick entry bar ────────────────────────────────────────────────
@@ -667,9 +697,11 @@ footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
   <div class="col c7">
   <section class="panel">
     <h2 data-i18n="capture.h"></h2>
-    <p class="sub" data-i18n="capture.sub"></p>
+    <p class="sub" data-full-only data-i18n="capture.sub"></p>
 
-    <div class="seg" data-full-only role="tablist">
+    <!-- The guest's view has no second way in, so the tabs are hidden there --
+         except while paste is showing, when they are the way back. -->
+    <div class="seg" id="modeTabs" role="tablist">
       <button class="segbtn on" id="modeLive" role="tab" aria-selected="true"
               aria-controls="livePane" tabindex="0" data-i18n="capture.modeLive"></button>
       <button class="segbtn" id="modePaste" role="tab" aria-selected="false"
@@ -688,7 +720,7 @@ footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
           </div>
           <p class="small" id="liveCameraBody" style="margin-top:12px" data-i18n="live.cameraBody" hidden></p>
           <p class="small" id="liveCameraTip" style="margin-top:8px" data-i18n="live.cameraTip" hidden></p>
-          <p class="small foldable" style="margin-top:12px" data-i18n="live.privacy"></p>
+          <p class="small foldable" id="livePrivacy" style="margin-top:12px" data-i18n="live.privacy"></p>
         </div>
       </div>
 
@@ -696,10 +728,11 @@ footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
         <canvas id="liveCanvas"></canvas>
         <p class="small" id="livePickHint" hidden data-i18n="live.pickHint"></p>
         <div class="livebar">
-          <span class="livedot" id="liveDot"></span>
-          <span id="liveStatus"></span>
+          <!-- The dot and the words it colours wrap as one: apart, a phone put
+               the dot on a line by itself over the status it belongs to. -->
+          <span class="livestate"><span class="livedot" id="liveDot"></span><span id="liveStatus"></span></span>
           <span class="spacer"></span>
-          <select id="liveInterval" data-i18n-aria="live.intervalAria">
+          <select id="liveInterval" data-full-only data-i18n-aria="live.intervalAria">
             <option value="1000"></option>
             <option value="1500" selected></option>
             <option value="3000"></option>
@@ -711,7 +744,7 @@ footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
         </div>
         <div id="liveBinding" class="warn" hidden></div>
         <div id="liveWarn" class="warn" hidden></div>
-        <div id="liveLog" class="livelog"></div>
+        <div id="liveLog" class="livelog" data-full-only></div>
       </div>
 
       <div id="liveError" hidden></div>
@@ -862,16 +895,20 @@ footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
     <div id="scaleNote" class="verdict neutral"></div>
   </section>
 
-  <section class="panel c12">
+  <section class="panel c12" id="boardPanel">
     <h2 data-i18n="board.h"></h2>
     <p class="sub" data-i18n="board.sub"></p>
     <div id="lastResult" class="result waiting" role="status" aria-live="polite"></div>
     <div class="boards">
       <div class="boardbox"><div class="blabel" data-i18n="board.bead"></div><div class="roadscroll"><div id="bead"></div></div></div>
-      <div class="boardbox"><div class="blabel" data-i18n="board.big"></div><div class="roadscroll"><div id="big"></div></div></div>
-      <div class="boardbox"><div class="blabel" data-i18n="board.beb"></div><div class="roadscroll"><div id="beb"></div></div></div>
-      <div class="boardbox"><div class="blabel" data-i18n="board.small"></div><div class="roadscroll"><div id="small"></div></div></div>
-      <div class="boardbox"><div class="blabel" data-i18n="board.roach"></div><div class="roadscroll"><div id="roach"></div></div></div>
+      <div class="boardbox bigroad"><div class="blabel" data-i18n="board.big"></div><div class="roadscroll"><div id="big"></div></div></div>
+      <!-- The three derived roads wrap as one group, so a narrow board keeps
+           them together on a line of their own instead of splitting them. -->
+      <div class="derived">
+        <div class="boardbox"><div class="blabel" data-i18n="board.beb"></div><div class="roadscroll"><div id="beb"></div></div></div>
+        <div class="boardbox"><div class="blabel" data-i18n="board.small"></div><div class="roadscroll"><div id="small"></div></div></div>
+        <div class="boardbox"><div class="blabel" data-i18n="board.roach"></div><div class="roadscroll"><div id="roach"></div></div></div>
+      </div>
     </div>
     <div id="boardMeta"></div>
   </section>
@@ -1019,7 +1056,7 @@ footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
   <button class="qb ghost" id="qbNew" data-i18n="tools.newShoe"></button>
 </div>
 
-<footer data-i18n="footer"></footer>
+<footer><span data-i18n="footer"></span> <span data-full-only data-i18n="footer.port"></span></footer>
 
 <script type="module">
 /* ═══ i18n.js ═══ */
@@ -1079,6 +1116,12 @@ const S = {
   "header.shoeMeta": {
     ko: "{shoes}슈 수집 · 현재 슈 {coups}판", en: "Shoes {shoes} · this shoe {coups}",
     "zh-Hant": "已收集 {shoes} 靴 · 本靴 {coups} 局", "zh-Hans": "已收集 {shoes} 靴 · 本靴 {coups} 局",
+  },
+  // The guest's view: the shoe on screen, without the count of every shoe the
+  // device has ever collected, which is a question about the record.
+  "header.shoeMetaShort": {
+    ko: "현재 슈 {coups}판", en: "This shoe {coups}",
+    "zh-Hant": "本靴 {coups} 局", "zh-Hans": "本靴 {coups} 局",
   },
   // The tally the table's own counter shows, in the table's own order, so the
   // two can be read against each other without counting beads. It is the only
@@ -1488,6 +1531,14 @@ const S = {
     "zh-Hant": "由瀏覽器詢問您要分享哪個畫面。影像不會離開本頁，也不會被錄製。",
     "zh-Hans": "由浏览器询问您要共享哪个画面。视频不会离开本页，也不会被录制。",
   },
+  // What a phone is asked instead: it has no screen to share, and telling it
+  // about a window picker it will never see described somebody else's device.
+  "live.privacyCamera": {
+    ko: "브라우저가 카메라를 써도 되는지 직접 묻습니다. 영상은 이 페이지 밖으로 나가지 않고, 녹화되지도 않습니다.",
+    en: "Your browser asks before the camera is used. The video never leaves this page and is never recorded.",
+    "zh-Hant": "由瀏覽器詢問是否允許使用相機。影像不會離開本頁，也不會被錄製。",
+    "zh-Hans": "由浏览器询问是否允许使用相机。视频不会离开本页，也不会被录制。",
+  },
   "live.intervalAria": { ko: "읽는 간격", en: "Reading interval", "zh-Hant": "讀取間隔", "zh-Hans": "读取间隔" },
   "live.every": { ko: "{n}초마다", en: "Every {n}s", "zh-Hant": "每 {n} 秒", "zh-Hans": "每 {n} 秒" },
   "live.relock": { ko: "영역 다시 찾기", en: "Find the board again", "zh-Hant": "重新尋找區域", "zh-Hans": "重新寻找区域" },
@@ -1709,7 +1760,7 @@ const S = {
     "zh-Hans": "每手百分之几，不是能拿来规划的数字。这里把它换成<b>金额</b>与<b>时间</b> — 并附上区间：单手的标准差是期望值的 <b>88 倍</b>，所以一天几乎全是运气，一个月也仍以运气为主。",
   },
   "stake.bankroll": { ko: "총 투자 원금", en: "Bankroll", "zh-Hant": "總本金", "zh-Hans": "总本金" },
-  "stake.unit": { ko: "한 판 베팅액", en: "Stake a hand", "zh-Hant": "每手下注", "zh-Hans": "每手下注" },
+  "stake.unit": { ko: "한 판 배팅액", en: "Stake a hand", "zh-Hant": "每手下注", "zh-Hans": "每手下注" },
   "stake.perHour": { ko: "시간당 판수", en: "Hands an hour", "zh-Hant": "每小時手數", "zh-Hans": "每小时手数" },
   "stake.hours": { ko: "하루 시간", en: "Hours a day", "zh-Hant": "每天小時", "zh-Hans": "每天小时" },
   "stake.days": { ko: "한 달 일수", en: "Days a month", "zh-Hant": "每月天數", "zh-Hans": "每月天数" },
@@ -1740,7 +1791,7 @@ const S = {
     "zh-Hans": "有了牌局后，会按这些设置计算预期损益。",
   },
   "stake.note": {
-    ko: "한 판 베팅액을 기준으로 계산하며, 원금은 비율을 보여주는 데만 씁니다. 판수는 시간당 판수 × 하루 시간 × 한 달 일수입니다. 평균은 판수에 비례해 커지고 폭은 제곱근으로만 커지므로, 판이 쌓일수록 운의 비중이 줄어듭니다 — 줄어들 뿐, 사라지지는 않습니다.",
+    ko: "한 판 배팅액을 기준으로 계산하며, 원금은 비율을 보여주는 데만 씁니다. 판수는 시간당 판수 × 하루 시간 × 한 달 일수입니다. 평균은 판수에 비례해 커지고 폭은 제곱근으로만 커지므로, 판이 쌓일수록 운의 비중이 줄어듭니다 — 줄어들 뿐, 사라지지는 않습니다.",
     en: "Computed from the stake a hand; the bankroll only sets the percentage column. Hands are hands an hour x hours a day x days a month. The mean grows with the number of hands and the spread only with its square root, so luck's share shrinks as hands accumulate -- shrinks, not disappears.",
     "zh-Hant": "以每手下注額計算，本金僅用於換算百分比。手數為每小時手數 × 每天小時 × 每月天數。平均值隨手數線性成長，區間只隨平方根成長，所以手數越多，運氣的比重越小 — 只是變小，不會消失。",
     "zh-Hans": "以每手下注额计算，本金仅用于换算百分比。手数为每小时手数 × 每天小时 × 每月天数。平均值随手数线性增长，区间只随平方根增长，所以手数越多，运气的比重越小 — 只是变小，不会消失。",
@@ -1754,14 +1805,14 @@ const S = {
     "zh-Hant": "以此比率無法達到", "zh-Hans": "以此比率无法达到" },
   "ai.confReached": { ko: "표본이 충분합니다", en: "the sample is enough",
     "zh-Hant": "樣本已足夠", "zh-Hans": "样本已足够" },
-  "ai.betGo": { ko: "베팅 권장", en: "Worth backing", "zh-Hant": "建議下注", "zh-Hans": "建议下注" },
-  "ai.betHold": { ko: "참고용 · 베팅 권장 안 함", en: "Reference only \u00b7 not worth backing",
+  "ai.betGo": { ko: "배팅 권장", en: "Worth backing", "zh-Hant": "建議下注", "zh-Hans": "建议下注" },
+  "ai.betHold": { ko: "참고용 · 배팅 권장 안 함", en: "Reference only \u00b7 not worth backing",
     "zh-Hant": "僅供參考 \u00b7 不建議下注", "zh-Hans": "仅供参考 \u00b7 不建议下注" },
   // Beside the badge when the estimate's expectation is positive and the
   // table's share has not cleared the line it is held to: the two figures on
   // screen would otherwise seem to disagree. See `backingCleared`.
   "ai.betWhy": {
-    ko: "추정 기대값은 플러스지만, 판마다 다시 보는 만큼 공정한 테이블도 가끔 이 정도는 보입니다 — 승부 난 이 {n}판에서 {side} 비율이 <b>{need}</b>에 이르러야 베팅 권장이 됩니다 (지금 {now}).",
+    ko: "추정 기대값은 플러스지만, 판마다 다시 보는 만큼 공정한 테이블도 가끔 이 정도는 보입니다 — 승부 난 이 {n}판에서 {side} 비율이 <b>{need}</b>에 이르러야 배팅 권장이 됩니다 (지금 {now}).",
     en: "The estimate's expectation is positive, but read after every coup a fair table shows this now and then — over these {n} decided [n|coup|coups], {side}'s share has to reach <b>{need}</b> before backing it is called worth it (it is at {now}).",
     "zh-Hant": "推估的期望值為正，但每局都重新檢查時，公平牌桌也不時出現這種程度 — 在這 {n} 局分勝負的局數中，{side}的比率需達到 <b>{need}</b> 才算值得下注（目前 {now}）。",
     "zh-Hans": "推估的期望值为正，但每局都重新检查时，公平牌桌也不时出现这种程度 — 在这 {n} 局分胜负的局数中，{side}的比率需达到 <b>{need}</b> 才算值得下注（目前 {now}）。",
@@ -1802,6 +1853,12 @@ const S = {
     en: "No coups yet. Start screen sharing, and the prediction and the records appear.",
     "zh-Hant": "尚無牌局。開始分享畫面後，就會顯示 AI 預測與紀錄。",
     "zh-Hans": "尚无牌局。开始共享屏幕后，就会显示 AI 预测与记录。",
+  },
+  "ai.idleStartCamera": {
+    ko: "아직 판이 없습니다. 카메라로 테이블 화면을 비추면 AI 예측과 기록이 나옵니다.",
+    en: "No coups yet. Point the camera at the table's screen, and the prediction and the records appear.",
+    "zh-Hant": "尚無牌局。用相機對準桌台畫面後，就會顯示 AI 預測與紀錄。",
+    "zh-Hans": "尚无牌局。用相机对准桌台画面后，就会显示 AI 预测与记录。",
   },
   "ai.estimateFresh": {
     ko: "아직 판이 없습니다. 위는 공정한 8덱 슈의 값이고, 판이 들어오는 대로 이 테이블의 집계로 바뀝니다.",
@@ -1922,10 +1979,10 @@ const S = {
     "zh-Hans": "把全部 {coups} 局逐一重播，每一局都<b>只用该局之前的结果</b>重新计算推荐并押上 1 单位的合计。不看未来，因此不是拿产生推荐的数据替自己评分。和局退还本金故不计入下注局数；庄赢须扣 5% 佣金，只得 0.95 单位。公正的桌台会收敛在每局 −1.06%（庄）到 −1.24%（闲）之间 — 跟着推荐也走不出这个区间，正是本表要说明的。",
   },
   "ai.betNoteEmpty": {
-    ko: "결과를 넣으면, 그 판들을 하나씩 되돌리며 <b>그 시점까지의 결과만으로</b> 추천을 다시 계산해 그 쪽에 걸었을 때의 누적 손익이 여기에 쌓입니다.",
-    en: "Enter results and this fills in: every coup replayed in order, the pick recomputed from <b>only what came before it</b>, and what backing it adds up to.",
-    "zh-Hant": "輸入結果後，這裡會顯示：逐局重播，每局<b>只用之前的結果</b>重新計算推薦並下注，累計損益為何。",
-    "zh-Hans": "输入结果后，这里会显示：逐局重播，每局<b>只用之前的结果</b>重新计算推荐并下注，累计损益为何。",
+    ko: "판이 들어오면, 그 판들을 하나씩 되돌리며 <b>그 시점까지의 결과만으로</b> 추천을 다시 계산해 그 쪽에 걸었을 때의 누적 손익이 여기에 쌓입니다.",
+    en: "Once coups come in, this fills in: every coup replayed in order, the pick recomputed from <b>only what came before it</b>, and what backing it adds up to.",
+    "zh-Hant": "有了牌局後，這裡會顯示：逐局重播，每局<b>只用之前的結果</b>重新計算推薦並下注，累計損益為何。",
+    "zh-Hans": "有了牌局后，这里会显示：逐局重播，每局<b>只用之前的结果</b>重新计算推荐并下注，累计损益为何。",
   },
   "ai.deltaLabel": {
     ko: "최근 한 판의 변화 %p", en: "change from the last coup, pp",
@@ -1988,16 +2045,16 @@ const S = {
   },
 
   /* ---------------------------------------------------- break-even scale */
-  "scale.h": { ko: "손익분기 눈금 — 베팅할 가치가 있는가", en: "The break-even scale — is any bet worth making?", "zh-Hant": "損益平衡刻度 — 值不值得下注", "zh-Hans": "盈亏平衡刻度 — 值不值得下注" },
+  "scale.h": { ko: "손익분기 눈금 — 배팅할 가치가 있는가", en: "The break-even scale — is any bet worth making?", "zh-Hant": "損益平衡刻度 — 值不值得下注", "zh-Hans": "盈亏平衡刻度 — 值不值得下注" },
   "scale.sub": {
-    ko: "뱅커 베팅은 P(뱅커 | 타이 제외)가 51.282%를 넘어야, 플레이어는 50.000% 아래여야 기댓값이 플러스가 됩니다. 갓 시작한 8덱 슈는 50.68% — 두 선 사이 <b>죽은 구간</b>입니다. 이 테이블의 실측값이 어디 있는지 함께 표시합니다.",
+    ko: "뱅커 배팅은 P(뱅커 | 타이 제외)가 51.282%를 넘어야, 플레이어는 50.000% 아래여야 기댓값이 플러스가 됩니다. 갓 시작한 8덱 슈는 50.68% — 두 선 사이 <b>죽은 구간</b>입니다. 이 테이블의 실측값이 어디 있는지 함께 표시합니다.",
     en: "A Banker bet only pays when P(Banker | not tie) exceeds 51.282%, a Player bet when it falls below 50.000%. A fresh 8-deck shoe sits at 50.68% — inside the <b>dead band</b> between them. This table's own measurement is drawn alongside.",
     "zh-Hant": "押莊須 P(莊 | 排除和局) 高於 51.282%，押閒須低於 50.000%，期望值才為正。全新八副牌靴為 50.68% — 正落在兩線之間的<b>死區</b>。圖上同時標出這張桌台的實測值。",
     "zh-Hans": "押庄须 P(庄 | 排除和局) 高于 51.282%，押闲须低于 50.000%，期望值才为正。全新八副牌靴为 50.68% — 正落在两线之间的<b>死区</b>。图上同时标出这张桌台的实测值。",
   },
   "scale.playerProfit": { ko: "플레이어 이익", en: "Player pays", "zh-Hant": "押閒獲利", "zh-Hans": "押闲盈利" },
   "scale.bankerProfit": { ko: "뱅커 이익", en: "Banker pays", "zh-Hant": "押莊獲利", "zh-Hans": "押庄盈利" },
-  "scale.deadBand": { ko: "두 베팅 모두 손실", en: "both bets lose", "zh-Hant": "兩邊皆虧損", "zh-Hans": "两边皆亏损" },
+  "scale.deadBand": { ko: "두 배팅 모두 손실", en: "both bets lose", "zh-Hant": "兩邊皆虧損", "zh-Hans": "两边皆亏损" },
   "scale.playerBreakeven": { ko: "플레이어 손익분기", en: "Player break-even", "zh-Hant": "閒家損益平衡", "zh-Hans": "闲家盈亏平衡" },
   "scale.bankerBreakeven": { ko: "뱅커 손익분기", en: "Banker break-even", "zh-Hant": "莊家損益平衡", "zh-Hans": "庄家盈亏平衡" },
   "scale.freshShoe": { ko: "새 슈 50.68%", en: "fresh shoe 50.68%", "zh-Hant": "全新牌靴 50.68%", "zh-Hans": "全新牌靴 50.68%" },
@@ -2017,19 +2074,19 @@ const S = {
     "zh-Hans": "有了牌局后，会标出这张桌子在刻度上的位置。",
   },
   "scale.verdictWaiting": {
-    ko: "<b>베팅 안 함.</b> 새 슈의 P(뱅커 | 타이 제외)는 <b>50.68%</b>로 두 손익분기선 사이에 있습니다 — 뱅커 <b>{eb}</b>, 플레이어 <b>{ep}</b>, 둘 다 손실입니다. 이 테이블의 값을 재려면 승부가 난 10판과 양쪽이 최소 한 번씩은 나와야 합니다 (현재 {n}판).",
+    ko: "<b>배팅 안 함.</b> 새 슈의 P(뱅커 | 타이 제외)는 <b>50.68%</b>로 두 손익분기선 사이에 있습니다 — 뱅커 <b>{eb}</b>, 플레이어 <b>{ep}</b>, 둘 다 손실입니다. 이 테이블의 값을 재려면 승부가 난 10판과 양쪽이 최소 한 번씩은 나와야 합니다 (현재 {n}판).",
     en: "<b>No bet.</b> A fresh shoe's P(Banker | not tie) is <b>50.68%</b>, between the two break-even lines — Banker <b>{eb}</b>, Player <b>{ep}</b>, both losing. Measuring this table takes 10 decided coups and at least one of each side ({n} so far).",
     "zh-Hant": "<b>不下注。</b>全新牌靴的 P(莊 | 排除和局) 為 <b>50.68%</b>，落在兩條損益平衡線之間 — 莊 <b>{eb}</b>、閒 <b>{ep}</b>，兩邊皆虧。要測出本桌數值，需要 10 局分出勝負、且莊閒各至少出現一次（目前 {n} 局）。",
     "zh-Hans": "<b>不下注。</b>全新牌靴的 P(庄 | 排除和局) 为 <b>50.68%</b>，落在两条盈亏平衡线之间 — 庄 <b>{eb}</b>、闲 <b>{ep}</b>，两边皆亏。要测出本桌数值，需要 10 局分出胜负、且庄闲各至少出现一次（当前 {n} 局）。",
   },
   "scale.verdictDead": {
-    ko: "<b>베팅 안 함.</b> 이 테이블의 뱅커 비율은 <b>{q}</b>, 95% 신뢰구간 <b>{lo}–{hi}</b>로 죽은 구간 안에 있습니다. 구간이 손익분기선 하나를 통째로 넘어가기 전까지는 어느 쪽도 기댓값이 플러스가 아닙니다.",
+    ko: "<b>배팅 안 함.</b> 이 테이블의 뱅커 비율은 <b>{q}</b>, 95% 신뢰구간 <b>{lo}–{hi}</b>로 죽은 구간 안에 있습니다. 구간이 손익분기선 하나를 통째로 넘어가기 전까지는 어느 쪽도 기댓값이 플러스가 아닙니다.",
     en: "<b>No bet.</b> This table's Banker share is <b>{q}</b>, 95% interval <b>{lo}–{hi}</b>, inside the dead band. Until that interval clears one of the break-even lines entirely, neither side has positive expectation.",
     "zh-Hant": "<b>不下注。</b>本桌莊家比率為 <b>{q}</b>，95% 信賴區間 <b>{lo}–{hi}</b>，落在死區之內。在區間整段越過任一條損益平衡線之前，兩邊的期望值都不為正。",
     "zh-Hans": "<b>不下注。</b>本桌庄家比率为 <b>{q}</b>，95% 置信区间 <b>{lo}–{hi}</b>，落在死区之内。在区间整段越过任一条盈亏平衡线之前，两边的期望值都不为正。",
   },
   "scale.verdictStraddle": {
-    ko: "<b>베팅 안 함.</b> 이 테이블의 뱅커 비율 <b>{q}</b>은 {line} 손익분기선을 넘었지만, 95% 신뢰구간 <b>{lo}–{hi}</b>이 아직 그 선을 걸치고 있습니다. {n}판으로는 우연히도 이만큼 벌어집니다 — 구간이 선을 통째로 넘어가야 판단할 수 있습니다.",
+    ko: "<b>배팅 안 함.</b> 이 테이블의 뱅커 비율 <b>{q}</b>은 {line} 손익분기선을 넘었지만, 95% 신뢰구간 <b>{lo}–{hi}</b>이 아직 그 선을 걸치고 있습니다. {n}판으로는 우연히도 이만큼 벌어집니다 — 구간이 선을 통째로 넘어가야 판단할 수 있습니다.",
     en: "<b>No bet.</b> This table's Banker share of <b>{q}</b> is past the {line} break-even, but the 95% interval <b>{lo}–{hi}</b> still straddles that line. Chance alone spreads {n} [n|coup|coups] this far — the interval has to clear the line entirely before it means anything.",
     "zh-Hant": "<b>不下注。</b>本桌莊家比率 <b>{q}</b> 已越過{line}損益平衡線，但 95% 信賴區間 <b>{lo}–{hi}</b> 仍橫跨該線。僅 {n} 局，單憑運氣就能拉開這樣的差距 — 區間必須整段越過該線才具意義。",
     "zh-Hans": "<b>不下注。</b>本桌庄家比率 <b>{q}</b> 已越过{line}盈亏平衡线，但 95% 置信区间 <b>{lo}–{hi}</b> 仍横跨该线。仅 {n} 局，单凭运气就能拉开这样的差距 — 区间必须整段越过该线才具意义。",
@@ -2038,13 +2095,13 @@ const S = {
   // after every coup: an honest table's interval does that now and then, so
   // this is not the verdict above. See `backingCleared` in predict.js.
   "scale.verdictRelook": {
-    ko: "<b>베팅 안 함.</b> 이 테이블의 뱅커 비율은 <b>{q}</b>이고, 95% 신뢰구간 <b>{lo}–{hi}</b>이 지금 이 순간에는 {line} 손익분기선을 넘습니다. 하지만 이 페이지는 판마다 다시 보고, 공정한 테이블의 구간도 가끔 그렇게 넘습니다 — 매번 보는 것까지 셈하면, 이 {n}판에서 뱅커 비율이 <b>{need}</b> {dir}이어야 합니다.",
+    ko: "<b>배팅 안 함.</b> 이 테이블의 뱅커 비율은 <b>{q}</b>이고, 95% 신뢰구간 <b>{lo}–{hi}</b>이 지금 이 순간에는 {line} 손익분기선을 넘습니다. 하지만 이 페이지는 판마다 다시 보고, 공정한 테이블의 구간도 가끔 그렇게 넘습니다 — 매번 보는 것까지 셈하면, 이 {n}판에서 뱅커 비율이 <b>{need}</b> {dir}이어야 합니다.",
     en: "<b>No bet.</b> This table's Banker share is <b>{q}</b>, and its 95% interval <b>{lo}–{hi}</b> clears the {line} break-even at this reading. But the page reads it after every coup, and an honest table's interval clears a line that way now and then — counting every reading, over these {n} [n|coup|coups] the Banker share has to get {dir} <b>{need}</b>.",
     "zh-Hant": "<b>不下注。</b>本桌莊家比率為 <b>{q}</b>，95% 信賴區間 <b>{lo}–{hi}</b> 在此刻越過{line}損益平衡線。但本頁每局都會重新檢查，公平牌桌的區間也不時如此越線 — 計入每次檢查，在這 {n} 局中莊家比率需{dir} <b>{need}</b>。",
     "zh-Hans": "<b>不下注。</b>本桌庄家比率为 <b>{q}</b>，95% 置信区间 <b>{lo}–{hi}</b> 在此刻越过{line}盈亏平衡线。但本页每局都会重新检查，公平牌桌的区间也不时如此越线 — 计入每次检查，在这 {n} 局中庄家比率需{dir} <b>{need}</b>。",
   },
   "scale.verdictRelookFew": {
-    ko: "<b>베팅 안 함.</b> 이 테이블의 뱅커 비율은 <b>{q}</b>이고, 95% 신뢰구간 <b>{lo}–{hi}</b>이 지금 이 순간에는 {line} 손익분기선을 넘습니다. 하지만 이 페이지는 판마다 다시 보고, 공정한 테이블의 구간도 가끔 그렇게 넘습니다 — 매번 보는 것까지 셈하면, 승부 난 {n}판으로는 어떤 비율도 아직 그 선을 넘을 수 없습니다.",
+    ko: "<b>배팅 안 함.</b> 이 테이블의 뱅커 비율은 <b>{q}</b>이고, 95% 신뢰구간 <b>{lo}–{hi}</b>이 지금 이 순간에는 {line} 손익분기선을 넘습니다. 하지만 이 페이지는 판마다 다시 보고, 공정한 테이블의 구간도 가끔 그렇게 넘습니다 — 매번 보는 것까지 셈하면, 승부 난 {n}판으로는 어떤 비율도 아직 그 선을 넘을 수 없습니다.",
     en: "<b>No bet.</b> This table's Banker share is <b>{q}</b>, and its 95% interval <b>{lo}–{hi}</b> clears the {line} break-even at this reading. But the page reads it after every coup, and an honest table's interval clears a line that way now and then — counting every reading, no share over {n} decided [n|coup|coups] can clear it yet.",
     "zh-Hant": "<b>不下注。</b>本桌莊家比率為 <b>{q}</b>，95% 信賴區間 <b>{lo}–{hi}</b> 在此刻越過{line}損益平衡線。但本頁每局都會重新檢查，公平牌桌的區間也不時如此越線 — 計入每次檢查，僅 {n} 局分勝負的局數，任何比率都還無法越過該線。",
     "zh-Hans": "<b>不下注。</b>本桌庄家比率为 <b>{q}</b>，95% 置信区间 <b>{lo}–{hi}</b> 在此刻越过{line}盈亏平衡线。但本页每局都会重新检查，公平牌桌的区间也不时如此越线 — 计入每次检查，仅 {n} 局分胜负的局数，任何比率都还无法越过该线。",
@@ -2750,11 +2807,21 @@ const S = {
   "flash.newShoe": { ko: "새 슈 시작", en: "New shoe started", "zh-Hant": "已開新牌靴", "zh-Hans": "已开新牌靴" },
 
   /* --------------------------------------------------------------- footer */
+  // The calculation is what stays in the browser. The page as a whole does
+  // not: it signs in, and a room or the shared record sends results on when
+  // somebody asks it to -- so "everything runs in your browser" was claiming
+  // more than is true. What is true of every visit is what is said here.
   "footer": {
-    ko: "브라우저 안에서만 동작합니다 — 공유한 화면도, 붙여넣은 이미지도, 모은 결과도 어떤 카지노 사이트로도 전송되지 않습니다. 확률·로드·무결성 계산은 데스크톱 패키지와 같은 코드를 옮긴 것이며, 파이썬 원본과 동일한 값을 내도록 검증돼 있습니다.",
-    en: "Everything runs inside your browser — the shared screen, the pasted images and the collected results are never sent to any casino site. The probability, road and integrity calculations are a port of the desktop package's own code, checked to produce the same numbers as the Python original.",
-    "zh-Hant": "全部在瀏覽器內執行 — 分享的畫面、貼上的圖片與收集的結果都不會傳送到任何賭場網站。機率、路圖與完整性計算皆移植自桌面套件的相同程式碼，並經驗證與 Python 原始版本輸出相同數值。",
-    "zh-Hans": "全部在浏览器内运行 — 共享的画面、粘贴的图片与收集的结果都不会发送到任何赌场网站。概率、路图与完整性计算皆移植自桌面包的相同代码，并经验证与 Python 原始版本输出相同数值。",
+    ko: "계산은 모두 이 브라우저 안에서 합니다 — 공유한 화면과 붙여넣은 이미지는 이 페이지 밖으로 나가지 않고, 결과는 어떤 카지노 사이트로도 보내지 않습니다.",
+    en: "Every calculation runs inside your browser — the shared screen and any pasted image never leave this page, and no result is ever sent to a casino site.",
+    "zh-Hant": "所有計算都在瀏覽器內進行 — 分享的畫面與貼上的圖片不會離開本頁，結果也不會傳送到任何賭場網站。",
+    "zh-Hans": "所有计算都在浏览器内进行 — 共享的画面与粘贴的图片不会离开本页，结果也不会发送到任何赌场网站。",
+  },
+  "footer.port": {
+    ko: "확률·로드·무결성 계산은 데스크톱 패키지와 같은 코드를 옮긴 것이며, 파이썬 원본과 동일한 값을 내도록 검증돼 있습니다.",
+    en: "The probability, road and integrity calculations are a port of the desktop package's own code, checked to produce the same numbers as the Python original.",
+    "zh-Hant": "機率、路圖與完整性計算皆移植自桌面套件的相同程式碼，並經驗證與 Python 原始版本輸出相同數值。",
+    "zh-Hans": "概率、路图与完整性计算皆移植自桌面包的相同代码，并经验证与 Python 原始版本输出相同数值。",
   },
 };
 
@@ -10976,10 +11043,32 @@ function applyView() {
   const simple = viewNow !== "full";
   document.body.classList.toggle("simple", simple);
   $("viewToggle").textContent = t(simple ? "view.full" : "view.simple");
-  // Paste is the second way in, and the guest's view has no way to reach it,
-  // so it never leaves anyone on it.
-  if (simple && $("livePane").hidden) setMode("live");
+  renderModeTabs();
   foldExplanations();
+}
+
+/**
+ * Change views, and remember the choice. Going to the guest's view goes to
+ * the reader as well: paste is the second way in, and a guest handed the page
+ * on it would be looking at a drop zone instead of the button that starts.
+ */
+function setView(view) {
+  viewNow = view === "full" ? "full" : "simple";
+  try { localStorage.setItem(VIEW_KEY, viewNow); } catch { /* this visit only */ }
+  if (viewNow !== "full" && $("livePane").hidden) setMode("live");
+  applyView();
+  // The header says less in the guest's view.
+  if (state) renderHeader();
+}
+
+/**
+ * The two tabs: always in the full view, and in the guest's view only while
+ * paste is showing. Things there still lead to paste -- an image pasted onto
+ * the page, the button under a screen share that would not start -- and with
+ * the tabs put away there was then no way back to the reader.
+ */
+function renderModeTabs() {
+  $("modeTabs").hidden = viewNow !== "full" && !$("livePane").hidden;
 }
 
 /**
@@ -11008,8 +11097,12 @@ function foldExplanations() {
     const open = p.classList.contains("open");
     button.textContent = t(open ? "ui.less" : "ui.more");
     button.setAttribute("aria-expanded", String(open));
-    // Measured folded: a paragraph that already fits has nothing to open.
-    button.hidden = !open && (p.hidden || p.scrollHeight <= p.clientHeight + 1);
+    // Measured folded: a paragraph that already fits has nothing to open. And
+    // one that is not drawn -- hidden, inside something hidden, or left out of
+    // this view -- has no button, open or not: a "less" under nothing is a
+    // control for a paragraph nobody can see.
+    const drawn = p.getClientRects().length > 0;
+    button.hidden = !drawn || (!open && p.scrollHeight <= p.clientHeight + 1);
   }
 }
 
@@ -11844,6 +11937,16 @@ function renderLiveSources() {
   // matters once the camera is the way in, so it rides with the note.
   $("liveCameraBody").hidden = !camera;
   $("liveCameraTip").hidden = !camera;
+  // And where both exist the camera is the full view's. A guest at a computer
+  // shares the screen, and a second button with two paragraphs about phones
+  // and camera angles under it was most of what the box said to them.
+  for (const id of ["liveCamera", "liveCameraBody", "liveCameraTip"]) {
+    $(id).toggleAttribute("data-full-only", screen);
+  }
+  // The privacy line names what the browser is about to ask for.
+  const privacy = $("livePrivacy");
+  privacy.dataset.i18n = screen ? "live.privacy" : "live.privacyCamera";
+  privacy.textContent = t(privacy.dataset.i18n);
 }
 
 /** The last pin reported, so the log says it once rather than every sample. */
@@ -11860,13 +11963,17 @@ function onLiveState(st) {
   // loaded -- a browser with neither screen nor camera is told so while the
   // controls are being bound, before there is any state to read, and reading
   // it there stopped the whole page from drawing.
-  if (!!st.active !== liveWasActive) {
+  const flipped = !!st.active !== liveWasActive;
+  if (flipped) {
     liveWasActive = !!st.active;
     if (state && !tableCoups()) render();
   }
   $("liveIdle").hidden = st.active || !!st.error;
   $("liveActive").hidden = !st.active;
   $("liveError").hidden = !st.error;
+  // The box that has just come back was measured while it was hidden, when
+  // none of its paragraphs had anything to open.
+  if (flipped) foldExplanations();
 
   if (st.error) { liveTable = null; renderLiveBinding(); renderLiveError(st.error, st.source); return; }
   if (!st.active) { liveTable = null; renderLiveBinding(); renderLiveSources(); return; }
@@ -11966,6 +12073,7 @@ function setMode(mode, focus = false) {
   }
   $("livePane").hidden = !isLive;
   $("pastePane").hidden = isLive;
+  renderModeTabs();
   // The pane just shown was measured while hidden, when nothing overflowed.
   foldExplanations();
   if (!isLive && live?.active) live.stop();
@@ -12465,7 +12573,9 @@ function renderPredictionIdle() {
   for (const id of ["aiBetWhy", "aiRecord", "aiHold"]) $(id).hidden = true;
   $("aiFacts").innerHTML = "";
   $("aiWhy").innerHTML = "";
-  $("aiEstimate").textContent = t("ai.idleStart");
+  // Worded for the way in this device has: a phone has no screen to share.
+  const cameraOnly = !LiveWatcher.screenSupported && LiveWatcher.cameraSupported;
+  $("aiEstimate").textContent = t(cameraOnly ? "ai.idleStartCamera" : "ai.idleStart");
 }
 
 function renderPrediction() {
@@ -12641,13 +12751,17 @@ function renderPrediction() {
     // useful thing to put beside it, and on a fair table that distance is
     // honestly infinite, because there is nothing there to become sure of.
     { k: t("ai.confidence"), v: t("ai.conf." + p.confidence), sub: confidenceDistance(o, p.pick) },
-    { k: t("ai.margin"), v: "±" + (1.96 * p.se * 100).toFixed(3) + "%p" },
-    { k: t("ai.cardsLeft"), v: String(p.cardsLeft), sub: t("ai.estimated") },
+    // These two are the full view's. The guest's keeps the expectation and the
+    // confidence -- the two that answer whether this is a bet -- and the margin
+    // is what the confidence is made of, in the plain word beside it.
+    { k: t("ai.margin"), v: "±" + (1.96 * p.se * 100).toFixed(3) + "%p", full: true },
+    { k: t("ai.cardsLeft"), v: String(p.cardsLeft), sub: t("ai.estimated"), full: true },
   ];
   const grid = $("aiFacts");
   grid.innerHTML = "";
   for (const f of facts) {
     const row = el("div", "aifact");
+    if (f.full) row.setAttribute("data-full-only", "");
     row.appendChild(el("span", "k", f.k));
     const v = el("span", "v" + (f.neg ? " neg" : ""), f.v);
     if (f.sub) v.appendChild(el("small", null, f.sub));
@@ -12911,16 +13025,20 @@ function renderBetOutcome() {
     // The high-water mark, not the low one: paired with the deepest fall from a
     // peak it says how far the run swung, where the running low is often just
     // zero and repeats the drawdown besides.
+    //
+    // It and the split are the full view's: the guest's keeps the total, which
+    // is the one that says what backing the pick has come to.
     { k: t("ai.ledgerDrawdown"), v: signed(r.drawdown) + t("ai.unit"),
-      good: r.drawdown >= 0,
+      good: r.drawdown >= 0, full: true,
       sub: t("ai.ledgerPeak", { n: signed(r.best) }) },
     { k: t("ai.ledgerSplit"),
       v: t("ai.ledgerSplitValue", { b: r.bankerBets.toLocaleString(),
                                     p: r.playerBets.toLocaleString() }),
-      sub: t("ai.ledgerSplitSub") },
+      sub: t("ai.ledgerSplitSub"), full: true },
   ];
   for (const row of rows) {
     const line = el("div", "aifact");
+    if (row.full) line.setAttribute("data-full-only", "");
     line.appendChild(el("span", "k", row.k));
     const v = el("span", "v" + (row.good === false ? " neg" : ""), row.v);
     if (row.sub) v.appendChild(el("small", null, row.sub));
@@ -13128,8 +13246,8 @@ function render() {
   // drawn with the page rather than only when somebody asks.
   renderServerAI();
   renderRoomConflicts();
-  // Whether anything is being recorded depends on the table -- the example
-  // corpus records nothing -- so the line that says so is redrawn with it.
+  // Whether anything is being recorded depends on the table, so the line that
+  // says so is redrawn with it.
   renderCallsNote();
   renderSignIn();
   // Some of the folded paragraphs are written by the renders above, and a
@@ -13166,9 +13284,14 @@ function renderHeader() {
   // says the reader is looking at the right board.
   const tally = { b: 0, p: 0, t: 0 };
   for (const o of shoe.o) tally[o === "B" ? "b" : o === "P" ? "p" : "t"] += 1;
-  $("shoeMeta").textContent = t("header.shoeMeta", {
-    shoes: shoes().filter((s) => s.o.length).length, coups: shoe.o.length,
-  }) + (shoe.o.length ? " · " + t("header.shoeTally", tally) : "");
+  // The guest's view leaves out how many shoes the device has collected: that
+  // is a question about the record, and the tally is the one about the table.
+  $("shoeMeta").textContent = (viewNow === "full"
+    ? t("header.shoeMeta", {
+        shoes: shoes().filter((s) => s.o.length).length, coups: shoe.o.length,
+      })
+    : t("header.shoeMetaShort", { coups: shoe.o.length }))
+    + (shoe.o.length ? " · " + t("header.shoeTally", tally) : "");
 }
 
 /**
@@ -13662,18 +13785,55 @@ function renderLastResult() {
   }
 }
 
+/* A road wider than its box scrolls, and it used to sit on its first column --
+   so on a phone the newest coups, the ones being watched for, were off the
+   right-hand edge. Each road keeps to its newest column now: after a coup, and
+   after its box changes width, which is what the guest's view does to the
+   board at a desk and what turning a phone does. Scrolled back to look at
+   older coups it is left there; scrolled back to the end, or showing another
+   table, it follows again. */
+
+/** Whether each road's box is keeping to its newest column. */
+const roadFollowing = new WeakMap();
+/** The table the roads were last drawn for. */
+let roadsAt;
+
+function followRoads() {
+  for (const box of document.querySelectorAll(".roadscroll")) {
+    if (roadFollowing.get(box) !== false) box.scrollLeft = box.scrollWidth;
+  }
+}
+
+function bindRoads() {
+  const boxes = document.querySelectorAll(".roadscroll");
+  for (const box of boxes) {
+    box.addEventListener("scroll", () => {
+      roadFollowing.set(box, box.scrollLeft + box.clientWidth >= box.scrollWidth - 2);
+    }, { passive: true });
+  }
+  if (typeof ResizeObserver === "function") {
+    const watch = new ResizeObserver(followRoads);
+    for (const box of boxes) watch.observe(box);
+  }
+}
+
 function renderBoard() {
   const shoe = openShoe();
   const outcomes = [...shoe.o];
   const road = new BigRoad();
   for (const o of outcomes) road.add(o);
 
+  if (roadsAt !== state.active) {
+    roadsAt = state.active;
+    for (const box of document.querySelectorAll(".roadscroll")) roadFollowing.set(box, true);
+  }
   drawGrid($("bead"), beadPlate(outcomes), "outcome");
   drawGrid($("big"), road.grid(6), "outcome");
   const derived = allDerivedRoads(road.columns);
   drawFlat($("beb"), derived.big_eye_boy);
   drawFlat($("small"), derived.small_road);
   drawFlat($("roach"), derived.cockroach_road);
+  followRoads();
 
   const c = { P: 0, B: 0, T: 0 };
   for (const o of outcomes) c[o]++;
@@ -14496,7 +14656,9 @@ function bindPaste() {
     if (image) { e.preventDefault(); readImageFile(image.getAsFile()); return; }
     const text = e.clipboardData?.getData("text");
     const tag = (e.target.tagName || "").toLowerCase();
-    if (text && tag !== "input" && tag !== "textarea") {
+    // The box it goes into is in the tools panel, which the guest's view does
+    // not show: taking the paste there put it where nobody could see it.
+    if (text && tag !== "input" && tag !== "textarea" && viewNow === "full") {
       const { sequence } = parseSequenceText(text);
       if (sequence.length >= 4) { e.preventDefault(); $("textIn").value = text; $("textIn").focus(); }
     }
@@ -14859,11 +15021,7 @@ function bindControls() {
     renderAll();
   });
 
-  $("viewToggle").onclick = () => {
-    viewNow = viewNow === "full" ? "simple" : "full";
-    try { localStorage.setItem(VIEW_KEY, viewNow); } catch { /* this visit only */ }
-    applyView();
-  };
+  $("viewToggle").onclick = () => setView(viewNow === "full" ? "simple" : "full");
   $("modeLive").onclick = () => setMode("live");
   $("modePaste").onclick = () => setMode("paste");
   for (const id of ["modeLive", "modePaste"]) {
@@ -15102,6 +15260,10 @@ function bindControls() {
 
   document.addEventListener("keydown", (e) => {
     if (e.metaKey || e.ctrlKey || e.altKey) return;
+    // The guest's view reads its coups off the screen, and has no keypad and
+    // no undo. A stray P or N there wrote a coup the table never dealt, or
+    // closed the shoe being read -- and nothing on screen offered it back.
+    if (viewNow !== "full") return;
     const tag = (e.target.tagName || "").toLowerCase();
     if (tag === "input" || tag === "textarea" || tag === "select") return;
     const act = { p: () => addOutcomes("P"), b: () => addOutcomes("B"), t: () => addOutcomes("T"),
@@ -15180,6 +15342,7 @@ async function boot() {
   initPreferences();
   bindPaste();
   bindControls();
+  bindRoads();
   bindStake();
   // The handler only fires on a change, so without this the header sits blank
   // until something goes wrong -- and where the shoes are being kept is worth
