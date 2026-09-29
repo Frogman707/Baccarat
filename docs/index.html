@@ -126,6 +126,30 @@ main{max-width:1220px; margin:0 auto; padding:20px; display:grid;
 h2{font-size:14px; font-weight:600; margin:0 0 3px; letter-spacing:-.005em}
 .sub{font-size:12px; color:var(--ink-3); margin:0 0 14px; line-height:1.5}
 .panel > .sub:last-child{margin-bottom:0}
+/* The explanations, two lines each until opened: they were most of a phone's
+   page, in front of the figures they explain. */
+.fold{display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; line-clamp:2;
+  overflow:hidden}
+.fold.open{display:block; -webkit-line-clamp:unset; line-clamp:unset; overflow:visible}
+.subtoggle{display:block; margin:-10px 0 12px; padding:2px 0; border:0; background:none;
+  color:var(--accent); font:inherit; font-size:11.5px; font-weight:600; cursor:pointer}
+.subtoggle:hover{text-decoration:underline}
+.subtoggle:focus-visible{outline:2px solid var(--accent); outline-offset:2px; border-radius:4px}
+.livebox .subtoggle{display:block; margin:4px auto 0}
+.foldable + .subtoggle{margin:2px 0 0}
+.livebox .foldable + .subtoggle{margin:4px auto 0}
+/* The room's disagreements: one line, and the list on a tap. */
+.roomfold{margin:12px 0 0}
+.roomfold details{border:1px solid var(--line-2); border-radius:10px; background:var(--accent-soft)}
+.roomfold summary{display:flex; align-items:center; gap:8px; padding:9px 12px; cursor:pointer;
+  list-style:none; font-size:12.5px; line-height:1.4; color:var(--ink)}
+.roomfold summary::-webkit-details-marker{display:none}
+.roomfold summary::before{content:""; flex:none; width:7px; height:7px; border-radius:50%;
+  background:var(--accent)}
+.roomfold summary:focus-visible{outline:2px solid var(--accent); outline-offset:2px; border-radius:10px}
+.roomfold .more{margin-left:auto; flex:none; color:var(--accent); font-weight:600; font-size:11.5px}
+.roomfold .body{padding:2px 12px 12px; border-top:1px solid var(--line)}
+.roomfold .body .ainote{margin:8px 0 0}
 
 /* ── paste zone: the hero ───────────────────────────────────────────── */
 #drop{border:2px dashed var(--line-2); border-radius:10px; background:var(--surface-2);
@@ -652,14 +676,14 @@ footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
       <div id="liveIdle">
         <div class="livebox">
           <div class="big" id="liveIdleH"></div>
-          <p class="small" id="liveIdleBody" data-i18n-html="live.idleBody"></p>
+          <p class="small foldable" id="liveIdleBody" data-i18n-html="live.idleBody"></p>
           <div class="actions" style="justify-content:center">
             <button class="btn primary" id="liveStart" data-i18n="live.start"></button>
             <button class="btn primary" id="liveCamera" data-i18n="live.startCamera" hidden></button>
           </div>
           <p class="small" id="liveCameraBody" style="margin-top:12px" data-i18n="live.cameraBody" hidden></p>
           <p class="small" id="liveCameraTip" style="margin-top:8px" data-i18n="live.cameraTip" hidden></p>
-          <p class="small" style="margin-top:12px" data-i18n="live.privacy"></p>
+          <p class="small foldable" style="margin-top:12px" data-i18n="live.privacy"></p>
         </div>
       </div>
 
@@ -712,7 +736,7 @@ footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
       <div id="batch" hidden></div>
       <div class="onephone">
         <div class="k" data-i18n="onephone.h"></div>
-        <p data-i18n-html="onephone.body"></p>
+        <p class="foldable" data-i18n-html="onephone.body"></p>
       </div>
     </div>
   </section>
@@ -735,16 +759,17 @@ footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
     <div id="aiBars"></div>
     <p class="ainote" id="aiEstimate"></p>
     <div id="aiRecord" class="verdict flag" hidden></div>
-    <!-- Disagreements the room holds, including ones this device was not part
-         of. A reader who joined afterwards adopted the room's copy and saw
-         nothing wrong, which makes them the one most likely to act on it. -->
-    <div id="roomConflicts" class="verdict flag" hidden></div>
     <div class="airec">
       <span class="k" data-i18n="ai.recommend"></span>
       <span class="v" id="aiSide"></span>
       <span class="betbadge" id="aiBetBadge"></span>
     </div>
     <p class="ainote" id="aiBetWhy" hidden></p>
+    <!-- Disagreements the room holds, including ones this device was not part
+         of. A reader who joined afterwards adopted the room's copy and saw
+         nothing wrong, which makes them the one most likely to act on it.
+         Under the recommendation and folded to one line, not above it. -->
+    <div id="roomConflicts" class="roomfold" hidden></div>
     <!-- A second opinion, above this device's own and never in place of it.
          Everything below the divider is computed in this browser and keeps
          working with no network, which is how the page is used at a table. -->
@@ -767,13 +792,13 @@ footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
     </div>
     <div id="aiOutcomes"></div>
     <div class="aigrid" id="aiLedger"></div>
-    <p class="ainote" id="aiOverallNote"></p>
+    <p class="ainote foldable" id="aiOverallNote"></p>
 
     <div class="obshead">
       <span class="blabel" data-i18n="learn.h"></span>
       <span class="obssub" id="learnTrained"></span>
     </div>
-    <p class="ainote" style="margin-top:0" data-i18n="learn.sub"></p>
+    <p class="ainote foldable" style="margin-top:0" data-i18n="learn.sub"></p>
     <div class="aigrid" id="learnRows"></div>
     <p class="aiverdict" id="learnVerdict"></p>
 
@@ -781,7 +806,7 @@ footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
       <span class="blabel" data-i18n="verify.h"></span>
       <span class="obssub" id="verifyCount"></span>
     </div>
-    <p class="ainote" style="margin-top:0" data-i18n="verify.sub"></p>
+    <p class="ainote foldable" style="margin-top:0" data-i18n="verify.sub"></p>
     <div id="verifyKpis" class="verifygrid"></div>
     <p class="aiverdict" id="verifyVerdict"></p>
     <div id="verifyRecent" class="verifyrows"></div>
@@ -790,14 +815,14 @@ footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
       <span class="blabel" data-i18n="calls.h"></span>
       <span class="obssub" id="sharedScoreCount"></span>
     </div>
-    <p class="ainote" style="margin-top:0" data-i18n-html="calls.sub"></p>
+    <p class="ainote foldable" style="margin-top:0" data-i18n-html="calls.sub"></p>
     <div class="actions" style="margin-top:0">
       <button class="btn ghost" id="sharedScoreAsk" data-i18n="calls.ask"></button>
     </div>
-    <p class="ainote" id="sharedScoreNote"></p>
+    <p class="ainote foldable" id="sharedScoreNote"></p>
     <div id="sharedScoreRows" class="verifyrows"></div>
 
-    <p class="ainote" id="aiWhy"></p>
+    <p class="ainote foldable" id="aiWhy"></p>
     <p class="aiwarn" id="aiDisclaimer"></p>
   </section>
 
@@ -822,7 +847,7 @@ footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
       </table>
     </div>
     <p class="aiverdict" id="stakeVerdict"></p>
-    <p class="ainote" id="stakeNote"></p>
+    <p class="ainote foldable" id="stakeNote"></p>
   </section>
 
   <section class="panel c12">
@@ -894,7 +919,7 @@ footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
     </div>
 
     <div class="blabel" style="margin-top:18px" data-i18n="pooled.h"></div>
-    <p class="note" data-i18n-html="pooled.why"></p>
+    <p class="note foldable" data-i18n-html="pooled.why"></p>
     <div class="introw">
       <button class="btn" id="runPooled" data-i18n="pooled.run"></button>
       <button class="btn ghost" id="cancelPooled" data-i18n="int.cancel" hidden></button>
@@ -921,7 +946,7 @@ footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
           <button class="btn ghost" id="keyUndo"><span data-i18n="tools.undo"></span><b>U</b></button>
           <button class="btn ghost" id="keyNew"><span data-i18n="tools.newShoe"></span><b>N</b></button>
         </div>
-        <p class="note" data-i18n="tools.keysNote"></p>
+        <p class="note foldable" data-i18n="tools.keysNote"></p>
       </div>
       <div>
         <div class="blabel" data-i18n="tools.textH"></div>
@@ -945,7 +970,7 @@ footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
         <textarea id="exportDump" hidden readonly></textarea>
 
         <div class="blabel" style="margin-top:14px" data-i18n="share.h"></div>
-        <p class="note" data-i18n="share.why"></p>
+        <p class="note foldable" data-i18n="share.why"></p>
         <div class="actions" style="margin-top:0">
           <input id="shareServer" type="url" inputmode="url" autocomplete="off"
                  spellcheck="false" data-i18n-ph="share.placeholder"
@@ -1121,6 +1146,14 @@ const S = {
     "zh-Hant": "此房間有 {n} 局出現不同結果",
     "zh-Hans": "此房间有 {n} 局出现不同结果",
   },
+  "room.conflictMore": {
+    ko: "외 {n}개",
+    en: "and {n} more",
+    "zh-Hant": "另有 {n} 筆",
+    "zh-Hans": "另有 {n} 条",
+  },
+  "ui.more": { ko: "더 보기", en: "More", "zh-Hant": "更多", "zh-Hans": "更多" },
+  "ui.less": { ko: "접기", en: "Less", "zh-Hant": "收起", "zh-Hans": "收起" },
   "room.conflictRow": {
     ko: "{n}번째 판 · {mine} / {theirs}",
     en: "Coup {n} · {mine} / {theirs}",
@@ -8359,9 +8392,8 @@ class CoupQueue {
    * writes all of it -- so without this, whichever tab saves last erases the
    * other's coups. That is not a hypothetical. `store.js` grew
    * `watchOtherTabs` because the corpus had exactly this bug, and two tabs is
-   * a thing this project tells people to do: two tables in front of you is the
-   * reason to open one. Two tables also means two shoes, so the queues are
-   * disjoint and neither list is a superset that hides the loss.
+   * a thing this project tells people to do. Each tab's list lacks what the
+   * other queued a moment ago, so neither is a superset that hides the loss.
    *
    * Storage first, then ours: storage holds what the other tab queued, ours
    * may hold what this tab queued a moment ago, and a coup is kept once.
@@ -10656,9 +10688,27 @@ function openShoe(name = state.active) {
  */
 
 let room = null;
-/** The shoe the room is on, and which shoe here corresponds to it. */
+/** The shoe the room is on. */
 let roomShoe = "";
-let roomLocalShoe = "";
+/**
+ * The table the room is recorded into, and which shoe here each room shoe is.
+ *
+ * A room is one table. Without a table of its own it wrote into whichever one
+ * was on screen: a look at another table while the room carried on folded the
+ * room's shoe into that table's open shoe, reported every coup where the two
+ * differed as a disagreement, and wrote the room's copy over it. And a room
+ * shoe was taken to be "whatever shoe is open here", so a room that had moved
+ * on to its next shoe was compared with this device's last one. Two unrelated
+ * shoes differ on more than half their coups: a room was seen holding 91
+ * disagreements, the same coup numbers over and over.
+ *
+ * So the room keeps to the table it was joined from, and each room shoe is
+ * paired with one shoe here and no other -- both remembered across reloads.
+ */
+const ROOM_TABLE_KEY = "baccarat.room.table.v1";
+const ROOM_PAIRS_KEY = "baccarat.room.pairs.v1";
+let roomTable = null;
+let roomPairs = {};
 
 /** Coups owed to the room, across reloads. */
 const ROOM_QUEUE_KEY = "baccarat.room.queue.v1";
@@ -10687,6 +10737,65 @@ function rememberRoom(id) {
     if (id) localStorage.setItem(ROOM_KEY, id);
     else localStorage.removeItem(ROOM_KEY);
   } catch { /* storage is a courtesy; the session still works without it */ }
+}
+
+function loadRoomBinding(id) {
+  roomTable = null;
+  roomPairs = {};
+  try {
+    const kept = JSON.parse(localStorage.getItem(ROOM_TABLE_KEY) || "null");
+    if (kept && kept.room === id && state.tables[kept.table]) roomTable = kept.table;
+    roomPairs = JSON.parse(localStorage.getItem(ROOM_PAIRS_KEY) || "{}") || {};
+  } catch { /* nothing remembered is the same as a first visit */ }
+}
+
+function saveRoomBinding() {
+  try {
+    if (room && roomTable) {
+      localStorage.setItem(ROOM_TABLE_KEY,
+                           JSON.stringify({ room: room.roomId, table: roomTable }));
+    } else {
+      localStorage.removeItem(ROOM_TABLE_KEY);
+    }
+    localStorage.setItem(ROOM_PAIRS_KEY, JSON.stringify(roomPairs));
+  } catch { /* storage is a courtesy; the session still works without it */ }
+}
+
+const pairKey = (shoeId) => `${room ? room.roomId : ""}/${shoeId}`;
+
+/** Pair a room shoe with a shoe here: one each way, and the latest wins. */
+function pairRoomShoe(shoeId, localId) {
+  if (!shoeId || !localId) return;
+  const key = pairKey(shoeId);
+  for (const [k, v] of Object.entries(roomPairs)) {
+    if (k === key || v === localId) delete roomPairs[k];
+  }
+  roomPairs[key] = localId;
+  // Two hundred shoes is weeks of tables; older pairs name shoes long closed.
+  const keys = Object.keys(roomPairs);
+  for (const k of keys.slice(0, Math.max(0, keys.length - 200))) delete roomPairs[k];
+  saveRoomBinding();
+}
+
+/** The shoe here that is this room shoe, if it is still here. */
+function localShoeFor(shoeId) {
+  const id = roomPairs[pairKey(shoeId)];
+  return (id && roomTable && shoes(roomTable).find((s) => s.id === id)) || null;
+}
+
+/** The room shoe this shoe here is paired with, or "". */
+function roomShoeForLocal(localId) {
+  const prefix = pairKey("");
+  for (const [k, v] of Object.entries(roomPairs)) {
+    if (v === localId && k.startsWith(prefix)) return k.slice(prefix.length);
+  }
+  // Started here and named after itself, which is a pairing too.
+  return roomShoe && roomShoe === roomShoeIdFor(localId) ? roomShoe : "";
+}
+
+/** Every room shoe a shoe here could have been sent under. */
+function roomNamesOf(localId) {
+  return [...new Set([roomShoeIdFor(localId), roomShoeForLocal(localId)].filter(Boolean))];
 }
 let roomQueue = null;
 let roomSending = false;
@@ -10735,6 +10844,8 @@ function roomShoeIdFor(localId) {
 
 /** Disagreements the room holds, this device's own and everybody else's. */
 let roomConflictRows = [];
+/** Whether their list is open. Folded to one line until somebody asks. */
+let roomConflictsOpen = false;
 
 function renderRoomConflicts() {
   const box = $("roomConflicts");
@@ -10750,16 +10861,34 @@ function renderRoomConflicts() {
   const drifts = roomConflictRows.filter((r) => r.drift);
   const differ = roomConflictRows.filter((r) => !r.drift);
 
-  const head = el("p", "aiverdict");
-  head.textContent = differ.length
+  // One line until asked for. Laid out in full, a room that had collected a
+  // few dozen of these pushed the recommendation off a phone's screen, on
+  // every coup, for something that is read once and settled by a person.
+  const fold = el("details");
+  fold.open = roomConflictsOpen;
+  const head = el("summary");
+  const said = el("span", "what");
+  said.textContent = differ.length
     ? t("room.conflicts", { n: differ.length })
     : t("room.driftsOnly", { n: drifts.length });
-  box.appendChild(head);
+  const more = el("span", "more");
+  const label = () => { more.textContent = t(fold.open ? "ui.less" : "ui.more"); };
+  label();
+  head.append(said, more);
+  fold.appendChild(head);
+  // Kept as the tap lands, not when the browser gets round to saying so:
+  // `toggle` arrives a task later, and a snapshot landing in between rebuilt
+  // the list closed under the reader's finger.
+  head.addEventListener("click", () => { roomConflictsOpen = !fold.open; });
+  fold.addEventListener("toggle", () => { roomConflictsOpen = fold.open; label(); });
+  const list = el("div", "body");
+  fold.appendChild(list);
+  box.appendChild(fold);
 
   for (const row of drifts.slice(0, 4)) {
     const line = el("p", "ainote");
     line.textContent = t("room.driftRow", { n: row.handNumber });
-    box.appendChild(line);
+    list.appendChild(line);
   }
   // Shown, never settled for you. Which reading is right is not a question the
   // record can answer, and a room that quietly picked one would be deciding it
@@ -10768,12 +10897,19 @@ function renderRoomConflicts() {
     const line = el("p", "ainote");
     line.textContent = t("room.conflictRow", {
       n: row.handNumber, mine: row.mine, theirs: row.theirs });
-    box.appendChild(line);
+    list.appendChild(line);
+  }
+  // Eight of ninety-one, shown as if they were all, reads as the whole list.
+  const unshown = Math.max(0, drifts.length - 4) + Math.max(0, differ.length - 8);
+  if (unshown) {
+    const line = el("p", "ainote");
+    line.textContent = t("room.conflictMore", { n: unshown });
+    list.appendChild(line);
   }
   const how = el("p", "ainote");
   how.textContent = drifts.length && !differ.length
     ? t("room.driftHow") : t("room.conflictHow");
-  box.appendChild(how);
+  list.appendChild(how);
 
   // Settling is saying somebody looked, not that the record has been
   // corrected. Without it the collection only ever grew: every one of these
@@ -10794,7 +10930,38 @@ function renderRoomConflicts() {
   };
   const actions = el("div", "actions");
   actions.appendChild(settle);
-  box.appendChild(actions);
+  list.appendChild(actions);
+}
+
+/**
+ * The explanation under each panel's heading, folded to two lines.
+ *
+ * Every panel opens with one, and on a phone they were most of the page: three
+ * to eight lines of grey each, in front of the figures they explain. They stay
+ * on the page -- the first two lines say what the panel is, and a tap opens the
+ * rest -- and a paragraph short enough to fit is left alone, with no button
+ * offering more that is not there. Verdicts and warnings are not these
+ * paragraphs and are never folded.
+ */
+function foldExplanations() {
+  for (const p of document.querySelectorAll(".panel > p.sub, p.foldable")) {
+    let button = p.nextElementSibling;
+    if (!button || !button.classList.contains("subtoggle")) {
+      button = el("button", "subtoggle");
+      button.type = "button";
+      button.onclick = () => {
+        p.classList.toggle("open");
+        foldExplanations();
+      };
+      p.after(button);
+    }
+    p.classList.add("fold");
+    const open = p.classList.contains("open");
+    button.textContent = t(open ? "ui.less" : "ui.more");
+    button.setAttribute("aria-expanded", String(open));
+    // Measured folded: a paragraph that already fits has nothing to open.
+    button.hidden = !open && (p.hidden || p.scrollHeight <= p.clientHeight + 1);
+  }
 }
 
 function renderRoom() {
@@ -10833,14 +11000,48 @@ function renderRoom() {
 async function useRoomShoe(id, localId) {
   if (!room || !id || id === roomShoe) return;
   roomShoe = id;
-  roomLocalShoe = localId || "";
+  if (localId) pairRoomShoe(id, localId);
   roomHave = "";
   await room.useShoe(id);          // best effort; never throws
   room.watchShoe(id, adoptFromRoom);
 }
 
 /**
- * Take what the room holds and fold it into the shoe on screen.
+ * The shoe here that takes the room's coups, on the room's own table.
+ *
+ * The one already paired with the room's shoe; else the shoe this device
+ * started and named it after; else the shoe open on the table, as when joining
+ * a table in progress -- unless that one is already the room's record of an
+ * earlier shoe. Then the table has moved on and this device goes with it: that
+ * shoe is closed as it stands and a fresh one takes the new shoe's coups,
+ * rather than two different shoes being compared coup by coup.
+ */
+function roomTargetShoe() {
+  if (!roomTable || !state.tables[roomTable]) return null;
+  const paired = localShoeFor(roomShoe);
+  if (paired) return { shoe: paired, closed: [] };
+  const own = shoes(roomTable).find((s) => roomShoeIdFor(s.id) === roomShoe);
+  if (own) {
+    pairRoomShoe(roomShoe, own.id);
+    return { shoe: own, closed: [] };
+  }
+  const open = openShoe(roomTable);
+  if (open.id && !roomShoeForLocal(open.id)) {
+    pairRoomShoe(roomShoe, open.id);
+    return { shoe: open, closed: [] };
+  }
+  const closed = [];
+  if (open.id) {
+    open.closed = true;
+    closed.push(open.id);
+  }
+  const fresh = currentShoe(roomTable);
+  pairRoomShoe(roomShoe, fresh.id);
+  return { shoe: fresh, closed };
+}
+
+/**
+ * Take what the room holds and fold it into the room's shoe here.
  *
  * `mergeOutcomes` reports disagreements rather than settling them, because no
  * rule about which copy wins can tell you which reader misread the board. The
@@ -10861,9 +11062,12 @@ function adoptFromRoom(seen) {
   // A device arriving at a table already in progress has no shoe open, and
   // that is exactly when the room's coups matter most -- so a shoe is started
   // to receive them. Only when there is something to receive: an empty room
-  // must not leave an empty shoe behind on every join.
-  if (!seen.outcomes && !openShoe().id) { renderRoom(); return; }
-  const shoe = currentShoe();
+  // must not leave an empty shoe behind on every join, nor claim a shoe here
+  // before it has said anything about it.
+  if (!seen.outcomes) { renderRoom(); return; }
+  const target = roomTargetShoe();
+  if (!target) { renderRoom(); return; }
+  const { shoe, closed } = target;
   const { outcomes } = mergeOutcomes(shoe.o, seen.outcomes);
   // Which of the two it is, before writing anything down. A reader that
   // dropped one coup has every position after it compared against its
@@ -10872,7 +11076,6 @@ function adoptFromRoom(seen) {
   // eighty-coup shoe. One thing is wrong there, and it is the alignment.
   const lined = alignment(shoe.o, seen.outcomes);
   const conflicts = lined.conflicts;
-  roomLocalShoe = shoe.id;
   // Write the disagreement down where the room can see it. Here rather than in
   // the queue, because this is the one place that holds both readings -- the
   // queue only learns that a write was refused, not what the other reader saw.
@@ -10891,11 +11094,11 @@ function adoptFromRoom(seen) {
     roomReported.add(key);
     room.reportConflict(roomShoe, c.handNumber, c.mine, c.theirs).catch(() => {});
   }
-  if (outcomes === shoe.o) { renderRoom(); return; }
+  if (outcomes === shoe.o && !closed.length) { renderRoom(); return; }
   shoe.o = outcomes;
   clampMarks();
   invalidate();
-  store.save(state, [shoe.id]);
+  store.save(state, [shoe.id, ...closed]);
   settleLog();
   render();
   renderRoom();
@@ -10910,15 +11113,35 @@ function adoptFromRoom(seen) {
 }
 
 /** Send coups this device recorded to the room. Never blocks the page. */
-async function pushToRoom(shoe) {
+async function pushToRoom(shoe, tableName) {
   if (!room || room.status !== "joined" || !shoe?.id || state.isExample) return;
-  // A shoe started here after the room was already on another one takes the
-  // room with it -- a new shoe at the table is a new shoe for everybody.
-  const id = roomShoeIdFor(shoe.id);
+  // The room is one table. The first table written to takes it if it has none
+  // yet; after that a coup on any other table is that table's alone -- sent,
+  // it moved the whole room onto another table's shoe.
+  if (!roomTable && tableName && state.tables[tableName]) {
+    roomTable = tableName;
+    saveRoomBinding();
+  }
+  if (!tableName || tableName !== roomTable) return;
+  // Which room shoe this is: the one it is paired with; else, for the shoe
+  // open here meeting a room shoe nothing here has taken, that one, as when
+  // joining a table in progress; else one the room has not seen, which takes
+  // the room with it -- a new shoe at the table is a new shoe for everybody.
+  // Named after this device's own shoe, always, it sent the coups of a device
+  // that had joined somebody else's shoe to a shoe nobody else was watching.
+  let id = roomShoeForLocal(shoe.id);
+  let moves = false;
+  if (!id && roomShoe && !localShoeFor(roomShoe) && shoe === openShoe(roomTable)) {
+    id = roomShoe;
+    pairRoomShoe(id, shoe.id);
+  }
+  if (!id) {
+    id = roomShoeIdFor(shoe.id);
+    moves = true;
+  }
   if (!id) return;
-  // A different shoe than the room was last told about: what this device
-  // believes the room holds was about the other one.
-  if (roomLocalShoe !== shoe.id) roomHave = "";
+  // What the room was last seen holding is about the room's shoe, not this one.
+  const have = id === roomShoe ? roomHave : "";
 
   // Queue first, and always. Telling the room which shoe this is comes after,
   // because that is a pair of writes and writes fail -- and a coup that never
@@ -10932,12 +11155,12 @@ async function pushToRoom(shoe) {
   // failed is still in the queue and stays there; `add` will not take a coup
   // twice.
   const wasFull = roomQueue.full;
-  for (let i = roomHave.length; i < shoe.o.length && i < 200; i += 1) {
+  for (let i = have.length; i < shoe.o.length && i < 200; i += 1) {
     roomQueue.add(id, i + 1, shoe.o[i]);
   }
   if (roomQueue.full && !wasFull) flashNote(t("room.full"));
 
-  if (!roomShoe || roomLocalShoe !== shoe.id) await useRoomShoe(id, shoe.id);
+  if (moves) await useRoomShoe(id, shoe.id);
   await drainRoom();
 }
 
@@ -11011,6 +11234,13 @@ async function joinRoomFromUrl() {
   }
   renderRoom();
   if (!await room.join(id)) { renderRoom(); return; }
+  // The table the room is recorded into: the one it was kept in last time, or
+  // the one on screen now.
+  loadRoomBinding(id);
+  if (!roomTable && !state.isExample && state.active && state.tables[state.active]) {
+    roomTable = state.active;
+    saveRoomBinding();
+  }
 
   // Follow the shoe the room is on. Only propose one of our own when the room
   // has none, so two devices joining at once do not split the table.
@@ -11026,7 +11256,7 @@ async function joinRoomFromUrl() {
   if (room.shoeId) {
     await useRoomShoe(room.shoeId, "");
   } else {
-    const local = openShoe();
+    const local = openShoe(roomTable);
     if (local.id) await useRoomShoe(roomShoeIdFor(local.id), local.id);
   }
   renderRoom();
@@ -11049,7 +11279,7 @@ async function joinRoomFromUrl() {
     }, 2500);
   });
 
-  await pushToRoom(openShoe());
+  await pushToRoom(openShoe(roomTable), roomTable);
   // Coups owed from a previous visit, which is the whole point of keeping them.
   await drainRoom();
 }
@@ -11174,7 +11404,7 @@ function commit(changedIds, writtenTable = state.active) {
   // deleted -- a commit is the last thing that runs on the way out, and it
   // must not bring anything back. Nothing is computed at all without a room,
   // so a page that never joined one follows exactly the path it always did.
-  if (room) pushToRoom(openShoe(writtenTable)).catch(() => {});
+  if (room) pushToRoom(openShoe(writtenTable), writtenTable).catch(() => {});
   render();
 }
 
@@ -11686,6 +11916,8 @@ function setMode(mode, focus = false) {
   }
   $("livePane").hidden = !isLive;
   $("pastePane").hidden = isLive;
+  // The pane just shown was measured while hidden, when nothing overflowed.
+  foldExplanations();
   if (!isLive && live?.active) live.stop();
 }
 
@@ -12776,6 +13008,7 @@ function renderAll() {
   renderShot();
   if (live) live._emit();
   if (lastReport) renderIntegrityResult(lastReport);
+  foldExplanations();
 }
 
 function render() {
@@ -12799,6 +13032,9 @@ function render() {
   // corpus records nothing -- so the line that says so is redrawn with it.
   renderCallsNote();
   renderSignIn();
+  // Some of the folded paragraphs are written by the renders above, and a
+  // paragraph that fitted before this coup may not after it.
+  foldExplanations();
 }
 
 function renderHeader() {
@@ -14454,6 +14690,10 @@ function bindControls() {
     // the next coup it reads is filed under a table that no longer exists and
     // falls back to whichever one is selected.
     if (liveTable === from) liveTable = to;
+    if (roomTable === from) {
+      roomTable = to;
+      saveRoomBinding();
+    }
     // And so does its record, or the table arrives at its new name having
     // predicted nothing.
     renamePredictions(predictionLog, from, to);
@@ -14600,13 +14840,18 @@ function bindControls() {
     if (!confirm(t("room.leaveConfirm", { id: room.roomId }))) return;
     // The coups already recorded stay where they are, here and in the room.
     // Leaving is about this device, not about the record.
+    // Its table and its pairs go with it: a room joined again later is joined
+    // afresh, from whichever table is on screen then.
+    const prefix = pairKey("");
+    for (const k of Object.keys(roomPairs)) if (k.startsWith(prefix)) delete roomPairs[k];
+    roomTable = null;
     room.close();
     room = null;
     roomShoe = "";
-    roomLocalShoe = "";
     roomHave = "";
     roomConflictRows = [];
     rememberRoom("");
+    saveRoomBinding();
     if (typeof history !== "undefined" && history.replaceState) {
       try {
         const url = new URL(location.href);
@@ -14656,7 +14901,7 @@ function bindControls() {
     // Coups still owed to the room are owed no longer -- they belong to shoes
     // that no longer exist here, and sending them would put this device's
     // deleted record into everybody else's.
-    for (const id of ids) roomQueue?.forget(roomShoeIdFor(id));
+    for (const id of ids) for (const name of roomNamesOf(id)) roomQueue?.forget(name);
     roomHave = "";
     // An example is not a table anybody collected, so clearing it means
     // leaving the example behind rather than emptying it in place.
@@ -14676,8 +14921,14 @@ function bindControls() {
     forgetPredictions(predictionLog, state.active);
     store.saveLog(predictionLog);
     learners.forget(state.active);
-    for (const id of ids) roomQueue?.forget(roomShoeIdFor(id));
+    for (const id of ids) for (const name of roomNamesOf(id)) roomQueue?.forget(name);
     roomHave = "";
+    // The room's own table, gone: the room writes nowhere here until a table is
+    // written to again, rather than into whichever one is left on screen.
+    if (roomTable === state.active) {
+      roomTable = null;
+      saveRoomBinding();
+    }
     delete state.tables[state.active];
     // Nothing invented in its place. Deleting the last table leaves the
     // selector blank, and whatever is started next brings a table with it.
@@ -14698,8 +14949,10 @@ function bindControls() {
       return;
     }
     const ids = names.flatMap((name) => shoes(name).map((s) => s.id));
-    for (const id of ids) roomQueue?.forget(roomShoeIdFor(id));
+    for (const id of ids) for (const name of roomNamesOf(id)) roomQueue?.forget(name);
     roomHave = "";
+    roomTable = null;
+    saveRoomBinding();
     live.stop();
     liveLog(t("live.logStopped"));
     state = { tables: {}, active: null, isExample: false };
@@ -14833,6 +15086,13 @@ async function boot() {
   invalidate();
   render();
   renderShot();
+  foldExplanations();
+  // A paragraph that fitted in two lines at one width may not at another.
+  let refold = null;
+  window.addEventListener("resize", () => {
+    clearTimeout(refold);
+    refold = setTimeout(foldExplanations, 150);
+  });
 
   await store.connect();
   const loaded = await store.load();
