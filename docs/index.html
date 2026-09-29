@@ -139,6 +139,12 @@ h2{font-size:14px; font-weight:600; margin:0 0 3px; letter-spacing:-.005em}
 .foldable + .subtoggle{margin:2px 0 0}
 .livebox .foldable + .subtoggle{margin:4px auto 0}
 /* The room's disagreements: one line, and the list on a tap. */
+/* The guest's view: the reader, the prediction and the board. Everything else
+   waits behind the button at the foot of the page. Marked with an attribute,
+   not a class: the renders rewrite the class of several of these on every
+   coup, and a class marker went with it. */
+body.simple [data-full-only]{display:none !important}
+.viewtoggle{display:flex; justify-content:center; padding:4px 0 10px}
 .roomfold{margin:12px 0 0}
 .roomfold details{border:1px solid var(--line-2); border-radius:10px; background:var(--accent-soft)}
 .roomfold summary{display:flex; align-items:center; gap:8px; padding:9px 12px; cursor:pointer;
@@ -623,10 +629,10 @@ footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
   <div class="hin">
     <h1 class="brand"><span class="pips"><i></i><i></i><i></i></span><span data-i18n="app.title"></span></h1>
     <select id="tableSel" data-i18n-aria="header.tableAria"></select>
-    <button class="btn ghost" id="addTable" data-i18n="header.addTable"></button>
-    <button class="btn ghost" id="renameTable" data-i18n="header.renameTable"></button>
-    <button class="btn ghost" id="clearTable" data-i18n="header.clearTable"></button>
-    <button class="btn ghost" id="resetBtn" data-i18n="header.deleteTable"></button>
+    <button class="btn ghost" data-full-only id="addTable" data-i18n="header.addTable"></button>
+    <button class="btn ghost" data-full-only id="renameTable" data-i18n="header.renameTable"></button>
+    <button class="btn ghost" data-full-only id="clearTable" data-i18n="header.clearTable"></button>
+    <button class="btn ghost" data-full-only id="resetBtn" data-i18n="header.deleteTable"></button>
     <span class="spacer"></span>
     <span id="shoeMeta"></span>
     <span id="whoBox" class="whobox" hidden>
@@ -646,7 +652,7 @@ footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
         <svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M13.4 9.6A5.9 5.9 0 0 1 6.4 2.6a5.9 5.9 0 1 0 7 7z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
       </button>
     </span>
-    <span class="store"><i class="sdot" id="storeDot"></i><span id="storeLabel"></span></span>
+    <span class="store" data-full-only><i class="sdot" id="storeDot"></i><span id="storeLabel"></span></span>
     <span class="store" id="roomBox" hidden><i class="sdot" id="roomDot"></i><span id="roomLabel"></span></span>
     <button class="btn ghost tiny" id="roomInvite" data-i18n="room.invite" hidden></button>
     <button class="btn ghost tiny" id="roomLeave" data-i18n="room.leave" hidden></button>
@@ -663,7 +669,7 @@ footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
     <h2 data-i18n="capture.h"></h2>
     <p class="sub" data-i18n="capture.sub"></p>
 
-    <div class="seg" role="tablist">
+    <div class="seg" data-full-only role="tablist">
       <button class="segbtn on" id="modeLive" role="tab" aria-selected="true"
               aria-controls="livePane" tabindex="0" data-i18n="capture.modeLive"></button>
       <button class="segbtn" id="modePaste" role="tab" aria-selected="false"
@@ -740,7 +746,7 @@ footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
     </div>
   </section>
 
-  <section class="panel">
+  <section class="panel" data-full-only>
     <h2 data-i18n="state.h"></h2>
     <p class="sub" data-i18n="state.sub"></p>
     <div id="kpis"></div>
@@ -772,7 +778,7 @@ footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
     <!-- A second opinion, above this device's own and never in place of it.
          Everything below the divider is computed in this browser and keeps
          working with no network, which is how the page is used at a table. -->
-    <div class="srvbox" id="srvBox" hidden>
+    <div class="srvbox" data-full-only id="srvBox" hidden>
       <div class="obshead">
         <span class="blabel" data-i18n="srv.title"></span>
         <button class="btn ghost tiny" id="srvAsk" data-i18n="srv.ask"></button>
@@ -793,39 +799,39 @@ footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
     <div class="aigrid" id="aiLedger"></div>
     <p class="ainote foldable" id="aiOverallNote"></p>
 
-    <div class="obshead">
+    <div class="obshead" data-full-only>
       <span class="blabel" data-i18n="learn.h"></span>
       <span class="obssub" id="learnTrained"></span>
     </div>
-    <p class="ainote foldable" style="margin-top:0" data-i18n="learn.sub"></p>
-    <div class="aigrid" id="learnRows"></div>
-    <p class="aiverdict" id="learnVerdict"></p>
+    <p class="ainote foldable" data-full-only style="margin-top:0" data-i18n="learn.sub"></p>
+    <div class="aigrid" data-full-only id="learnRows"></div>
+    <p class="aiverdict" data-full-only id="learnVerdict"></p>
 
-    <div class="obshead">
+    <div class="obshead" data-full-only>
       <span class="blabel" data-i18n="verify.h"></span>
       <span class="obssub" id="verifyCount"></span>
     </div>
-    <p class="ainote foldable" style="margin-top:0" data-i18n="verify.sub"></p>
-    <div id="verifyKpis" class="verifygrid"></div>
-    <p class="aiverdict" id="verifyVerdict"></p>
-    <div id="verifyRecent" class="verifyrows"></div>
+    <p class="ainote foldable" data-full-only style="margin-top:0" data-i18n="verify.sub"></p>
+    <div id="verifyKpis" class="verifygrid" data-full-only></div>
+    <p class="aiverdict" data-full-only id="verifyVerdict"></p>
+    <div id="verifyRecent" class="verifyrows" data-full-only></div>
 
-    <div class="obshead" style="margin-top:16px">
+    <div class="obshead" data-full-only style="margin-top:16px">
       <span class="blabel" data-i18n="calls.h"></span>
       <span class="obssub" id="sharedScoreCount"></span>
     </div>
-    <p class="ainote foldable" style="margin-top:0" data-i18n-html="calls.sub"></p>
-    <div class="actions" style="margin-top:0">
+    <p class="ainote foldable" data-full-only style="margin-top:0" data-i18n-html="calls.sub"></p>
+    <div class="actions" data-full-only style="margin-top:0">
       <button class="btn ghost" id="sharedScoreAsk" data-i18n="calls.ask"></button>
     </div>
-    <p class="ainote foldable" id="sharedScoreNote"></p>
-    <div id="sharedScoreRows" class="verifyrows"></div>
+    <p class="ainote foldable" data-full-only id="sharedScoreNote"></p>
+    <div id="sharedScoreRows" class="verifyrows" data-full-only></div>
 
-    <p class="ainote foldable" id="aiWhy"></p>
+    <p class="ainote foldable" data-full-only id="aiWhy"></p>
     <p class="aiwarn" id="aiDisclaimer"></p>
   </section>
 
-  <section class="panel c12" id="stakePanel">
+  <section class="panel c12" data-full-only id="stakePanel">
     <h2 data-i18n="stake.h"></h2>
     <p class="sub" data-i18n-html="stake.sub"></p>
     <div class="stakeform">
@@ -849,7 +855,7 @@ footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
     <p class="ainote foldable" id="stakeNote"></p>
   </section>
 
-  <section class="panel c12">
+  <section class="panel c12" data-full-only>
     <h2 data-i18n="scale.h"></h2>
     <p class="sub" data-i18n-html="scale.sub"></p>
     <svg id="scale" viewBox="0 0 720 168" role="img" data-i18n-aria="scale.axis"></svg>
@@ -870,7 +876,7 @@ footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
     <div id="boardMeta"></div>
   </section>
 
-  <section class="panel c12" id="shoePanel">
+  <section class="panel c12" data-full-only id="shoePanel">
     <h2 data-i18n="shoe.h"></h2>
     <p class="sub" data-i18n-html="shoe.sub"></p>
     <svg id="shoeStrip" viewBox="0 0 720 150" role="img" data-i18n-aria="shoe.stripAria"></svg>
@@ -886,14 +892,14 @@ footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
     <p id="shoeEmpty" class="note" hidden data-i18n="shoe.empty"></p>
   </section>
 
-  <section class="panel c5">
+  <section class="panel c5" data-full-only>
     <h2 data-i18n="collect.h"></h2>
     <p class="sub" data-i18n="collect.sub"></p>
     <div id="milestones"></div>
     <p id="collectPieces" class="note" hidden></p>
   </section>
 
-  <section class="panel c7">
+  <section class="panel c7" data-full-only>
     <h2 data-i18n="int.h"></h2>
     <p class="sub" data-i18n-html="int.sub"></p>
     <div class="introw">
@@ -933,7 +939,7 @@ footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
     </div>
   </section>
 
-  <section class="panel c12">
+  <section class="panel c12" data-full-only>
     <h2 data-i18n="tools.h"></h2>
     <div class="tools">
       <div>
@@ -1000,9 +1006,12 @@ footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
       </div>
     </div>
   </section>
+  <div class="c12 viewtoggle">
+    <button class="btn ghost" id="viewToggle" type="button"></button>
+  </div>
 </main>
 
-<div id="quickbar" data-i18n-aria="quick.title">
+<div id="quickbar" data-full-only data-i18n-aria="quick.title">
   <button class="qb P" id="qbP"><span data-i18n="side.P"></span></button>
   <button class="qb B" id="qbB"><span data-i18n="side.B"></span></button>
   <button class="qb T" id="qbT"><span data-i18n="side.T"></span></button>
@@ -1150,6 +1159,8 @@ const S = {
     "zh-Hant": "另有 {n} 筆",
     "zh-Hans": "另有 {n} 条",
   },
+  "view.full": { ko: "전체 기능 보기", en: "Show every panel", "zh-Hant": "顯示全部功能", "zh-Hans": "显示全部功能" },
+  "view.simple": { ko: "간단히 보기", en: "Show the essentials", "zh-Hant": "只看重點", "zh-Hans": "只看重点" },
   "ui.more": { ko: "더 보기", en: "More", "zh-Hant": "更多", "zh-Hans": "更多" },
   "ui.less": { ko: "접기", en: "Less", "zh-Hant": "收起", "zh-Hans": "收起" },
   "room.conflictRow": {
@@ -10947,6 +10958,30 @@ function renderRoomConflicts() {
   list.appendChild(actions);
 }
 
+/* -------------------------------------------------------- the two views --
+ *
+ * The page opens on a guest's view: the reader, the prediction and the board,
+ * with the bet judgment, the record of how the calls did, and the warning that
+ * neither side is a winning bet. Everything else -- the panels the project grew
+ * for every question it asked of its data -- is one tap away, and the choice
+ * is remembered on this device.
+ */
+const VIEW_KEY = "baccarat.view.v1";
+let viewNow = (() => {
+  try { return localStorage.getItem(VIEW_KEY) === "full" ? "full" : "simple"; }
+  catch { return "simple"; }
+})();
+
+function applyView() {
+  const simple = viewNow !== "full";
+  document.body.classList.toggle("simple", simple);
+  $("viewToggle").textContent = t(simple ? "view.full" : "view.simple");
+  // Paste is the second way in, and the guest's view has no way to reach it,
+  // so it never leaves anyone on it.
+  if (simple && $("livePane").hidden) setMode("live");
+  foldExplanations();
+}
+
 /**
  * The explanation under each panel's heading, folded to two lines.
  *
@@ -13073,7 +13108,7 @@ function renderAll() {
   renderShot();
   if (live) live._emit();
   if (lastReport) renderIntegrityResult(lastReport);
-  foldExplanations();
+  applyView();
 }
 
 function render() {
@@ -14824,6 +14859,11 @@ function bindControls() {
     renderAll();
   });
 
+  $("viewToggle").onclick = () => {
+    viewNow = viewNow === "full" ? "simple" : "full";
+    try { localStorage.setItem(VIEW_KEY, viewNow); } catch { /* this visit only */ }
+    applyView();
+  };
   $("modeLive").onclick = () => setMode("live");
   $("modePaste").onclick = () => setMode("paste");
   for (const id of ["modeLive", "modePaste"]) {
@@ -15161,7 +15201,7 @@ async function boot() {
   invalidate();
   render();
   renderShot();
-  foldExplanations();
+  applyView();
   // A paragraph that fitted in two lines at one width may not at another.
   let refold = null;
   window.addEventListener("resize", () => {
