@@ -1131,6 +1131,10 @@ const S = {
     ko: "뱅 {b} · 플 {p} · 타 {t}", en: "B {b} · P {p} · T {t}",
     "zh-Hant": "莊 {b} · 閒 {p} · 和 {t}", "zh-Hans": "庄 {b} · 闲 {p} · 和 {t}",
   },
+  // Beside the blank entry, whenever something is on the sheet it shows or
+  // being read onto it: with no table chosen nothing is kept, and a reload
+  // takes it away. Said where the table's name would be.
+  "header.unsaved": { ko: "저장 안 됨", en: "not saved", "zh-Hant": "未儲存", "zh-Hans": "未保存" },
 
   "theme.auto": { ko: "시스템", en: "Auto", "zh-Hant": "自動", "zh-Hans": "自动" },
   "theme.light": { ko: "밝게", en: "Light", "zh-Hant": "淺色", "zh-Hans": "浅色" },
@@ -1523,6 +1527,17 @@ const S = {
   "live.goToTable": {
     ko: "그 테이블 보기", en: "Show that table",
     "zh-Hant": "檢視該桌台", "zh-Hans": "查看该桌台",
+  },
+  // The reader was started with no table chosen, and a table is on screen now.
+  "live.otherSheet": {
+    ko: "테이블을 고르지 않고(공란) 읽고 있습니다 — 지금 보고 있는 테이블이 아닙니다. 판독된 결과는 저장되지 않는 공란 화면으로 계속 들어갑니다.",
+    en: "Reading with no table chosen — not the table you are looking at. Coups keep going to the blank entry, where nothing is saved.",
+    "zh-Hant": "正在未選牌桌（空白）的狀態下讀取 — 並非您正在檢視的桌台。判讀結果會繼續進入不儲存的空白畫面。",
+    "zh-Hans": "正在未选牌桌（空白）的状态下读取 — 并非您正在查看的桌台。判读结果会继续进入不保存的空白画面。",
+  },
+  "live.goToSheet": {
+    ko: "공란 화면 보기", en: "Show the blank entry",
+    "zh-Hant": "檢視空白畫面", "zh-Hans": "查看空白画面",
   },
   "live.start": { ko: "화면 공유 시작", en: "Start screen sharing", "zh-Hant": "開始畫面分享", "zh-Hans": "开始画面共享" },
   "live.privacy": {
@@ -9155,8 +9170,13 @@ function gridLock(grid, frameW, frameH) {
  * A table that has been deleted out from under the reader falls back to the
  * selected one, because writing into a table that is not there would lose the
  * reading entirely.
+ *
+ * A reader started with no table chosen -- `""`, the selector's blank entry --
+ * reads onto the unsaved sheet, which is `null` here as it is in the page, and
+ * stays there whatever is chosen afterwards, for the same reason.
  */
 function readingTable(startedOn, tables, active) {
+  if (startedOn === "") return null;
   return startedOn && tables && Object.prototype.hasOwnProperty.call(tables, startedOn)
     ? startedOn
     : active;
@@ -10656,34 +10676,40 @@ const newShoeId = () => "S" + Date.now().toString(36) + Math.random().toString(3
  * What the page opens on: what was kept, or no table at all.
  *
  * It used to open on a demo corpus, so that every panel had something in it.
- * But the page is somebody's table from the first second -- a guest arrives,
- * shares the table's screen, and the first coup read makes their table -- and
- * a demo's figures in front of them read as figures about their table. A demo
- * kept from those days carries its flag, and opens empty too.
+ * But a guest who arrives and shares a table's screen is looking at that
+ * table, and a demo's figures in front of them read as figures about it. A
+ * demo kept from those days carries its flag, and opens empty too.
  */
 function startingState(kept) {
   return kept && !kept.isExample ? kept : { tables: {}, active: null };
 }
 
 /**
- * A table that is not there: readable, empty, and never stored.
+ * What is read or entered with no table chosen: drawn, and never kept.
  *
- * Reading used to create. Every accessor below goes through `tableNamed`, so
- * merely drawing the page with no table selected conjured one -- which is why
- * deleting the last table had to invent "Table 1" on the spot rather than
- * leave the selector empty. Frozen, so a writer that skipped `beforeWriting`
- * fails loudly here instead of dropping coups into an object nothing stores.
+ * Choosing no table is choosing not to record. Starting the reader there used
+ * to make "Table 1" on the spot -- and "Table 2" the next time the blank entry
+ * was chosen and the reader started, and so on -- so the blank entry could not
+ * be used at all without the selector filling up with tables nobody named. So
+ * the blank entry is this sheet instead: every panel draws it as it would a
+ * table, and nothing on it is stored, or sent to the shared record or a
+ * room. It lasts as long as the page, and clearing everything clears it. A
+ * table comes into being only by somebody making one.
+ *
+ * `null` is its name wherever a table's name would go -- it is what
+ * `state.active` holds when the selector is blank.
  */
-const NO_TABLE = Object.freeze({ shoes: Object.freeze([]) });
+let unsaved = { shoes: [] };
 
 const tableNamed = (name) => (name
   ? (state.tables[name] || (state.tables[name] = { shoes: [] }))
-  : NO_TABLE);
+  : unsaved);
 const table = () => tableNamed(state.active);
 const shoes = (name = state.active) => tableNamed(name).shoes;
 
 /**
- * The table the live reader was started on, or null when it is not running.
+ * The table the live reader was started on -- `""` when that was no table, so
+ * it reads onto the unsaved sheet -- or null when it is not running.
  *
  * The reader is pointed at one table's screen. Changing the selector changes
  * which table the page *shows*; it does not change what the camera sees. So
@@ -10691,12 +10717,16 @@ const shoes = (name = state.active) => tableNamed(name).shoes;
  * to whichever one is being looked at -- without this, glancing at another
  * table mid-session filed the watched board there as a new shoe, and that
  * table's statistics, integrity verdict and ledger were all computed from a
- * corpus that mixed two tables together.
+ * corpus that mixed two tables together. `""` is the selector's own value for
+ * its blank entry, and a reader started there keeps to the sheet the same way.
  */
 let liveTable = null;
 
-/** The table the last commit wrote to, so a flash can tell whose coup it was. */
-let lastWrite = null;
+/**
+ * The table the last commit wrote to -- null for the unsaved sheet -- so a
+ * flash can tell whose coup it was. Undefined until something is written.
+ */
+let lastWrite;
 
 /** The shoe in progress, opening one if the last is closed. Mutates. */
 function currentShoe(name = state.active) {
@@ -10724,7 +10754,7 @@ function currentShoe(name = state.active) {
  * default and the common one.
  */
 function ledgerFrom(name = state.active) {
-  const entry = state.tables[name];
+  const entry = name ? state.tables[name] : unsaved;
   const from = entry && Number(entry.from);
   return Number.isFinite(from) && from > 0 ? Math.floor(from) : 0;
 }
@@ -10744,7 +10774,7 @@ function ledgerFrom(name = state.active) {
  * other having run.
  */
 function clampMarks() {
-  for (const [name, entry] of Object.entries(state.tables)) {
+  for (const [name, entry] of [...Object.entries(state.tables), [null, unsaved]]) {
     const from = entry && Number(entry.from);
     if (!Number.isFinite(from) || from <= 0) continue;
     const coups = tableCoups(name);
@@ -11549,24 +11579,44 @@ function commit(changedIds, writtenTable = state.active) {
   render();
 }
 
+/**
+ * Finish a write into `name`: a table's is kept and sent on by `commit`; the
+ * unsaved sheet's (`null`) is drawn and goes nowhere -- see `unsaved`.
+ */
+function commitTo(name, changedIds) {
+  if (name) { commit(changedIds, name); return; }
+  clampMarks();
+  lastWrite = null;
+  invalidate();
+  render();
+}
+
 /* ---------------------------------------------------------------- editing */
+
+/**
+ * The table a write goes into: the one chosen, or null for the unsaved sheet
+ * when none is. Nothing is made here -- see `unsaved`.
+ */
+function chosenTable() {
+  return state.active && state.tables[state.active] ? state.active : null;
+}
 
 function addOutcomes(seq) {
   if (!seq) return;
-  beforeWriting();
-  const shoe = currentShoe();
+  const name = chosenTable();
+  const shoe = currentShoe(name);
   shoe.o += seq;
-  commit([shoe.id]);
+  commitTo(name, [shoe.id]);
 }
 
 function undo() {
-  beforeWriting();
-  const list = shoes();
+  const name = chosenTable();
+  const list = shoes(name);
   for (let i = list.length - 1; i >= 0; i--) {
     if (list[i].o.length) {
       list[i].o = list[i].o.slice(0, -1);
       list[i].closed = false;
-      commit([list[i].id]);
+      commitTo(name, [list[i].id]);
       return;
     }
     if (i > 0) list.pop();          // drop an empty trailing shoe and try again
@@ -11575,35 +11625,33 @@ function undo() {
 }
 
 function newShoe() {
-  beforeWriting();
-  const shoe = currentShoe();
+  const name = chosenTable();
+  const shoe = currentShoe(name);
   if (!shoe.o.length) return;       // already on a fresh one
   shoe.closed = true;
   const fresh = { id: newShoeId(), o: "", closed: false, t: Date.now() };
-  shoes().push(fresh);
-  commit([shoe.id, fresh.id]);
+  shoes(name).push(fresh);
+  commitTo(name, [shoe.id, fresh.id]);
 }
 
 /**
  * Replace the shoe in progress with what a screenshot says it contains.
  *
- * `boundTo` is the table the live reader was started on, or null for "the one
- * being looked at". It is resolved *after* `beforeWriting`, never as a default
- * argument: a default is evaluated before the body runs, so it would capture
- * the example table that `beforeWriting` is about to remove -- and writing to a
- * name that is gone recreates it, filing the coups into a table nothing shows.
+ * `boundTo` is what the live reader was started on -- a table, or `""` for
+ * none -- or null for "whatever is being looked at". It is resolved here, when
+ * the write happens, and not when the reading was taken: a warning's button
+ * can be pressed long after, and writing to a name that is gone by then
+ * recreates it, filing the coups into a table nothing shows.
  */
 function replaceCurrentShoe(seq, boundTo = null) {
-  beforeWriting();
-  const name = readingTable(boundTo, state.tables, state.active);
+  const name = readingTable(boundTo, state.tables, chosenTable());
   const shoe = currentShoe(name);
   shoe.o = seq;
-  commit([shoe.id], name);
+  commitTo(name, [shoe.id]);
 }
 
 function loadAsNewShoe(seq, boundTo = null) {
-  beforeWriting();
-  const name = readingTable(boundTo, state.tables, state.active);
+  const name = readingTable(boundTo, state.tables, chosenTable());
   const list = shoes(name);
   const last = list[list.length - 1];
   const changed = [];
@@ -11612,32 +11660,7 @@ function loadAsNewShoe(seq, boundTo = null) {
   const fresh = { id: newShoeId(), o: seq, closed: false, t: Date.now() };
   list.push(fresh);
   changed.push(fresh.id);
-  commit(changed, name);
-}
-
-/**
- * Make the state ready to be written into, and return the table to write to.
- *
- * Two things have to be true before a coup can be stored, and every writer
- * needs both, so they are settled in one place.
- *
- * There has to be a table -- a first visit has none, and deleting the last one
- * leaves none, because a selector showing a table nobody asked for is worse
- * than a selector showing nothing. Whatever writes first is what brings one
- * into being, which is what "press start and it begins a new one" means.
- */
-function beforeWriting() {
-  if (!state.active || !state.tables[state.active]) state.active = freshTableName();
-  state.tables[state.active] ||= { shoes: [] };
-  return state.active;
-}
-
-/** The next unused default table name: "Table 1", then "Table 2", and so on. */
-function freshTableName() {
-  for (let n = 1; ; n += 1) {
-    const name = `Table ${n}`;
-    if (!state.tables[name]) return name;
-  }
+  commitTo(name, changed);
 }
 
 /* ------------------------------------------------------------ screenshots */
@@ -11791,10 +11814,11 @@ function liveLog(text, kind) {
 
 function onLiveRead(seq, board, repeats, { afterClear = false } = {}) {
   // Whatever the selector says now, this reading came off the table the
-  // reader was started on. The binding itself is handed to the writers, which
-  // resolve it after the example has been cleared out of the way.
+  // reader was started on -- or onto the unsaved sheet, if that was none. The
+  // binding itself is handed to the writers, which resolve it when they write:
+  // a warning's button can be pressed long after this reading.
   const into = liveTable;
-  const current = openShoe(readingTable(into, state.tables, state.active)).o;
+  const current = openShoe(readingTable(into, state.tables, chosenTable())).o;
   const verdict = diagnose(current, seq);
   // Reading the big road is not a failure -- it is the same coups -- but it
   // loses ties and folds long runs, so it must never pass unremarked.
@@ -11883,15 +11907,28 @@ function onLiveRead(seq, board, repeats, { afterClear = false } = {}) {
 function renderLiveBinding() {
   const bar = $("liveBinding");
   if (!bar) return;
-  const elsewhere = liveTable && state.tables[liveTable] && liveTable !== state.active;
+  // The unsaved sheet is elsewhere whenever a table is on screen instead.
+  const sheet = liveTable === "";
+  const elsewhere = sheet ? !!chosenTable()
+    : !!liveTable && !!state.tables[liveTable] && liveTable !== state.active;
   bar.hidden = !elsewhere;
   if (!elsewhere) return;
   bar.innerHTML = "";
-  bar.appendChild(el("span", null, t("live.otherTable", { table: liveTable })));
-  const go = el("button", "btn ghost", t("live.goToTable"));
+  const line = el("span");
+  if (sheet) {
+    line.textContent = t("live.otherSheet");
+  } else {
+    // In the bold the string gives it, and as text: the name is somebody's
+    // typing. Set whole as text, the string's own tags showed as "<b>".
+    const [before, after = ""] = t("live.otherTable", { table: "\u0000" })
+      .replace(/<\/?b>/g, "").split("\u0000");
+    line.append(before, el("b", null, liveTable), after);
+  }
+  bar.appendChild(line);
+  const go = el("button", "btn ghost", t(sheet ? "live.goToSheet" : "live.goToTable"));
   go.style.marginLeft = "8px";
   go.onclick = () => {
-    state.active = liveTable;
+    state.active = sheet ? null : liveTable;
     $("tableSel").value = liveTable;
     invalidate();
     store.save(state, []);
@@ -11978,9 +12015,12 @@ function onLiveState(st) {
   if (st.error) { liveTable = null; renderLiveBinding(); renderLiveError(st.error, st.source); return; }
   if (!st.active) { liveTable = null; renderLiveBinding(); renderLiveSources(); return; }
 
-  // A reader that is running owns a table; one that has just started owns the
-  // one that was selected when it did.
-  if (!liveTable || !state.tables[liveTable]) liveTable = state.active;
+  // A reader that is running owns what it was started on: the table chosen
+  // then, or the unsaved sheet ("") when there was none. One whose table has
+  // gone from under it owns whatever is chosen now.
+  if (liveTable === null || (liveTable && !state.tables[liveTable])) {
+    liveTable = chosenTable() ?? "";
+  }
   renderLiveBinding();
 
   live.drawPreview($("liveCanvas"));
@@ -12171,9 +12211,9 @@ function renderBatch(photos, skipped) {
   const actions = el("div", "actions");
   const add = el("button", "btn primary", t("batch.add", { n: batchShoes.length }));
   add.onclick = () => {
-    beforeWriting();
+    const name = chosenTable();
     const changed = [];
-    const shoes_ = shoes();
+    const shoes_ = shoes(name);
     const last = shoes_[shoes_.length - 1];
     if (last && !last.o.length) shoes_.pop();
     else if (last && !last.closed) { last.closed = true; changed.push(last.id); }
@@ -12191,7 +12231,7 @@ function renderBatch(photos, skipped) {
     batchShoes = null;
     batchRun += 1;
     $("batch").hidden = true;
-    commit(changed);
+    commitTo(name, changed);
     $("pickNote").textContent = t("batch.added", added);
   };
   actions.appendChild(add);
@@ -12864,7 +12904,7 @@ function learned() {
   // only ever moves forward, so a corpus that has gained a coup is continued.
   // Re-training cost three quarters of a second per coup at eight hundred
   // shoes, and got worse with every shoe collected.
-  const value = learners.for(state.active).update(shoes().map((s) => s.o).filter(Boolean),
+  const value = learners.for(state.active ?? "").update(shoes().map((s) => s.o).filter(Boolean),
                                { deff, next: openShoe().o, from: ledgerFrom() });
   // A model is worth following only if what trained it was baccarat. Where the
   // record cannot be one -- a tie rate whole points off what the pack itself
@@ -12921,8 +12961,9 @@ function renderBetOutcome() {
     && ledgerFlash.table === state.active
     && ledgerFlash.revision !== revision
     // A coup the reader filed on the table it is watching moves that table,
-    // not this one; the revision is global, so it has to be asked whose.
-    && (lastWrite === null || lastWrite === state.active);
+    // not this one; the revision is global, so it has to be asked whose. The
+    // unsaved sheet's name is null, so undefined is "nothing written yet".
+    && (lastWrite === undefined || lastWrite === state.active);
   ledgerFlash = { revision, table: state.active };
   const grid = $("aiLedger"), note = $("aiOverallNote"), sub = $("aiOverallSub");
   grid.innerHTML = "";
@@ -13291,7 +13332,12 @@ function renderHeader() {
         shoes: shoes().filter((s) => s.o.length).length, coups: shoe.o.length,
       })
     : t("header.shoeMetaShort", { coups: shoe.o.length }))
-    + (shoe.o.length ? " · " + t("header.shoeTally", tally) : "");
+    + (shoe.o.length ? " · " + t("header.shoeTally", tally) : "")
+    // The blank entry keeps nothing, which is worth saying once it holds
+    // something or is being read onto -- not on a page nobody has started, and
+    // not while the reader is filling a table (that one is kept).
+    + (!chosenTable() && (tableCoups() > 0 || (live && live.active && !liveTable))
+      ? " · " + t("header.unsaved") : "");
 }
 
 /**
@@ -14929,7 +14975,6 @@ function bindControls() {
   $("addTable").onclick = () => {
     const name = cleanTableName(prompt(t("header.newTablePrompt")));
     if (!name) return;
-    beforeWriting();
     state.tables[name] ||= { shoes: [] };
     state.active = name;
     invalidate();
@@ -14973,7 +15018,6 @@ function bindControls() {
     renamePredictions(predictionLog, from, to);
     store.saveLog(predictionLog);
     learners.rename(from, to);
-    beforeWriting();
     invalidate();
     store.save(state, []);
     render();
@@ -15043,17 +15087,10 @@ function bindControls() {
     onState: onLiveState,
     intervalMs: Number($("liveInterval").value),
   });
-  // A table first, so the header shows what is being filled from the moment
-  // the reader starts -- which is what "press start and it begins a new one"
-  // means. `beforeWriting` is the same door every other writer goes through.
-  const startInto = (go) => () => {
-    const made = !state.active || !state.tables[state.active];
-    beforeWriting();
-    if (made) { invalidate(); store.save(state, []); render(); }
-    go();
-  };
-  $("liveStart").onclick = startInto(() => live.start());
-  $("liveCamera").onclick = startInto(() => live.startCamera());
+  // Nothing is made first. With a table chosen the reader fills it; with none,
+  // it reads onto the unsaved sheet -- see `unsaved`.
+  $("liveStart").onclick = () => live.start();
+  $("liveCamera").onclick = () => live.startCamera();
   renderLiveSources();
   $("liveStop").onclick = () => { live.stop(); liveLog(t("live.logStopped")); };
   $("liveRelock").onclick = () => {
@@ -15074,11 +15111,11 @@ function bindControls() {
   // before the mark go on making the pick. Pressing it again counts them all
   // once more.
   $("ledgerFrom").onclick = () => {
-    const entry = state.tables[state.active];
-    if (!entry) return;
-    if (ledgerFrom()) delete entry.from;
-    else entry.from = tableCoups();
-    commit([]);
+    const name = chosenTable();
+    const entry = name ? state.tables[name] : unsaved;
+    if (ledgerFrom(name)) delete entry.from;
+    else entry.from = tableCoups(name);
+    commitTo(name, []);
   };
 
   $("runIntegrity").onclick = runIntegrity;
@@ -15227,6 +15264,7 @@ function bindControls() {
     live.stop();
     liveLog(t("live.logStopped"));
     state = { tables: {}, active: null };
+    unsaved = { shoes: [] };          // everything is everything on screen too
     predictionLog = emptyLog();
     store.saveLog(predictionLog);
     await store.deleteShoes(ids);
