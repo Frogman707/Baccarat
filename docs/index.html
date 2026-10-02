@@ -1373,10 +1373,10 @@ const S = {
   "ai.conf.medium": { ko: "보통", en: "Medium", "zh-Hant": "中", "zh-Hans": "中" },
   "ai.conf.high": { ko: "높음", en: "High", "zh-Hant": "高", "zh-Hans": "高" },
   "ai.holdWhy": {
-    ko: "위에서는 <b>{lead}</b>가 {gap}%p 높은데 추천은 {pick}입니다. 뱅커는 커미션을 물고도 교차점 {cross} 위에서는 더 나은 쪽이고, 갈아타려면 추정치가 그 선보다 1표준오차 아래여야 합니다 — 아직 <b>{need}%p</b> 모자랍니다.",
-    en: "<b>{lead}</b> reads {gap}pp higher above, yet the pick is {pick}. Banker is the better bet above the crossover at {cross} even after commission, and switching needs the estimate a standard error below that line — it is still <b>{need}pp</b> short.",
-    "zh-Hant": "上方 <b>{lead}</b> 高出 {gap}%p，推薦卻是{pick}。莊在交叉點 {cross} 之上即使扣佣仍較優，要換邊須估計值低於該線一個標準誤 — 目前尚差 <b>{need}%p</b>。",
-    "zh-Hans": "上方 <b>{lead}</b> 高出 {gap}%p，推荐却是{pick}。庄在交叉点 {cross} 之上即使扣佣仍较优，要换边须估计值低于该线一个标准误 — 目前尚差 <b>{need}%p</b>。",
+    ko: "위에서는 <b>{lead}</b>가 {gap}%p 높은데 추천은 {pick}입니다. 추천은 이 집계를 공정한 8덱 슈 쪽으로 수축시킨 추정치를 따릅니다. 뱅커는 커미션을 물고도 교차점 {cross} 위에서는 더 나은 쪽이라, 추정치가 그 선 아래로 내려가면 바로 바뀝니다 — 아직 <b>{need}%p</b> 모자랍니다.",
+    en: "<b>{lead}</b> reads {gap}pp higher above, yet the pick is {pick}. The pick follows the estimate, which is these counts shrunk toward a fair 8-deck shoe. Banker is the better bet above the crossover at {cross} even after commission, so the pick changes as soon as the estimate falls below that line — it is still <b>{need}pp</b> short.",
+    "zh-Hant": "上方 <b>{lead}</b> 高出 {gap}%p，推薦卻是{pick}。推薦跟隨估計值，也就是把這些統計朝公正 8 副牌靴收縮後的值。莊在交叉點 {cross} 之上即使扣佣仍較優，所以估計值一低於該線就會換邊 — 目前尚差 <b>{need}%p</b>。",
+    "zh-Hans": "上方 <b>{lead}</b> 高出 {gap}%p，推荐却是{pick}。推荐跟随估计值，也就是把这些统计朝公正 8 副牌靴收缩后的值。庄在交叉点 {cross} 之上即使扣佣仍较优，所以估计值一低于该线就会换边 — 目前尚差 <b>{need}%p</b>。",
   },
   // Banker a little ahead on the bars and the pick Player: the commission. A
   // Banker win pays 0.95, so Player is the cheaper bet wherever Banker's share
@@ -1436,10 +1436,10 @@ const S = {
     "zh-Hans": "本桌的 {n} 局已将估计值自基准移动 {delta}%p。",
   },
   "ai.crossover": {
-    ko: "뱅커와 플레이어의 우열은 P(뱅커 | 타이 제외) {q}에서 뒤집히고, 현재 추정치는 그 선에서 {z}표준오차 떨어져 있습니다. 선을 <b>1표준오차 넘게</b> 내려가기 전까지는 뱅커를 유지합니다 — 그 선은 새 슈에서 0.05%p밖에 안 떨어져 있어, 추정 오차만으로도 수천 판 동안 넘나들기 때문입니다. 각 49,000판인 공정한 테이블 6개에서, 그때그때 나은 쪽을 따라가면 이김 45.44%·테이블당 −540유닛이었고, 이 기준을 두면 <b>45.91%·테이블당 −452유닛</b>이었습니다. 문턱의 크기는 재서 골랐습니다 — 실제로 돌린 슈 290만 판에서 1표준오차는 항상 뱅커와 차이가 없었고(잡음 이하), 진짜로 플레이어 쪽으로 치우친 테이블에서는 전에 쓰던 더 넓은 문턱보다 적중률이 2~3%p 높았습니다.",
-    en: "Banker stops being the better bet below P(Banker | not tie) of {q}, and the estimate sits {z} standard errors from that line. The pick holds Banker until the estimate is <b>a standard error below</b> it: the line is only 0.05pp from a fresh shoe, so estimation error alone crosses it for thousands of coups. Over six fair tables of 49,000 coups each, following whichever side looked better won 45.44% of coups and lost 540 units a table; requiring the evidence won <b>45.91% and lost 452 a table</b>. The size of the bar is measured: over 2.9 million dealt coups one standard error is indistinguishable from never switching, and on a table genuinely biased to Player it is 2 to 3 points of hit rate better than the wider bar it replaced.",
-    "zh-Hant": "當 P(莊 | 排除和局) 低於 {q} 時莊就不再較優，目前估計值距該線 {z} 個標準誤。在估計值低於該線<b>一個標準誤</b>之前維持押莊 — 該線距全新牌靴僅 0.05%p，單憑估計誤差就會來回穿越數千局。在六張各 49,000 局的公正牌桌上，跟著當下較優的一邊贏 45.44%、每桌虧 540 單位；要求證據則贏 <b>45.91%、每桌虧 452</b>。門檻大小是量出來的：在 290 萬局實際發牌中，一個標準誤與從不換邊無法區分，而在真正偏向閒家的桌上，命中率比先前較寬的門檻高 2 至 3 個百分點。",
-    "zh-Hans": "当 P(庄 | 排除和局) 低于 {q} 时庄就不再较优，当前估计值距该线 {z} 个标准误。在估计值低于该线<b>一个标准误</b>之前维持押庄 — 该线距全新牌靴仅 0.05%p，单凭估计误差就会来回穿越数千局。在六张各 49,000 局的公正牌桌上，跟着当下较优的一边赢 45.44%、每桌亏 540 单位；要求证据则赢 <b>45.91%、每桌亏 452</b>。门槛大小是量出来的：在 290 万局实际发牌中，一个标准误与从不换边无法区分，而在真正偏向闲家的桌上，命中率比先前较宽的门槛高 2 至 3 个百分点。",
+    ko: "뱅커와 플레이어의 우열은 P(뱅커 | 타이 제외) {q}에서 뒤집히고, 현재 추정치는 그 선에서 {z}표준오차 떨어져 있습니다. 추천은 추정치가 그 선 위면 뱅커이고, <b>그 선 아래로 내려가면 바로</b> 플레이어입니다. 그 선은 새 슈에서 0.05%p밖에 안 떨어져 있어, 공정한 테이블에서는 추정 오차만으로도 수천 판 동안 넘나듭니다 — 그래서 이 방식은 테이블을 더 빨리 따라갈 뿐, 더 이기지는 않습니다. 각 49,000판인 공정한 테이블 6개에서 이 방식은 이김 45.44%·테이블당 −540유닛이었고, 증거가 1표준오차 쌓일 때까지 뱅커를 지키던 예전 방식은 <b>45.91%·테이블당 −452유닛</b>이었습니다. 진짜로 플레이어 쪽으로 치우친 테이블이라면 이 방식이 가장 빨리 따라갑니다.",
+    en: "Banker stops being the better bet below P(Banker | not tie) of {q}, and the estimate sits {z} standard errors from that line. The pick is Banker while the estimate is above it, and Player <b>as soon as it falls below that line</b>. The line is only 0.05pp from a fresh shoe, so on a fair table estimation error alone crosses it for thousands of coups — this way follows the table sooner, and does not win more. Over six fair tables of 49,000 coups each it won 45.44% of coups and lost 540 units a table; holding Banker until the evidence reached a standard error, the rule it replaced, won <b>45.91% and lost 452 a table</b>. On a table genuinely biased to Player, it is the quickest to follow.",
+    "zh-Hant": "當 P(莊 | 排除和局) 低於 {q} 時莊就不再較優，目前估計值距該線 {z} 個標準誤。估計值在該線之上推薦莊，<b>一低於該線就</b>推薦閒。該線距全新牌靴僅 0.05%p，在公正牌桌上單憑估計誤差就會來回穿越數千局 — 所以這種方式只是更快跟上牌桌，並不會贏更多。在六張各 49,000 局的公正牌桌上，這種方式贏 45.44%、每桌虧 540 單位；先前等證據達一個標準誤才換邊的方式則贏 <b>45.91%、每桌虧 452</b>。若牌桌真的偏向閒家，這種方式跟得最快。",
+    "zh-Hans": "当 P(庄 | 排除和局) 低于 {q} 时庄就不再较优，当前估计值距该线 {z} 个标准误。估计值在该线之上推荐庄，<b>一低于该线就</b>推荐闲。该线距全新牌靴仅 0.05%p，在公正牌桌上单凭估计误差就会来回穿越数千局 — 所以这种方式只是更快跟上牌桌，并不会赢更多。在六张各 49,000 局的公正牌桌上，这种方式赢 45.44%、每桌亏 540 单位；先前等证据达一个标准误才换边的方式则赢 <b>45.91%、每桌亏 452</b>。若牌桌真的偏向闲家，这种方式跟得最快。",
   },
   "ai.notBaccarat": {
     ko: "<b>이 기록은 8덱 바카라의 모양이 아닙니다.</b> 타이가 <b>{rate}</b>인데 공정한 슈는 <b>9.52%</b>이고, {coups}판에서 그 차이는 <b>{z}표준오차</b>입니다. 타이 비율은 셔플이 아니라 덱 구성이 정하는 값이라, 이만큼 벗어났다면 셔플이 아니라 <b>판독</b>을 먼저 의심해야 합니다 — 화면 인식이 판을 빠뜨렸거나, 같은 슈를 두 번 세었거나, 조각난 슈를 이어 붙였을 수 있습니다. 그 전까지 추천은 학습 모델이 아니라 기본 추정을 씁니다.",
@@ -1454,10 +1454,10 @@ const S = {
     "zh-Hans": "<b>采用基本估计。</b>本桌记录不是 8 副牌百家乐会有的样子，网络学到的可能是判读错误。",
   },
   "ai.disclaimer": {
-    ko: "바카라는 양쪽 모두 기댓값이 마이너스입니다. 이 추천은 더 자주 이기는 쪽을 지키고 증거가 있을 때만 바꾸는 것일 뿐, 수익을 보장하지 않습니다.",
-    en: "Both sides of baccarat have negative expectation. This pick holds the side that wins more often and changes only on evidence — it does not make money.",
-    "zh-Hant": "百家樂兩邊的期望值皆為負。此推薦只是守住勝率較高的一邊、有證據才改變，並不能保證獲利。",
-    "zh-Hans": "百家乐两边的期望值皆为负。此推荐只是守住胜率较高的一边、有证据才改变，并不能保证盈利。",
+    ko: "바카라는 양쪽 모두 기댓값이 마이너스입니다. 이 추천은 이 테이블 기록으로 계산했을 때 조금 덜 잃는 쪽을 고를 뿐, 수익을 보장하지 않습니다.",
+    en: "Both sides of baccarat have negative expectation. This pick names whichever side this table's record makes slightly less bad — it does not make money.",
+    "zh-Hant": "百家樂兩邊的期望值皆為負。此推薦只是依本桌紀錄選出虧得稍少的一邊，並不能保證獲利。",
+    "zh-Hans": "百家乐两边的期望值皆为负。此推荐只是依本桌记录选出亏得稍少的一边，并不能保证盈利。",
   },
   "ai.betH": {
     ko: "AI 추천 배팅 결과", en: "Backing the pick, in full",
@@ -4901,19 +4901,24 @@ function sideConfidence(n, q, deff = 1, pick = "B") {
  * `backingCleared`). The side named is unchanged, so the model versions -- the
  * ones every stored call is filed under -- are too.
  *
- * base-2 named the estimate's better side with no margin (`SWITCH_EVIDENCE`
- * 0). It shipped on 2026-10-02 and was withdrawn the same day, when the owner
- * put hitting first: measured, it won 0.2 to 0.4 points less often. Calls are
- * filed under base-1 again because the rule is base-1's again, and a log
- * holding base-2 rows says which calls that day's rule made.
+ * base-2: the side is the estimate's better expectation with no margin
+ * (`SWITCH_EVIDENCE` 0, was 1). The same coups name a different side, so the
+ * calls made under it are filed apart from base-1's. On 2026-10-02 the owner
+ * went back to base-1 for a few hours, putting hitting first, and then to
+ * this again; each call is filed under the rule that made it.
  */
 const FEATURE_VERSION = "f2";
-const BASE_MODEL_VERSION = "base-1";
+const BASE_MODEL_VERSION = "base-2";
 
 /**
  * Standard errors of evidence required before leaving Banker for Player.
  *
- * One, and the value is measured rather than chosen. Swept over 600 tables of
+ * None: the pick is whichever side the estimate gives the better expectation,
+ * at every coup. That is the owner's choice (2026-10-02), made knowing what it
+ * costs, after a pick that held Banker almost without exception read as an
+ * answer that never changed. It was one standard error before.
+ *
+ * What it costs was measured before it was chosen. Swept over 600 tables of
  * 3,000 coups each, every rule walking the table coup by coup and predicting
  * from what came before -- hit rate on decided coups, against always backing
  * Banker, at a noise floor of +-0.039pp:
@@ -4925,45 +4930,29 @@ const BASE_MODEL_VERSION = "base-1";
  *     2 SE       +0.00      +0.01    +0.00   +0.00   +0.50   +3.52
  *     3 SE       +0.00      +0.00    +0.00   +0.00   +0.01   +0.73
  *
- * One standard error dominates two: indistinguishable from it on a fair table
- * and on a Banker-leaning one -- both inside the noise -- and better by 2.3
- * points of hit rate on a table genuinely biased to Player, 3.2 on a strongly
- * biased one. There is no column where it is measurably worse, so the old
- * threshold was buying nothing with the coups it spent waiting.
- *
- * Going further is not free. At half a standard error the fair-table cost
- * becomes real (-0.09pp, over twice the noise) and at zero it is severe
- * (-0.58pp, and -0.49 on a Banker-leaning table) -- which is the measurement
- * that put the threshold at two in the first place. What that measurement
- * never tested was the ground in between.
- *
- * Worth being exact about what this improves. On a fair table it changes
- * nothing, because there is nothing to change: the commission still puts both
- * sides under water and the panel still says so. The whole gain is on tables
- * that really are biased -- which is the only kind this project exists to
- * find, and the only kind where being right matters.
+ * So on a fair table no margin wins about half a point less often than always
+ * backing Banker, where one standard error was level with it; on a table
+ * genuinely biased to Player it is the quickest to follow. The page says both
+ * beside the pick (`ai.crossover`), with figures `tests/test_js_port.py`
+ * measures -- it follows the table sooner, and it does not win more.
  */
-const SWITCH_EVIDENCE = 1;
+const SWITCH_EVIDENCE = 0;
 
 /**
  * Which side to back.
  *
- * Backing whichever side the estimate says has the better expectation is the
- * obvious rule and it is worse at everything. The crossover sits 0.05pp above
- * a fresh shoe, while the estimate's own error runs to tenths of a point for
- * thousands of coups -- so the comparison is decided by noise, and the two
- * sides it is deciding between differ by almost nothing in expectation anyway.
- * Chasing it means changing sides over and over on evidence that is not there.
+ * Whichever side the estimate gives the better expectation, from the coups
+ * before this one: Banker while the estimate sits above the crossover, Player
+ * once it is below it, with `SWITCH_EVIDENCE` standard errors of margin.
  *
- * Measured over six fair tables of 49,000 coups: picking by expectation won
- * 45.44% of coups and lost 540 units; holding Banker unless the estimate has
- * cleared the crossover won 45.98% and lost 416. Better on both counts,
- * because on a fair table Banker is simply the side that wins more often, and
- * nothing short of real evidence should give that up.
- *
- * What the gate costs is speed on a table that is genuinely biased to Player.
- * How much it costs depends entirely on how wide it is set, which is why
- * `SWITCH_EVIDENCE` above is a swept value and not a round number.
+ * Worth being plain about what that does on a fair table. The crossover sits
+ * 0.05pp under a fresh shoe and the estimate's own error is tenths of a point
+ * for thousands of coups, so which side it names there is decided by noise.
+ * Measured over six fair tables of 49,000 coups: picking this way won 45.44%
+ * of coups and lost 540 units a table; holding Banker until the estimate had
+ * cleared the crossover by a standard error won 45.91% and lost 452. On a fair
+ * table Banker is simply the side that wins more often -- the pick moves with
+ * the table's record, and that is all it does.
  */
 function sidePick(q, se) {
   return SIDE_CROSSOVER - q > SWITCH_EVIDENCE * se ? "P" : "B";
@@ -9092,13 +9081,13 @@ function renderPrediction() {
   }
 
   // The bars and the pick can disagree, and where they do it reads as a fault
-  // rather than a decision. Banker holds until the estimate is a standard
-  // error below the crossover, so a Player share that is merely higher is not
-  // yet a reason to move -- which belongs here, beside the disagreement,
-  // rather than only in the paragraph at the foot of the panel. The other way
-  // round is rarer and as confusing: the crossover is not 50% but 50.633%,
-  // because of the commission, so a long record with Banker a hair ahead can
-  // name Player.
+  // rather than a decision. Two ways it happens. The pick follows the
+  // estimate, which is the bars shrunk toward a fair shoe, so a Player share
+  // that is higher on the bars has not necessarily moved the estimate across
+  // the crossover yet. And the crossover is not 50%: after the commission,
+  // Player is the cheaper bet wherever Banker's share is under 50.633%, so a
+  // Banker share a little above half can name Player. Either is said here,
+  // beside the disagreement, rather than only at the foot of the panel.
   //
   // Measured against the bars drawn above, which is what the sentence says
   // ("reads higher above") and what the reader is actually looking at. It used
@@ -9116,9 +9105,9 @@ function renderPrediction() {
   if (!hold.hidden) {
     const gap = (Math.abs(shares.P - shares.B) * 100).toFixed(2);
     // Which rule is actually driving decides which answer is the true one.
-    // The crossover is why the *base* rule holds Banker; it says nothing
-    // about a pick the network made, and quoting it there would be an
-    // explanation of the wrong decision.
+    // The crossover is what the *base* rule reads; it says nothing about a
+    // pick the network made, and quoting it there would be an explanation of
+    // the wrong decision.
     hold.innerHTML = chosen !== p.pick
       ? t("ai.holdNetwork", { lead: side(leader), pick: side(chosen), gap })
       : chosen === "P"
