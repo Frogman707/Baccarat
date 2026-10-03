@@ -27,6 +27,7 @@
   --player-soft:#e9f1fd; --banker-soft:#fcecea; --tie-soft:#e3f5ef;
   --accent:#a8641a; --accent-soft:#f4e7d4;
   --zone:#e2eae4; --dead:#f0f2f5; --band:#dfe5ed; --mark-ring:#ffffff;
+  --road-bg:#ffffff; --road-line:#d3dae3;
   --shadow:0 1px 2px rgba(16,26,40,.06), 0 6px 18px -10px rgba(16,26,40,.18);
   --mono:"IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   --sans:"IBM Plex Sans KR", -apple-system, BlinkMacSystemFont, "Segoe UI",
@@ -42,6 +43,7 @@
     --player-soft:#111f31; --banker-soft:#2a1614; --tie-soft:#06231e;
     --accent:#e29a3c; --accent-soft:#33291a;
     --zone:#1f3a33; --dead:#1c2634; --band:#2c3c50; --mark-ring:#0b1017;
+    --road-bg:#0e151e; --road-line:#2a3646;
     --shadow:0 1px 2px rgba(0,0,0,.3), 0 8px 24px -12px rgba(0,0,0,.6);
   }
 }
@@ -53,6 +55,7 @@
   --player-soft:#111f31; --banker-soft:#2a1614; --tie-soft:#06231e;
   --accent:#e29a3c; --accent-soft:#33291a;
   --zone:#1b2c28; --dead:#161f2b; --band:#233040; --mark-ring:#0b1017;
+  --road-bg:#0e151e; --road-line:#2a3646;
   --shadow:0 1px 2px rgba(0,0,0,.3), 0 8px 24px -12px rgba(0,0,0,.6);
 }
 
@@ -391,23 +394,51 @@ table.stake tr:last-child td{border-bottom:none}
 .result.fresh{animation:resultIn .34s cubic-bezier(.2,.72,.3,1)}
 @media (prefers-reduced-motion:reduce){.result.fresh{animation:none}}
 
-.boards{display:flex; gap:22px; flex-wrap:wrap}
+/* The board is drawn the way a table's scoreboard is: squares ruled on
+   paper, six deep, and in them the bead plate's lettered discs, the big
+   road's rings with a tie's green stroke, and the derived roads at half the
+   size -- four of their marks to one of the big road's squares -- as rings,
+   dots and strokes. */
+.boards{--cell:23px; --cell-sm:12px; display:flex; gap:14px 18px; flex-wrap:wrap;
+        align-items:flex-start}
 .boardbox{min-width:0}
+/* The bead plate is as wide as what it holds, a dozen columns at least, and
+   past fourteen it scrolls -- so the big road keeps its place beside it. */
+.boardbox.beadbox{flex:0 1 auto; max-width:calc(14 * var(--cell) + 1px)}
 /* The big road is the long one. It takes whatever its line leaves beside the
-   bead plate -- scrolling, and keeping to its newest column -- rather than
-   dropping to a line of its own the moment it is wider than that. No wider
-   than it is, though: an empty road does not stretch to push the rest away. */
-.boardbox.bigroad{flex:1 1 280px; max-width:max-content}
-.derived{display:flex; gap:22px; flex-wrap:wrap; min-width:0}
+   bead plate, ruled to the edge -- scrolling, and keeping to its newest
+   column -- rather than dropping to a line of its own the moment it is wider
+   than that. */
+.boardbox.bigroad{flex:1 1 240px}
+/* The three derived roads share a line of their own, a third each. */
+.derived{flex:1 1 100%; display:flex; gap:18px; min-width:0}
+.derived .boardbox{flex:1 1 0}
 .blabel{font-size:11px; color:var(--ink-3); margin-bottom:6px; letter-spacing:.02em}
 .roadscroll{overflow-x:auto; padding-bottom:4px}
-.gridrow{display:flex; gap:2px; margin-bottom:2px}
-.cell{width:21px; height:21px; border-radius:5px; flex:0 0 auto; display:grid;
-      place-items:center; font-size:10px; color:#fff; font-weight:500}
-.cell.empty{background:var(--surface-3)}
-.cell.P{background:var(--player)} .cell.B{background:var(--banker)} .cell.T{background:var(--tie)}
-.cell.sm{width:11px; height:11px; border-radius:50%}
-.cell.sm.dR{background:var(--banker)} .cell.sm.dB{background:var(--player)}
+.road{--pitch:var(--cell); --square:var(--cell);
+      display:grid; grid-auto-flow:column; grid-template-rows:repeat(6, var(--pitch));
+      grid-auto-columns:var(--pitch); width:max-content;
+      background:var(--road-bg);
+      background-image:linear-gradient(90deg, var(--road-line) 1px, transparent 1px),
+                       linear-gradient(var(--road-line) 1px, transparent 1px);
+      background-size:var(--square) var(--square);
+      border-right:1px solid var(--road-line); border-bottom:1px solid var(--road-line)}
+.road.sm{--pitch:var(--cell-sm); --square:calc(2 * var(--cell-sm))}
+.road .cell{position:relative; display:grid; place-items:center; padding:1px 0 0 1px}
+.road .mk{--c:var(--ink-3); display:block; box-sizing:border-box; border-radius:50%;
+          font-style:normal}
+.mk.B,.mk.red{--c:var(--banker)} .mk.P,.mk.blue{--c:var(--player)} .mk.T{--c:var(--tie)}
+#bead .mk{width:19px; height:19px; background:var(--c); color:#fff; display:grid;
+          place-items:center; font-size:10px; font-weight:600; line-height:1}
+#big .mk{width:17px; height:17px; border:2.5px solid var(--c)}
+#big .tie{position:absolute; left:50%; top:50%; width:2px; height:20px; margin:-9.5px 0 0 -.5px;
+          border-radius:1px; background:var(--tie); transform:rotate(45deg)}
+#big .tn{position:absolute; inset:1px 0 0 1px; display:grid; place-items:center;
+         font:700 9.5px/1 var(--mono); color:var(--tie);
+         text-shadow:0 0 2px var(--road-bg), 0 0 2px var(--road-bg), 0 0 1px var(--road-bg)}
+#beb .mk{width:10px; height:10px; border:1.8px solid var(--c)}
+#small .mk{width:9px; height:9px; background:var(--c)}
+#roach .mk{width:2px; height:12px; border-radius:1px; background:var(--c); transform:rotate(45deg)}
 #boardMeta{font-family:var(--mono); font-size:12px; color:var(--ink-2); margin-top:10px}
 
 /* ── per-shoe table ─────────────────────────────────────────────────── */
@@ -526,7 +557,7 @@ footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
   #kpis{grid-template-columns:1fr 1fr; gap:8px}
   .tile .v{font-size:19px}
   .aigrid{grid-template-columns:1fr}
-  .boards,.derived{gap:16px}
+  .boards{gap:12px 16px} .derived{gap:10px}
   .result{gap:12px; padding:12px 14px; min-height:58px}
   .result .rdot{width:28px; height:28px}
   .result .rword{font-size:19px}
@@ -737,14 +768,14 @@ footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
     <p class="sub" data-i18n="board.sub"></p>
     <div id="lastResult" class="result waiting" role="status" aria-live="polite"></div>
     <div class="boards">
-      <div class="boardbox"><div class="blabel" data-i18n="board.bead"></div><div class="roadscroll"><div id="bead"></div></div></div>
-      <div class="boardbox bigroad"><div class="blabel" data-i18n="board.big"></div><div class="roadscroll"><div id="big"></div></div></div>
-      <!-- The three derived roads wrap as one group, so a narrow board keeps
-           them together on a line of their own instead of splitting them. -->
+      <div class="boardbox beadbox"><div class="blabel" data-i18n="board.bead"></div><div class="roadscroll"><div id="bead" class="road"></div></div></div>
+      <div class="boardbox bigroad"><div class="blabel" data-i18n="board.big"></div><div class="roadscroll"><div id="big" class="road"></div></div></div>
+      <!-- The three derived roads go as one group, on a line of their own, so
+           a narrow board keeps them together instead of splitting them. -->
       <div class="derived">
-        <div class="boardbox"><div class="blabel" data-i18n="board.beb"></div><div class="roadscroll"><div id="beb"></div></div></div>
-        <div class="boardbox"><div class="blabel" data-i18n="board.small"></div><div class="roadscroll"><div id="small"></div></div></div>
-        <div class="boardbox"><div class="blabel" data-i18n="board.roach"></div><div class="roadscroll"><div id="roach"></div></div></div>
+        <div class="boardbox"><div class="blabel" data-i18n="board.beb"></div><div class="roadscroll"><div id="beb" class="road sm"></div></div></div>
+        <div class="boardbox"><div class="blabel" data-i18n="board.small"></div><div class="roadscroll"><div id="small" class="road sm"></div></div></div>
+        <div class="boardbox"><div class="blabel" data-i18n="board.roach"></div><div class="roadscroll"><div id="roach" class="road sm"></div></div></div>
       </div>
     </div>
     <div id="boardMeta"></div>
@@ -2533,6 +2564,7 @@ class BigRoad {
   constructor() {
     this.columns = [];
     this.tieCounts = new Map();
+    this.leadingTies = 0;
     this.nEntries = 0;
   }
 
@@ -2542,6 +2574,8 @@ class BigRoad {
       if (this.columns.length) {
         const key = `${this.columns.length - 1},${this.columns[this.columns.length - 1].length - 1}`;
         this.tieCounts.set(key, (this.tieCounts.get(key) || 0) + 1);
+      } else {
+        this.leadingTies += 1;
       }
       return null;
     }
@@ -2558,42 +2592,97 @@ class BigRoad {
   get currentSide() { return this.columns.length ? this.columns[this.columns.length - 1][0] : null; }
 
   /** The wrapped display board: a column deeper than `rows` turns right. */
-  grid(rows = 6) {
-    const cells = new Map();
-    const has = (r, c) => cells.has(`${r},${c}`);
-    for (let colIdx = 0; colIdx < this.columns.length; colIdx++) {
-      let r = 0, c = colIdx;
-      const column = this.columns[colIdx];
-      for (let depth = 0; depth < column.length; depth++) {
-        if (depth === 0) {
-          while (has(r, c)) c += 1;
-        } else {
-          let nr = r + 1, nc = c;
-          if (nr >= rows || has(nr, nc)) {
-            nr = r; nc = c + 1;
-            while (has(nr, nc)) nc += 1;
-          }
-          r = nr; c = nc;
-        }
-        cells.set(`${r},${c}`, column[depth]);
-      }
+  grid(rows = 6) { return wrapColumns(this.columns, rows); }
+
+  /**
+   * The ties where the board marks them, as [row, col, count] on the wrapped
+   * board: on the cell of the coup before them, since a tie opens no cell of
+   * its own, and on the first cell for ties dealt before any coup -- which is
+   * where a table draws them, the first coup's ring then going in under the
+   * line. Ordered by column, then row.
+   */
+  tieCells(rows = 6) {
+    const placed = placeColumns(this.columns, rows);
+    const at = new Map();
+    const add = (r, c, n) => at.set(`${r},${c}`, (at.get(`${r},${c}`) || 0) + n);
+    if (this.leadingTies) add(0, 0, this.leadingTies);
+    for (const [key, n] of this.tieCounts) {
+      const [col, depth] = key.split(",").map(Number);
+      add(...placed[col][depth], n);
     }
-    if (!cells.size) return Array.from({ length: rows }, () => [null]);
-    let width = 0;
-    for (const key of cells.keys()) width = Math.max(width, Number(key.split(",")[1]) + 1);
-    return Array.from({ length: rows }, (_, r) =>
-      Array.from({ length: width }, (_, c) => cells.get(`${r},${c}`) ?? null));
+    return [...at].map(([key, n]) => [...key.split(",").map(Number), n])
+      .sort((x, y) => x[1] - y[1] || x[0] - y[0]);
   }
+}
+
+/**
+ * Where each entry of `columns` goes on a board `rows` deep, as [row, col]:
+ * down while its column lasts, and right along the row it reached once the
+ * column is deeper than the board or runs into a cell already taken -- the
+ * dragon's tail. A column opens on the top row, at the first free cell from
+ * its own place onward.
+ */
+function placeColumns(columns, rows = 6) {
+  const taken = new Set();
+  const has = (r, c) => taken.has(`${r},${c}`);
+  return columns.map((column, colIdx) => {
+    let r = 0, c = colIdx;
+    return column.map((_, depth) => {
+      if (depth === 0) {
+        while (has(r, c)) c += 1;
+      } else {
+        let nr = r + 1, nc = c;
+        if (nr >= rows || has(nr, nc)) {
+          nr = r; nc = c + 1;
+          while (has(nr, nc)) nc += 1;
+        }
+        r = nr; c = nc;
+      }
+      taken.add(`${r},${c}`);
+      return [r, c];
+    });
+  });
+}
+
+/** `columns` drawn on a board `rows` deep: what each cell holds, or null. */
+function wrapColumns(columns, rows = 6) {
+  const placed = placeColumns(columns, rows);
+  let width = 0;
+  for (const column of placed) for (const [, c] of column) width = Math.max(width, c + 1);
+  if (!width) return Array.from({ length: rows }, () => [null]);
+  const grid = Array.from({ length: rows }, () => new Array(width).fill(null));
+  placed.forEach((column, i) => column.forEach(([r, c], depth) => {
+    grid[r][c] = columns[i][depth];
+  }));
+  return grid;
+}
+
+/**
+ * A derived road's marks in the columns a table draws them in: a colour runs
+ * down its column, and a change of colour starts the next one -- the big
+ * road's own rule, with red and blue for its two sides.
+ */
+function derivedColumns(marks) {
+  const columns = [];
+  for (const m of marks) {
+    const last = columns[columns.length - 1];
+    if (last && last[0] === m) last.push(m);
+    else columns.push([m]);
+  }
+  return columns;
 }
 
 /**
  * Derive one road from the Big Road's logical columns.
  *
- * An entry opening column `c` compares the lengths of columns `c-offset` and
- * `c-offset-1`: equal means the board is repeating itself (Red), unequal Blue.
- * An entry extending a column at row `r` asks whether column `c-offset` also
- * reached `r`: yes or never reached `r-1` is Red, stopped exactly one short is
- * Blue. Entries too near the left edge produce nothing.
+ * An entry opening column `c` closes column `c-1`, and compares its length
+ * with column `c-1-offset`'s -- the first and second columns to its left for
+ * the big eye boy, the first and third for the small road, the first and
+ * fourth for the cockroach road: equal means the board is repeating itself
+ * (Red), unequal Blue. An entry extending a column at row `r` asks whether
+ * column `c-offset` also reached `r`: yes or never reached `r-1` is Red,
+ * stopped exactly one short is Blue. Entries too near the left edge produce
+ * nothing.
  */
 function derivedRoad(columns, offset) {
   if (offset < 1) throw new Error("offset must be at least 1");
@@ -2601,7 +2690,7 @@ function derivedRoad(columns, offset) {
   for (let c = 0; c < columns.length; c++) {
     for (let r = 0; r < columns[c].length; r++) {
       if (r === 0) {
-        const a = c - offset, b = c - offset - 1;
+        const a = c - 1, b = c - 1 - offset;
         if (b < 0) continue;
         out.push(columns[a].length === columns[b].length ? RED : BLUE);
       } else {
@@ -10145,6 +10234,20 @@ function followRoads() {
   }
 }
 
+/* Each road is drawn on ruled paper that runs to the edge of its box, the
+   way a table's scoreboard is ruled whether or not anything has been dealt
+   -- so how many columns it has depends on the box, and a box that changes
+   width is drawn again. In the next frame: drawing inside the observer that
+   saw the change is a loop the browser reports. */
+
+/** The roads ruled to the edge of their box. The bead plate is not: its box
+    is as wide as what it holds, up to a limit, and it is ruled a dozen
+    columns at least. */
+const ROADS_FILLED = ["big", "beb", "small", "roach"];
+/** The columns of paper each road was last drawn with. */
+const roadRuled = new WeakMap();
+let roadRefill = 0;
+
 function bindRoads() {
   const boxes = document.querySelectorAll(".roadscroll");
   for (const box of boxes) {
@@ -10153,9 +10256,57 @@ function bindRoads() {
     }, { passive: true });
   }
   if (typeof ResizeObserver === "function") {
-    const watch = new ResizeObserver(followRoads);
+    const watch = new ResizeObserver(() => {
+      if (roadRefill) return;
+      roadRefill = requestAnimationFrame(() => {
+        roadRefill = 0;
+        if (!state) return;                   // nothing drawn yet: the first render rules it
+        if (ROADS_FILLED.some((id) => roadRuled.get($(id)) !== paperFor($(id)))) renderBoard();
+        else followRoads();
+      });
+    });
     for (const box of boxes) watch.observe(box);
   }
+}
+
+/** Rows on every road, as on a table's. */
+const ROAD_ROWS = 6;
+/** Columns the bead plate is ruled with at least: a dozen, seventy-two coups. */
+const BEAD_COLUMNS = 12;
+
+/**
+ * The columns of paper a road's box shows. A derived road is ruled in
+ * squares of two by two -- four of its marks to one of the big road's -- so
+ * its count is even. A box not on screen measures nothing; it is drawn with
+ * a dozen squares, and again once it is shown.
+ */
+function paperFor(host) {
+  const step = host.classList.contains("sm") ? 2 : 1;
+  const pitch = parseFloat(getComputedStyle(host).getPropertyValue("--pitch"));
+  const width = host.parentElement.clientWidth;
+  const fits = width && pitch ? Math.floor((width - 1) / pitch) : 12 * step;
+  return Math.max(step, fits - (fits % step));
+}
+
+/**
+ * One road on its paper. `paint(cell, row, col)` draws what that square of
+ * `used` columns holds, saying whether it held anything; squares go in
+ * column by column, and the paper runs on past the last mark to `columns`.
+ */
+function drawRoad(host, used, columns, paint) {
+  const step = host.classList.contains("sm") ? 2 : 1;
+  let total = Math.max(used, columns);
+  total += total % step;
+  const paper = document.createDocumentFragment();
+  for (let c = 0; c < total; c++) {
+    for (let r = 0; r < ROAD_ROWS; r++) {
+      const cell = el("span", "cell");
+      if (!(c < used && paint(cell, r, c))) cell.classList.add("empty");
+      paper.appendChild(cell);
+    }
+  }
+  host.replaceChildren(paper);
+  roadRuled.set(host, columns);
 }
 
 function renderBoard() {
@@ -10168,12 +10319,39 @@ function renderBoard() {
     roadsAt = state.active;
     for (const box of document.querySelectorAll(".roadscroll")) roadFollowing.set(box, true);
   }
-  drawGrid($("bead"), beadPlate(outcomes), "outcome");
-  drawGrid($("big"), road.grid(6), "outcome");
+
+  // The bead plate: every coup in order, a disc with its letter.
+  const bead = beadPlate(outcomes, ROAD_ROWS);
+  drawRoad($("bead"), bead[0].length, BEAD_COLUMNS, (cell, r, c) => {
+    const o = bead[r][c];
+    if (o) cell.appendChild(el("i", "mk " + o, mark(o)));
+    return Boolean(o);
+  });
+
+  // The big road: rings, and a tie as a green stroke across the coup before
+  // it -- with how many, when it is more than one.
+  const big = road.grid(ROAD_ROWS);
+  const ties = new Map(road.tieCells(ROAD_ROWS).map(([r, c, n]) => [`${r},${c}`, n]));
+  drawRoad($("big"), big[0].length, paperFor($("big")), (cell, r, c) => {
+    const o = big[r][c], n = ties.get(`${r},${c}`) || 0;
+    if (o) cell.appendChild(el("i", "mk " + o));
+    if (n) cell.appendChild(el("i", "tie"));
+    if (n > 1) cell.appendChild(el("b", "tn", String(n)));
+    return Boolean(o || n);
+  });
+
+  // The derived roads, each in columns of one colour as the big road is in
+  // columns of one side: rings, dots and strokes.
   const derived = allDerivedRoads(road.columns);
-  drawFlat($("beb"), derived.big_eye_boy);
-  drawFlat($("small"), derived.small_road);
-  drawFlat($("roach"), derived.cockroach_road);
+  for (const [id, marks] of [["beb", derived.big_eye_boy], ["small", derived.small_road],
+                             ["roach", derived.cockroach_road]]) {
+    const grid = wrapColumns(derivedColumns(marks), ROAD_ROWS);
+    drawRoad($(id), grid[0].length, paperFor($(id)), (cell, r, c) => {
+      const m = grid[r][c];
+      if (m) cell.appendChild(el("i", "mk " + (m === RED ? "red" : "blue")));
+      return Boolean(m);
+    });
+  }
   followRoads();
 
   const c = { P: 0, B: 0, T: 0 };
@@ -10185,31 +10363,6 @@ function renderBoard() {
         side: road.currentSide ? ` (${side(road.currentSide)})` : "",
       })
     : t("board.empty");
-}
-
-function drawGrid(host, rows, kind) {
-  host.innerHTML = "";
-  for (const row of rows) {
-    const line = el("div", "gridrow");
-    for (const cell of row) {
-      const c = el("span", "cell" + (cell ? " " + cell : " empty"));
-      if (cell) c.textContent = mark(cell);
-      line.appendChild(c);
-    }
-    host.appendChild(line);
-  }
-}
-
-function drawFlat(host, marks) {
-  const rows = 6, width = Math.max(1, Math.ceil(marks.length / rows));
-  const grid = Array.from({ length: rows }, () => new Array(width).fill(null));
-  marks.forEach((m, i) => { grid[i % rows][Math.floor(i / rows)] = m; });
-  host.innerHTML = "";
-  for (const row of grid) {
-    const line = el("div", "gridrow");
-    for (const cell of row) line.appendChild(el("span", "cell sm" + (cell ? " d" + cell : " empty")));
-    host.appendChild(line);
-  }
 }
 
 /* ------------------------------------------------------------- per shoe */
