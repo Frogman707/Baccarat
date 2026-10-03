@@ -265,6 +265,12 @@ table.stake tr:last-child td{border-bottom:none}
          margin:17px 0 8px; padding-top:14px; border-top:1px solid var(--line)}
 .obssub{font-size:11px; color:var(--ink-3); font-family:var(--mono);
         font-variant-numeric:tabular-nums; text-align:right}
+/* The ledger's heading carries its controls -- which coups it counts, and
+   from where. Where they do not fit beside what it counts, they go under it
+   rather than squeezing the words into a column. */
+.ledgerhead{flex-wrap:wrap; row-gap:6px}
+.obsactions{display:flex; gap:6px; margin-left:auto; flex:0 0 auto}
+.obsactions .btn.tiny{margin-left:0}
 /* The replay's three outcomes, each carrying what it paid: the commission on
    a Banker win is the term that decides the whole question, so it sits on the
    row rather than in a footnote. The figures are what actually happened, not
@@ -699,10 +705,13 @@ footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
     <p class="ainote" id="aiBetWhy" hidden></p>
     <p class="aiverdict" id="aiHold" hidden></p>
     <div class="aigrid" id="aiFacts"></div>
-    <div class="obshead">
+    <div class="obshead ledgerhead">
       <span class="blabel" id="aiOverallH"></span>
       <span class="obssub" id="aiOverallSub"></span>
-      <button class="btn ghost tiny" id="ledgerFrom" data-i18n="ai.countFromHere"></button>
+      <span class="obsactions">
+        <button class="btn ghost tiny" id="ledgerScope" data-i18n="ai.scopeTable"></button>
+        <button class="btn ghost tiny" id="ledgerFrom" data-i18n="ai.countFromHere"></button>
+      </span>
     </div>
     <div aria-live="polite" aria-atomic="true">
       <div id="aiLast" class="ailast" hidden></div>
@@ -1497,6 +1506,36 @@ const S = {
   "ai.betSub": {
     ko: "이 테이블 {shoes}슈 {coups}판 전부", en: "all {coups} [coups|coup|coups] over {shoes} [shoes|shoe|shoes] here",
     "zh-Hant": "本桌 {shoes} 靴 {coups} 局全部", "zh-Hans": "本桌 {shoes} 靴 {coups} 局全部",
+  },
+  /* What the tally counts: the shoe being dealt, which is what the casino's
+     own screen counts, or the whole table. */
+  "ai.betSubShoe": {
+    ko: "이번 슈 {coups}판", en: "this shoe · {coups} [coups|coup|coups]",
+    "zh-Hant": "本靴 {coups} 局", "zh-Hans": "本靴 {coups} 局",
+  },
+  "ai.betSubShoeEmpty": {
+    ko: "이번 슈 · 아직 없음", en: "this shoe · nothing yet",
+    "zh-Hant": "本靴 · 尚無", "zh-Hans": "本靴 · 尚无",
+  },
+  "ai.scopeTable": {
+    ko: "테이블 전체 보기", en: "Whole table",
+    "zh-Hant": "看整桌", "zh-Hans": "看整桌",
+  },
+  "ai.scopeShoe": {
+    ko: "이번 슈만 보기", en: "This shoe only",
+    "zh-Hant": "只看本靴", "zh-Hans": "只看本靴",
+  },
+  "ai.betNoteShoe": {
+    ko: "지금 진행 중인 <b>이번 슈</b>만 셉니다 — 카지노 화면이 이번 슈에 보여 주는 바로 그 판들입니다. 이번 슈 {coups}판을 하나씩 되돌리며, <b>그 시점까지의 결과만으로</b> 추천을 다시 계산해 그 쪽에 1유닛씩 걸었을 때의 합계입니다. 타이는 판돈이 돌아오므로 배팅 판수에서 빠지고, 뱅커로 이긴 판은 커미션 5%를 떼고 0.95유닛만 받습니다. 한 슈는 판수가 적어 운에 크게 흔들립니다 — 판이 쌓일수록 판당 −1.06%(뱅커)에서 −1.24%(플레이어) 사이로 모입니다.",
+    en: "Only <b>this shoe</b>, the one being dealt — the coups the casino's screen shows for it. The sum of replaying its {coups} [coups|coup|coups] one at a time, recomputing the pick from <b>only the coups before each one</b> and putting a unit on it. Ties return the stake and so are not counted as bets; a Banker win pays 0.95 after the 5% commission. One shoe is few coups, and luck moves it a long way — over many, it settles between −1.06% a coup (Banker) and −1.24% (Player).",
+    "zh-Hant": "只計正在進行的<b>本靴</b> — 也就是賭場畫面上本靴的那些局。把本靴 {coups} 局逐一重播，每一局都<b>只用該局之前的結果</b>重新計算推薦並押上 1 單位的合計。和局退還本金故不計入下注局數；莊贏須扣 5% 佣金，只得 0.95 單位。一靴局數少，受運氣影響很大 — 局數一多，會收斂在每局 −1.06%（莊）到 −1.24%（閒）之間。",
+    "zh-Hans": "只计正在进行的<b>本靴</b> — 也就是赌场画面上本靴的那些局。把本靴 {coups} 局逐一重播，每一局都<b>只用该局之前的结果</b>重新计算推荐并押上 1 单位的合计。和局退还本金故不计入下注局数；庄赢须扣 5% 佣金，只得 0.95 单位。一靴局数少，受运气影响很大 — 局数一多，会收敛在每局 −1.06%（庄）到 −1.24%（闲）之间。",
+  },
+  "ai.betNoteEarlier": {
+    ko: " 앞선 슈의 {before}판도 추천을 만드는 데는 쓰이지만, 여기서 정산하지는 않습니다.",
+    en: " The {before} [before|coup|coups] of earlier shoes [before|goes|go] into the pick as well, and [before|is|are] not settled here.",
+    "zh-Hant": "先前牌靴的 {before} 局同樣用於形成推薦，但不在此結算。",
+    "zh-Hans": "先前牌靴的 {before} 局同样用于形成推荐，但不在此结算。",
   },
   "ai.countFromHere": {
     ko: "여기서부터 세기", en: "Count from here",
@@ -5805,6 +5844,18 @@ class Learner {
     advance(this.run, sequences);
     return report(this.run, sequences, { commission, deff, next, from });
   }
+
+  /**
+   * Both books settled from coup `from` on, over the record `update` was last
+   * given -- the picks are the ones that walk made, so nothing is trained.
+   * The ledger on screen can count less of the record than the network is
+   * judged on: one shoe of it, while the question of whether the network has
+   * earned the wheel is asked over all of it.
+   */
+  settle(sequences, { commission = BANKER_COMMISSION, deff = 1, from = 0 } = {}) {
+    const { model, base, coups } = settleAll(sequences, this.run.picks, { commission, deff, from });
+    return { model: finish(model), base: finish(base), coups };
+  }
 }
 
 
@@ -8343,6 +8394,36 @@ function clampMarks() {
   }
 }
 
+/**
+ * How much of the table the ledger on screen counts: the shoe being dealt, or
+ * all of it.
+ *
+ * The shoe is the default because it is what a person at a table is comparing
+ * against -- the casino's screen counts the shoe, and starts again when the
+ * shoe does -- and because a table here can hold shoes nobody was watching:
+ * days of them, or another table's, read before anyone chose a new one. A
+ * tally over all of that was set beside a screen showing twenty-four coups.
+ * The coups before the shoe are not dropped. They are what the pick is made
+ * of, as before; they are only not settled here. The whole table, and the mark
+ * that counts it from a chosen coup, are a tap away; the choice is kept on
+ * this device, like the view.
+ */
+const LEDGER_SCOPE_KEY = "baccarat.ledgerScope.v1";
+let ledgerScope = (() => {
+  try { return localStorage.getItem(LEDGER_SCOPE_KEY) === "table" ? "table" : "shoe"; }
+  catch { return "shoe"; }
+})();
+
+/** The coups of a table before the shoe being dealt: where a shoe's tally starts. */
+function shoeStart(name = state.active) {
+  return tableCoups(name) - openShoe(name).o.length;
+}
+
+/** Where the tally on screen starts counting. */
+function shownFrom() {
+  return ledgerScope === "shoe" ? shoeStart() : ledgerFrom();
+}
+
 /** Total coups a table holds, which is where a fresh tally starts from. */
 function tableCoups(name = state.active) {
   return shoes(name).reduce((n, s) => n + s.o.length, 0);
@@ -9370,7 +9451,9 @@ function learned() {
 }
 
 function ledger() {
-  if (ledgerCache && ledgerCache.revision === revision && ledgerCache.table === state.active) {
+  const from = shownFrom();
+  if (ledgerCache && ledgerCache.revision === revision && ledgerCache.table === state.active
+      && ledgerCache.from === from) {
     return ledgerCache.value;
   }
   // The block is the record of backing the recommendation, so it has to settle
@@ -9380,15 +9463,18 @@ function ledger() {
   // the coup would be recorded as a loss because the rule being settled had
   // picked Player.
   const l = learned();
-  if (l.trusted) {
-    ledgerCache = { revision, table: state.active, value: l.model };
-    return l.model;
-  }
   const o = observed();
   const deff = Number.isFinite(o.inflate) ? Math.max(1, o.inflate ** 2) : 1;
-  const value = replayPicks(shoes().map((s) => s.o).filter(Boolean),
-                            { deff, from: ledgerFrom() });
-  ledgerCache = { revision, table: state.active, value };
+  const sequences = shoes().map((s) => s.o).filter(Boolean);
+  let value;
+  if (l.trusted) {
+    // The network is judged from the mark; the screen may count less of it.
+    value = from === ledgerFrom() ? l.model
+      : learners.for(state.active ?? "").settle(sequences, { deff, from }).model;
+  } else {
+    value = replayPicks(sequences, { deff, from });
+  }
+  ledgerCache = { revision, table: state.active, from, value };
   return value;
 }
 
@@ -9410,12 +9496,19 @@ function renderBetOutcome() {
   grid.innerHTML = "";
   $("aiOverallH").textContent = t("ai.betH");
 
-  // The control says what pressing it would do, which is the opposite of the
-  // state it is in: a table already counting from a mark offers to stop.
+  // Each control says what pressing it would do, which is the opposite of the
+  // state it is in: a table already counting from a mark offers to stop, and
+  // a block counting the shoe offers the table. The mark is the whole table's
+  // business, so it is offered only there; and where the table is nothing but
+  // this shoe the two counts are one, and the choice is not offered at all.
+  const byShoe = ledgerScope === "shoe";
+  const before = shoeStart();
   const mark = ledgerFrom();
   const marked = mark > 0;
+  $("ledgerScope").textContent = byShoe ? t("ai.scopeTable") : t("ai.scopeShoe");
+  $("ledgerScope").hidden = byShoe && !before;
   $("ledgerFrom").textContent = marked ? t("ai.countFromAll") : t("ai.countFromHere");
-  $("ledgerFrom").hidden = !marked && !tableCoups();
+  $("ledgerFrom").hidden = byShoe || (!marked && !tableCoups());
 
   if (!r.bets) {
     $("aiOutcomes").innerHTML = "";
@@ -9423,9 +9516,14 @@ function renderBetOutcome() {
     // is a stale value waiting to be read by something that does not check.
     $("aiLast").hidden = true;
     $("aiLast").innerHTML = "";
-    // Empty because the table is, or empty because the tally was just zeroed:
-    // those are different states and the reader cannot tell them apart from a
-    // blank block.
+    // Empty because the table is, because the shoe has only just begun, or
+    // because the tally was just zeroed: those are different states and the
+    // reader cannot tell them apart from a blank block.
+    if (byShoe) {
+      sub.textContent = t("ai.betSubShoeEmpty");
+      note.innerHTML = t("ai.betNoteEmpty");
+      return;
+    }
     sub.textContent = marked
       ? t("ai.betSubEmptyFrom", { n: (mark + 1).toLocaleString() })
       : t("ai.betSubEmpty");
@@ -9435,7 +9533,9 @@ function renderBetOutcome() {
       : t("ai.betNoteEmpty");
     return;
   }
-  sub.textContent = marked
+  sub.textContent = byShoe
+    ? t("ai.betSubShoe", { coups: r.coups.toLocaleString() })
+    : marked
     ? t("ai.betSubFrom", { n: (mark + 1).toLocaleString(), coups: r.coups.toLocaleString() })
     : t("ai.betSub", { shoes: o.shoes, coups: o.coups.toLocaleString() });
 
@@ -9477,8 +9577,8 @@ function renderBetOutcome() {
   const signed = (x, d = 2) => (x >= 0 ? "+" : "\u2212") + Math.abs(x).toFixed(d);
 
   // The coup just settled, spelled out. Everything else in this block is a
-  // total over the whole table, so none of it answers the one question a
-  // reader has when a result lands: what did that do?
+  // total over the shoe or the table, so none of it answers the one question
+  // a reader has when a result lands: what did that do?
   const lastRow = $("aiLast");
   if (r.last) {
     lastRow.hidden = false;
@@ -9528,7 +9628,10 @@ function renderBetOutcome() {
     grid.appendChild(line);
   }
 
-  note.innerHTML = marked
+  note.innerHTML = byShoe
+    ? t("ai.betNoteShoe", { coups: r.coups.toLocaleString() })
+      + (before ? t("ai.betNoteEarlier", { before: before.toLocaleString() }) : "")
+    : marked
     ? t("ai.betNoteFrom", { n: (mark + 1).toLocaleString(),
                             before: mark.toLocaleString() })
       + " " + t("ai.betNote", { coups: r.coups.toLocaleString() })
@@ -11027,6 +11130,14 @@ function bindControls() {
     if (ledgerFrom(name)) delete entry.from;
     else entry.from = tableCoups(name);
     commitTo(name, []);
+  };
+  // The shoe, or the whole table: which coups the tally on screen counts. It
+  // changes nothing but that, so it redraws the block and nothing else.
+  $("ledgerScope").onclick = () => {
+    ledgerScope = ledgerScope === "shoe" ? "table" : "shoe";
+    try { localStorage.setItem(LEDGER_SCOPE_KEY, ledgerScope); } catch { /* this visit only */ }
+    renderBetOutcome();
+    foldExplanations();                       // the note under it was rewritten
   };
 
   $("runIntegrity").onclick = runIntegrity;
