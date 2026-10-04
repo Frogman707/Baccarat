@@ -1262,6 +1262,10 @@ const S = {
   },
   "live.logGrow": { ko: "+{n}판 → {total}판  {sides}", en: "+{n} → {total}  {sides}", "zh-Hant": "+{n} 局 → {total} 局  {sides}", "zh-Hans": "+{n} 局 → {total} 局  {sides}" },
   "live.logNewShoe": { ko: "새 슈 시작 — {n}판 읽음", en: "New shoe — {n} read", "zh-Hant": "新牌靴 — 已讀 {n} 局", "zh-Hans": "新牌靴 — 已读 {n} 局" },
+  "live.logNewTable": {
+    ko: "새 테이블 {table} — {n}판 읽음", en: "New table {table} — {n} read",
+    "zh-Hant": "新桌台 {table} — 已讀 {n} 局", "zh-Hans": "新桌台 {table} — 已读 {n} 局",
+  },
   "live.logStopped": { ko: "화면 공유 중단", en: "Screen sharing stopped", "zh-Hant": "已停止畫面分享", "zh-Hans": "已停止画面共享" },
   "live.logRelock": { ko: "영역을 다시 찾습니다", en: "Finding the board again", "zh-Hant": "重新尋找區域", "zh-Hans": "重新寻找区域" },
   "live.logManual": { ko: "{n}판으로 수동 교체", en: "Replaced by hand with {n}", "zh-Hant": "手動替換為 {n} 局", "zh-Hans": "手动替换为 {n} 局" },
@@ -1278,17 +1282,21 @@ const S = {
     "zh-Hans": "当前读取的是大路而非珠盘路。大路不显示和局，且超过六行的连庄会向右转折，顺序可能出错 — 请让珠盘路显示在画面上，再按<b>重新寻找区域</b>。",
   },
   "live.deepReset": {
-    ko: "읽은 값 {read}판이 현재 슈({cur}판)와 <b>전혀 겹치지 않습니다.</b> 새 슈는 1판부터 시작하므로, 이건 새 슈가 아니라 <b>다른 판</b>(본매나 옆 테이블)을 읽고 있을 가능성이 큽니다. 영역을 확인하거나, 정말 다른 테이블로 옮긴 것이라면 아래를 누르세요.",
-    en: "The {read}-coup reading has <b>nothing in common</b> with this shoe's {cur}. A new shoe starts at one coup, so this is more likely a <b>different board</b> — the big road, or the table next door — than a new shoe. Check the region, or press below if you really did move to another table.",
-    "zh-Hant": "讀到的 {read} 局與目前牌靴的 {cur} 局<b>完全不重疊</b>。新牌靴從第 1 局開始，所以這更可能是在讀<b>另一個路單</b>（大路或隔壁桌），而非新牌靴。請確認區域；若確實換了桌，請按下方。",
-    "zh-Hans": "读到的 {read} 局与当前牌靴的 {cur} 局<b>完全不重叠</b>。新牌靴从第 1 局开始，所以这更可能是在读<b>另一个路单</b>（大路或隔壁桌），而非新牌靴。请确认区域；若确实换了桌，请按下方。",
+    ko: "읽은 값 {read}판이 현재 슈({cur}판)와 <b>전혀 겹치지 않습니다.</b> 새 슈는 1판부터 시작하므로, 이건 새 슈가 아니라 <b>다른 판</b>(본매나 옆 테이블)을 읽고 있을 가능성이 큽니다. 영역을 확인하세요. 다른 테이블로 옮긴 것이라면 <b>새 테이블로 기록</b>을 누르세요 — 지금 테이블의 기록과 섞이지 않습니다.",
+    en: "The {read}-coup reading has <b>nothing in common</b> with this shoe's {cur}. A new shoe starts at one coup, so this is more likely a <b>different board</b> — the big road, or the table next door — than a new shoe. Check the region. If you did move to another table, press <b>Record as a new table</b> — it stays out of this table's record.",
+    "zh-Hant": "讀到的 {read} 局與目前牌靴的 {cur} 局<b>完全不重疊</b>。新牌靴從第 1 局開始，所以這更可能是在讀<b>另一個路單</b>（大路或隔壁桌），而非新牌靴。請確認區域。若確實換了桌，請按<b>記到新桌台</b> — 不會混入本桌的紀錄。",
+    "zh-Hans": "读到的 {read} 局与当前牌靴的 {cur} 局<b>完全不重叠</b>。新牌靴从第 1 局开始，所以这更可能是在读<b>另一个路单</b>（大路或隔壁桌），而非新牌靴。请确认区域。若确实换了桌，请按<b>记到新桌台</b> — 不会混入本桌的记录。",
   },
   // No count in the label: the sentence above it has just given the count, and
   // a bare number here reads as "1 as" at a shoe of one -- which is the plural
   // check firing on the word "as", but the copy is better without it either way.
   "live.deepResetAccept": {
-    ko: "이 판독을 새 슈로 기록", en: "Record this reading as a new shoe",
-    "zh-Hant": "將此讀取記為新牌靴", "zh-Hans": "将此读取记为新牌靴",
+    ko: "이 테이블에 새 슈로 기록", en: "Record as a new shoe here",
+    "zh-Hant": "在本桌記為新牌靴", "zh-Hans": "在本桌记为新牌靴",
+  },
+  "live.deepResetNewTable": {
+    ko: "새 테이블로 기록", en: "Record as a new table",
+    "zh-Hant": "記到新桌台", "zh-Hans": "记到新桌台",
   },
   "live.shortSwap": { ko: "{n}판으로 교체", en: "Replace with {n}", "zh-Hant": "替換為 {n} 局", "zh-Hans": "替换为 {n} 局" },
   "live.retry": { ko: "다시 시도", en: "Try again", "zh-Hant": "重試", "zh-Hans": "重试" },
@@ -8771,17 +8779,37 @@ function onLiveRead(seq, board, repeats, { afterClear = false } = {}) {
     // Not refused, though. Pointing the shared window at another table really
     // does produce a deep reading with nothing in common, and that is a thing
     // people do. So it is offered instead of taken.
+    //
+    // And where it is another table, it is that table's first shoe, not this
+    // one's next: filed here, one table's record carried another's shoe, and
+    // every figure about it -- the shares, the bet results -- was a mix of two
+    // tables. So the choice offered first is a table of its own, named by the
+    // person who knows which table it is; the reader then fills that table.
     if (!restart && seq.length > RESTART_DEPTH) {
       setLiveWarn(
         t("live.deepReset", { read: seq.length, cur: current.length }),
-        {
+        [{
+          id: "newTable",
+          label: t("live.deepResetNewTable"),
+          run: () => {
+            const name = cleanTableName(prompt(t("header.newTablePrompt")));
+            if (!name) return;
+            state.tables[name] ||= { shoes: [] };
+            state.active = name;
+            liveTable = name;
+            loadAsNewShoe(seq, name);
+            setLiveWarn(null);
+            liveLog(t("live.logNewTable", { table: name, n: seq.length }), "new");
+          },
+        }, {
+          id: "sameTable",
           label: t("live.deepResetAccept"),
           run: () => {
             loadAsNewShoe(seq, into);
             setLiveWarn(null);
             liveLog(t("live.logNewShoe", { n: seq.length }), "new");
           },
-        });
+        }]);
       return;
     }
     loadAsNewShoe(seq, into);
@@ -8837,10 +8865,13 @@ function setLiveWarn(text, action) {
   const line = el("span");
   line.innerHTML = text;
   box.appendChild(line);
-  if (action) {
-    const b = el("button", "btn ghost", action.label);
+  // One way out, or a choice of them -- the first being the one the warning
+  // points at.
+  for (const [i, a] of (Array.isArray(action) ? action : action ? [action] : []).entries()) {
+    const b = el("button", i === 0 && Array.isArray(action) ? "btn" : "btn ghost", a.label);
     b.style.marginLeft = "8px";
-    b.onclick = action.run;
+    if (a.id) b.dataset.act = a.id;
+    b.onclick = a.run;
     box.appendChild(b);
   }
 }
