@@ -671,6 +671,7 @@ footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
           <button class="btn" id="liveStop" data-i18n="live.stop"></button>
         </div>
         <div id="liveBinding" class="warn" hidden></div>
+        <div id="liveSurface" class="warn" hidden></div>
         <div id="liveWarn" class="warn" hidden></div>
         <div id="liveLog" class="livelog" data-full-only></div>
       </div>
@@ -1251,6 +1252,20 @@ const S = {
   "live.logCleared": {
     ko: "육매가 비었습니다 — 슈 종료", en: "The bead plate cleared — end of shoe",
     "zh-Hant": "珠盤路已清空 — 牌靴結束", "zh-Hans": "珠盘路已清空 — 牌靴结束",
+  },
+  "live.logResumed": {
+    ko: "육매가 다시 보입니다 — 같은 슈가 이어집니다", en: "The bead plate is back — the same shoe carries on",
+    "zh-Hant": "珠盤路又出現了 — 同一靴繼續", "zh-Hans": "珠盘路又出现了 — 同一靴继续",
+  },
+  "live.monitorWarn": {
+    ko: "<b>화면 전체를 공유하고 있습니다.</b> 이 페이지도 함께 찍혀서, 여기 그려진 보드를 카지노 판으로 잘못 읽을 수 있습니다. 카지노가 열린 <b>탭이나 창만</b> 공유하세요 — 판이 더 크게 들어와서 더 정확하게 읽힙니다.",
+    en: "<b>You are sharing your whole screen.</b> This page is in the picture too, and the board drawn here can be read as the casino's. Share only the <b>tab or window</b> the casino is in — the board comes through larger, too, and reads more reliably.",
+    "zh-Hant": "<b>您正在分享整個螢幕。</b>本頁也會被一起擷取，這裡畫出的路圖可能被誤讀為賭場的路圖。請只分享賭場所在的<b>分頁或視窗</b> — 路圖也會更大，讀得更準。",
+    "zh-Hans": "<b>您正在共享整个屏幕。</b>本页也会被一起截取，这里画出的路图可能被误读为赌场的路图。请只共享赌场所在的<b>标签页或窗口</b> — 路图也会更大，读得更准。",
+  },
+  "live.monitorReshare": {
+    ko: "카지노 탭만 다시 공유", en: "Share the casino tab instead",
+    "zh-Hant": "改為只分享賭場分頁", "zh-Hans": "改为只共享赌场标签页",
   },
   "live.locking": { ko: "영역 찾는 중", en: "finding the board", "zh-Hant": "尋找區域中", "zh-Hans": "寻找区域中" },
   "live.searching": {
@@ -6769,6 +6784,27 @@ const MEMORY_HOLD_MS = 2 * 60 * 1000;
  */
 const PICK_TOLERANCE = 0.5;
 /**
+ * Marks a single column may hold and still be read before it has grown.
+ *
+ * A casino strip carries more than its roads. Beside them a table keeps a
+ * legend -- a column of icons, Banker, Player, Tie and the two pairs, each
+ * beside its count -- and the ask-road icons, a short column under each side.
+ * To a reader looking for a board those are a young shoe's first column:
+ * round marks, in the right colours, one under another. And they never
+ * change, so a reader that took one stayed on it. Measured on an owner's own
+ * table: started while the strip was empty between shoes, the reader read the
+ * legend as a five-coup shoe, "BPTBP", and held it through every coup of the
+ * next shoe, none of which it saw. Pressing "find the board again" during a
+ * shuffle did the same.
+ *
+ * What a fixed column cannot do is grow. So a reader not yet following a
+ * board that has shown itself to be a road takes a single column only once
+ * it has watched that column gain a mark -- or where it is the only thing on
+ * the strip and no longer than a shoe's first hand or two, which is what
+ * reading a shoe from its first coup asks for, and what no legend is.
+ */
+const OPENING_MARKS = 2;
+/**
  * Samples between full-screen re-checks, so a bad lock heals on its own.
  *
  * Twelve is about twenty seconds at the default interval -- long enough that
@@ -7025,6 +7061,13 @@ class LiveWatcher {
     this.bounds = null;      // the whole result strip, in frame pixels
     this.anchor = null;      // centre of the board being read, to keep the pick stable
     this.lastBox = null;     // and its box, so a neighbour is not mistaken for it
+    /**
+     * Whether the board being followed has shown itself to be a road: two
+     * columns or more, or a column watched gaining a mark. Only such a board
+     * is protected from what else is in the strip -- see `OPENING_MARKS`.
+     */
+    this.proven = false;
+    this.sightings = [];     // single columns seen last sample, and how long they held
     this.empties = 0;        // consecutive samples with nothing in the strip
     this.cleared = false;    // the strip went empty: the next reading is a new shoe
     this.candidate = null;
@@ -7035,6 +7078,7 @@ class LiveWatcher {
     this.samples = 0;
     this.error = null;
     this.source = null;      // "screen" or "camera", for the error advice
+    this.surface = null;     // what was shared: see `_readSurface`
     this.preview = null;     // canvas the feed is painted into
     this.previewHandle = null;
     this.previewOwner = null;
@@ -7090,13 +7134,27 @@ class LiveWatcher {
       // changes, so a table sitting still costs nothing either way. Four was
       // enough when the preview only repainted once a reading; now that it
       // paints every frame, four is what a choppy preview looks like.
-      video: { frameRate: { ideal: 15 } },
+      //
+      // And the picker opens on the tab list, which is what a viewer watching
+      // a browser-based table almost always wants.
+      video: { frameRate: { ideal: 15 }, displaySurface: "browser" },
       audio: false,
-      // Nudges Chrome's picker toward the tab list, which is what a viewer
-      // watching a browser-based table almost always wants.
       preferCurrentTab: false,
       selfBrowserSurface: "exclude",
       surfaceSwitching: "include",
+      // Not the whole screen. Shared whole, the screen holds this page as well
+      // as the table, and this page draws a board the way a casino does --
+      // the same beads, the same roads, the same coups -- so the reader had a
+      // second, cleaner copy of the table to lock onto, one that only changes
+      // when the reader itself does. Measured on an owner's desktop, casino
+      // on one half and this page on the other: the whole-frame search ranked
+      // this page's bead plate first. It also mirrors itself -- the preview
+      // shows the screen, which shows the preview -- so the capture never
+      // stops changing, and the casino window, a fraction of the screen,
+      // arrives at a fraction of its size. A tab or a window is the table
+      // alone, at its own resolution. Browsers that do not know the option
+      // ignore it, and `surface` below says when that happened.
+      monitorTypeSurfaces: "exclude",
     }));
   }
 
@@ -7169,6 +7227,7 @@ class LiveWatcher {
     this.stream = stream;
     this.error = null;
     this.source = source;
+    this._readSurface();
     this.video = document.createElement("video");
     this.video.srcObject = this.stream;
     this.video.muted = true;
@@ -7204,6 +7263,7 @@ class LiveWatcher {
     this._stopPreview();
     if (this.stream) for (const t of this.stream.getTracks()) t.stop();
     this.stream = null;
+    this.surface = null;
     if (this.video) { this.video.srcObject = null; this.video = null; }
     this._reset();
     this._emit();
@@ -7218,9 +7278,8 @@ class LiveWatcher {
     this.gridMisses = 0;
     this.memory = null;              // being told the lock is wrong
     this.memoryAt = 0;
-    this.lastBox = null;
+    this._unfollow();
     this.bounds = null;
-    this.anchor = null;
     this.empties = 0;
     this.cleared = false;
     this.candidate = null;
@@ -7248,14 +7307,35 @@ class LiveWatcher {
     this.grid = null;
     this.gridBox = null;
     this.gridMisses = 0;
-    this.lastBox = null;
-    this.anchor = null;
+    this._unfollow();
     this.candidate = null;
     this.repeats = 0;
     this.empties = 0;
     this.cleared = false;
     this._emit();
     return true;
+  }
+
+  /**
+   * What kind of thing is being shared: "browser" (a tab), "window", or
+   * "monitor" -- the whole screen, with this page in it. A camera has none.
+   * Read again every sample, because the browser's own bar can switch the
+   * shared surface mid-session.
+   */
+  _readSurface() {
+    const track = this.stream?.getVideoTracks?.()[0];
+    const now = (this.source === "screen" && track?.getSettings?.()?.displaySurface) || null;
+    const changed = now !== this.surface;
+    this.surface = now;
+    return changed;
+  }
+
+  /** Stop following the board being read: the next one has to show itself. */
+  _unfollow() {
+    this.lastBox = null;
+    this.anchor = null;
+    this.proven = false;
+    this.sightings = [];
   }
 
   /** Give the region back to the reader. */
@@ -7286,6 +7366,7 @@ class LiveWatcher {
       error: this.error,
       board: this.lastBoard,
       source: this.source,
+      surface: this.surface,
       bounds: this.bounds,
       locked: !!this.region,
       pinned: this.pinned,
@@ -7303,6 +7384,7 @@ class LiveWatcher {
   _sample() {
     const v = this.video;
     if (!v || !v.videoWidth) return;
+    if (this._readSurface()) this._emit();
 
     const scale = Math.min(1, WORK_MAX / Math.max(v.videoWidth, v.videoHeight));
     const w = Math.round(v.videoWidth * scale), h = Math.round(v.videoHeight * scale);
@@ -7364,7 +7446,14 @@ class LiveWatcher {
     // table's. Filtered here rather than at the pick, so a strip holding
     // nothing but a neighbour reads as empty and takes the path an emptied
     // strip already takes.
-    if (this.region && this.lastBox) boards = boardsCarryingOn(boards, this.lastBox);
+    //
+    // Once that board has shown itself to be a road. Until then nothing is
+    // protected, and what is read is what has shown itself here: a fixed
+    // column beside the roads -- a legend, the ask-road icons -- is in the
+    // same strip and outscores a young shoe, and protecting it locked the
+    // reader onto it for good. See `OPENING_MARKS`.
+    const following = !!(this.region && this.lastBox && this.proven);
+    boards = following ? boardsCarryingOn(boards, this.lastBox) : this._roadsAmong(boards);
 
     // A remembered strip is given up on time, not on emptiness: emptiness is
     // what a shoe change looks like, and it lasts for the whole shuffle.
@@ -7400,8 +7489,7 @@ class LiveWatcher {
         const was = this.gridBox || want;
         if (Math.abs(want.y - was.y) > grid.pitch || Math.abs(want.h - was.h) > grid.pitch) {
           this.region = this.memory = want;
-          this.lastBox = null;
-          this.anchor = null;
+          this._unfollow();
         }
         this.gridBox = want;
         // A lattice that has never produced a coup is a lattice, not
@@ -7426,8 +7514,7 @@ class LiveWatcher {
             this.grid = null;
             this.gridBox = null;
             this.region = this.memory = null;
-            this.lastBox = null;
-            this.anchor = null;
+            this._unfollow();
           }
         }
       } else if ((this.gridMisses += 1) >= GRID_PATIENCE) {
@@ -7462,8 +7549,7 @@ class LiveWatcher {
         bounds = full.bounds;
         this.region = null;
         this.memory = null;          // the board is over there, not here
-        this.anchor = null;
-        this.lastBox = null;
+        this._unfollow();
         this.cleared = false;
       } else if (full.bounds) {
         // Same strip, and it may have grown since the lock was taken -- the
@@ -7528,6 +7614,7 @@ class LiveWatcher {
     // but only among boards still worth reading, so the preference cannot
     // outlive the reason for it.
     const board = pickBoard(boards, this.anchor);
+    this.proven = following || !!board.shown;
     this.anchor = centreOf(board.box);
     this.lastBox = board.box;
     this.bounds = bounds;
@@ -7565,6 +7652,34 @@ class LiveWatcher {
     this.onRead(board.sequence, this.lastBoard, this.repeats, { afterClear });
     if (afterClear && this.repeats >= CONFIRM_GROWTH) this.cleared = false;
     this._emit();
+  }
+
+  /**
+   * What among `boards` has shown itself to be a road, for a reader not yet
+   * following one. See `OPENING_MARKS`.
+   *
+   * Two columns or more is a road: nothing fixed on a casino screen fills a
+   * column and starts the next. A single column has to be seen growing -- a
+   * longer reading in the same place that starts with what stood there, which
+   * had held still for two samples at least. A real column waits out a whole
+   * coup between marks; a fixed one only ever flickers.
+   */
+  _roadsAmong(boards) {
+    const before = this.sightings, now = [], shown = [];
+    for (const b of boards) {
+      if (b.nCols > 1) { b.shown = true; shown.push(b); continue; }
+      const was = before.find((s) => overlaps(s.box, b.box));
+      now.push({ box: b.box, sequence: b.sequence,
+                 held: was && was.sequence === b.sequence ? was.held + 1 : 1 });
+      if (was && was.held >= 2 && b.sequence.length > was.sequence.length
+          && b.sequence.startsWith(was.sequence)) {
+        b.shown = true;
+        shown.push(b);
+      }
+    }
+    this.sightings = now;
+    if (shown.length) return shown;
+    return boards.length === 1 && boards[0].cells.length <= OPENING_MARKS ? boards : [];
   }
 
   /**
@@ -7674,6 +7789,16 @@ class LiveWatcher {
  * a deep reading with nothing in common, and that is a click away.
  */
 const RESTART_DEPTH = 8;
+
+/**
+ * How long a first reading after a blank strip may be and still be a new shoe
+ * that happens to open the way the last one did.
+ *
+ * A new shoe is first seen at a coup or two -- three, if samples were missed.
+ * A prefix of the shoe in progress any longer than that is the same shoe
+ * coming back half drawn after the strip went blank, not a new one.
+ */
+const SAME_OPENING_DEPTH = 3;
 
 /**
  * Decide what a fresh reading means for the shoe in progress.
@@ -7787,9 +7912,11 @@ function pickBoard(boards, anchor) {
  */
 function boardsCarryingOn(found, lastBox) {
   if (!lastBox) return found;
-  return found.filter((b) => b.box.x < lastBox.x2 && lastBox.x < b.box.x2
-                          && b.box.y < lastBox.y2 && lastBox.y < b.box.y2);
+  return found.filter((b) => overlaps(b.box, lastBox));
 }
+
+/** Whether two boxes share any ground. */
+const overlaps = (a, b) => a.x < b.x2 && b.x < a.x2 && a.y < b.y2 && b.y < a.y2;
 
 /** The board whose centre is closest to `point`, falling back to the best. */
 function nearestTo(boards, point) {
@@ -8409,6 +8536,9 @@ let live = null;            // LiveWatcher, created on first use
 let lastReport = null;      // kept so a language change can redraw the verdict
 let liveHolds = 0;          // consecutive readings shorter than the shoe in progress
 let liveCleared = false;    // the strip was last seen empty, so the log says so once
+let liveResumed = false;    // and the same shoe came back after it, said once too
+/** The language the whole-screen warning was last drawn in; null while hidden. */
+let liveSurfaceDrawn = null;
 
 /**
  * What the app has actually recommended, and how it turned out.
@@ -8772,7 +8902,26 @@ function onLiveRead(seq, board, repeats, { afterClear = false } = {}) {
   // opens on the same two or three marks as the last one through: without it
   // the reading shares a prefix, reads as a truncated board, and stalls behind
   // the warning meant for a bead plate that has been cropped or scrolled.
-  const restart = afterClear && (verdict === "hold" || verdict === "reset");
+  //
+  // A new shoe is short when it is first seen, though: a coup or two, a few
+  // if samples were missed. A strip can also go blank and come back -- a panel
+  // the casino swaps out while the cards are dealt, an overlay that lifts --
+  // and an owner's log shows one doing it mid-shoe. What comes back then is
+  // the shoe in progress, perhaps half drawn: a long prefix of it, or, misread
+  // once, something that differs. Taken as a new shoe, either closed the shoe
+  // in progress and opened a copy of it. So only a short reading starts a new
+  // shoe on the strength of the blank; anything longer goes the way any other
+  // reading does, held if it is a prefix and asked about if it is deep.
+  const restart = afterClear && (verdict === "reset" ? seq.length <= RESTART_DEPTH
+    : verdict === "hold" && seq.length <= SAME_OPENING_DEPTH);
+
+  // And where it is the same shoe after all, the log -- which said the shoe
+  // had ended -- says so.
+  if (afterClear && current.length && !restart && !liveResumed
+      && (verdict === "same" || verdict === "grow" || verdict === "hold")) {
+    liveResumed = true;
+    liveLog(t("live.logResumed"));
+  }
 
   if (verdict === "same") { liveHolds = 0; setLiveWarn(road); return; }
 
@@ -8900,6 +9049,32 @@ function renderLiveBinding() {
   bar.appendChild(go);
 }
 
+/**
+ * Say so when the whole screen is being shared, with the way out beside it.
+ *
+ * The page asks the browser for a tab or a window, and most browsers then do
+ * not offer the screen at all -- see `LiveWatcher.start`. Where one does, and
+ * the screen is what came back, this page is in the picture with its own
+ * board on it, and the reader can lock onto that. Drawn once per language
+ * rather than every sample, so the button is not replaced under a click.
+ */
+function renderLiveSurface(surface) {
+  const box = $("liveSurface");
+  if (surface !== "monitor") { box.hidden = true; box.innerHTML = ""; liveSurfaceDrawn = null; return; }
+  box.hidden = false;
+  if (liveSurfaceDrawn === currentLang()) return;
+  liveSurfaceDrawn = currentLang();
+  box.innerHTML = "";
+  const line = el("span");
+  line.innerHTML = t("live.monitorWarn");
+  box.appendChild(line);
+  const again = el("button", "btn", t("live.monitorReshare"));
+  again.style.marginLeft = "8px";
+  again.dataset.act = "reshare";
+  again.onclick = () => { live.stop(); live.start(); };
+  box.appendChild(again);
+}
+
 function setLiveWarn(text, action) {
   const box = $("liveWarn");
   if (!text) { box.hidden = true; box.innerHTML = ""; return; }
@@ -8974,6 +9149,7 @@ function onLiveState(st) {
   $("liveIdle").hidden = st.active || !!st.error;
   $("liveActive").hidden = !st.active;
   $("liveError").hidden = !st.error;
+  renderLiveSurface(st.active && !st.error ? st.surface : null);
   // The box that has just come back was measured while it was hidden, when
   // none of its paragraphs had anything to open.
   if (flipped) foldExplanations();
@@ -9034,7 +9210,10 @@ function onLiveState(st) {
 
   // The gap between a shoe ending and the next one being readable can run to
   // minutes, so the moment itself goes in the log rather than only the status.
-  if (st.cleared && !liveCleared) liveLog(t("live.logCleared"), "new");
+  if (st.cleared && !liveCleared) {
+    liveLog(t("live.logCleared"), "new");
+    liveResumed = false;
+  }
   liveCleared = st.cleared;
 }
 
