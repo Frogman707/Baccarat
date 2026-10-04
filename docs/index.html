@@ -6412,16 +6412,37 @@ function settlePredictions(log, table, sequences) {
  * given up rather than allowed to grow without end, and counted as having been
  * made and never scored.
  */
-function trim(t) {
-  if (t.entries.length <= LOG_CAP) return;
-  let excess = t.entries.length - LOG_CAP;
+function trim(t, cap = LOG_CAP) {
+  if (t.entries.length <= cap) return;
+  let excess = t.entries.length - cap;
   const keep = [];
   for (const e of t.entries) {
     if (excess > 0 && e.r) { foldInto(t.rolled, e); excess -= 1; continue; }
     keep.push(e);
   }
-  while (keep.length > LOG_CEILING) { t.rolled.n += 1; keep.shift(); }
+  while (keep.length > cap * (LOG_CEILING / LOG_CAP)) { t.rolled.n += 1; keep.shift(); }
   t.entries = keep;
+}
+
+/**
+ * Make room in the store: list at most `cap` entries on any table, rolling
+ * the oldest into its totals as `LOG_CAP` does.
+ *
+ * Each table is capped on its own, at about two hundred kilobytes, and the
+ * browser keeps about five million characters for the whole page -- so a
+ * score of tables watched for a season fill it with the log alone, and then
+ * the next coup cannot be kept. The coups come first: when the store is full
+ * the log gives up its list, never its totals, until they fit. Returns how
+ * many entries were rolled.
+ */
+function shrinkPredictions(log, cap) {
+  let rolled = 0;
+  for (const t of Object.values(log.tables)) {
+    const before = t.entries.length;
+    trim(t, cap);
+    rolled += before - t.entries.length;
+  }
+  return rolled;
 }
 
 /** Add one settled entry to a roll-up. */
@@ -7080,6 +7101,8 @@ class LiveWatcher {
     this.source = null;      // "screen" or "camera", for the error advice
     this.surface = null;     // what was shared: see `_readSurface`
     this.preview = null;     // canvas the feed is painted into
+    this.previewSeen = null; // watches whether it is on screen: see `_watchPreview`
+    this.previewVisible = true;
     this.previewHandle = null;
     this.previewOwner = null;
     /**
@@ -7693,8 +7716,30 @@ class LiveWatcher {
    * the picture runs at the rate the frames actually arrive.
    */
   drawPreview(target) {
+    if (target !== this.preview) this._watchPreview(target);
     this.preview = target;
     return this._paintPreview();
+  }
+
+  /**
+   * Whether the preview can be seen at all.
+   *
+   * It is painted every frame the capture delivers -- fifteen a second from a
+   * shared screen -- and each paint scales the whole frame down into it.
+   * Measured on a 2560-wide screen, that painting was a fifth of a core, and
+   * it went on while the preview was scrolled off the page, which is where it
+   * is whenever the board or the prediction is being read. The reading does
+   * not depend on it, so it pauses while nobody can see it.
+   */
+  _watchPreview(target) {
+    this.previewSeen?.disconnect();
+    this.previewSeen = null;
+    this.previewVisible = true;
+    if (!target || typeof IntersectionObserver !== "function") return;
+    this.previewSeen = new IntersectionObserver((entries) => {
+      for (const e of entries) this.previewVisible = e.isIntersecting;
+    });
+    this.previewSeen.observe(target);
   }
 
   /**
@@ -7722,7 +7767,7 @@ class LiveWatcher {
     const step = () => {
       this.previewHandle = null;
       if (!this.stream) return;
-      this._paintPreview();
+      if (this.previewVisible !== false && !document.hidden) this._paintPreview();
       this._queuePreview(step);
     };
     this._queuePreview(step);
@@ -8043,6 +8088,12 @@ class Store {
     this.db = null;
     this.status = "local";            // local | syncing | synced | error | full
     this.onStatus = () => {};
+    /**
+     * Asked for room when the shoes do not fit: frees some, and says whether
+     * it did. The page sets it to shrink the prediction log; nothing else
+     * here is worth a coup.
+     */
+    this.makeRoom = () => false;
     this._pending = new Map();        // shoeId -> record
     this._deletes = new Set();        // shoeIds emptied or undone away
     // What the shared store is believed to hold. A shoe is only worth deleting
@@ -8213,17 +8264,27 @@ class Store {
 
   /** Mirror the whole state locally and queue the changed shoes for the db. */
   save(state, changedShoeIds = []) {
+    const raw = JSON.stringify(state);
+    let kept = false, failure = null;
     try {
-      localStorage.setItem(LS_KEY, JSON.stringify(state));
-      // Back to normal after a failure: the header is the only place a person
-      // can see whether their evening is being kept.
-      if (!this.db && this.status !== "local") this._setStatus("local");
+      localStorage.setItem(LS_KEY, raw);
+      kept = true;
     } catch (e) {
-      // With no db this was the only copy. A browser that will not keep it --
-      // private mode, blocked site data, a full quota -- used to fail in
-      // silence, and a collector found out on the reload that lost the lot.
-      if (!this.db) this._setStatus(isQuota(e) ? "full" : "error");
+      failure = e;
+      // Full: whatever else the page keeps here gives up room to the shoes,
+      // a step at a time, for as long as it has room to give -- see
+      // `makeRoom`. The shoes are what this app exists to keep.
+      while (isQuota(failure) && this.makeRoom()) {
+        try { localStorage.setItem(LS_KEY, raw); kept = true; break; } catch (again) { failure = again; }
+      }
     }
+    // Back to normal after a failure: the header is the only place a person
+    // can see whether their evening is being kept.
+    if (kept && !this.db && this.status !== "local") this._setStatus("local");
+    // With no db this was the only copy. A browser that will not keep it --
+    // private mode, blocked site data, a full quota -- used to fail in
+    // silence, and a collector found out on the reload that lost the lot.
+    if (!kept && !this.db) this._setStatus(isQuota(failure) ? "full" : "error");
     if (!this.db) return;
 
     for (const id of changedShoeIds) {
@@ -8525,6 +8586,22 @@ function statWhy(key) {
 /* ------------------------------------------------------------------ state */
 
 const store = new Store();
+/**
+ * Room for the shoes, from the prediction log, when the store is full: each
+ * table's list halved, its totals kept, until the shoes fit or the lists are
+ * down to their last few dozen. See `shrinkPredictions`.
+ */
+store.makeRoom = () => {
+  // Halved until it can be written: a log whose earlier writes were refused
+  // is bigger in memory than the copy it replaces, and writing it frees
+  // nothing until it is smaller than that copy.
+  for (;;) {
+    const longest = Math.max(0, ...Object.values(predictionLog.tables).map((t) => t.entries.length));
+    if (longest <= 40) return false;
+    shrinkPredictions(predictionLog, Math.floor(longest / 2));
+    if (store.saveLog(predictionLog)) return true;
+  }
+};
 let state = null;
 // Nulls by `nullKey` -- the replicates and the shape they were built for. A
 // coup landing in a shoe still open is a new shape, so the few most recent are
@@ -8758,15 +8835,53 @@ function foldExplanations() {
     }
     p.classList.add("fold");
     const open = p.classList.contains("open");
-    button.textContent = t(open ? "ui.less" : "ui.more");
+    const label = t(open ? "ui.less" : "ui.more");
+    if (button.textContent !== label) button.textContent = label;
     button.setAttribute("aria-expanded", String(open));
-    // Measured folded: a paragraph that already fits has nothing to open. And
-    // one that is not drawn -- hidden, inside something hidden, or left out of
-    // this view -- has no button, open or not: a "less" under nothing is a
-    // control for a paragraph nobody can see.
-    const drawn = p.getClientRects().length > 0;
-    button.hidden = !drawn || (!open && p.scrollHeight <= p.clientHeight + 1);
   }
+  measureAfterLayout();
+}
+
+/**
+ * Whether each folded paragraph has anything to open, measured.
+ *
+ * Measured folded: a paragraph that already fits has nothing to open. And one
+ * that is not drawn -- hidden, inside something hidden, or left out of this
+ * view -- has no button, open or not: a "less" under nothing is a control for
+ * a paragraph nobody can see.
+ *
+ * Every measurement first, then every button: measuring a paragraph straight
+ * after changing the button before it made the browser lay the whole page out
+ * again for every paragraph.
+ */
+function measureFolds() {
+  const folds = [];
+  for (const p of document.querySelectorAll(".panel > p.sub, p.foldable")) {
+    const button = p.nextElementSibling;
+    if (!button || !button.classList.contains("subtoggle")) continue;
+    const open = p.classList.contains("open");
+    folds.push({ button, hide: !(p.getClientRects().length > 0)
+                               || (!open && p.scrollHeight <= p.clientHeight + 1) });
+  }
+  for (const f of folds) f.button.hidden = f.hide;
+}
+
+/**
+ * What a render leaves to be measured: the folds, and where each road is
+ * scrolled to. Both read the page's layout, and read in the middle of a render
+ * each one made the browser lay the page out there and then -- three or four
+ * times a coup, besides the time it does so to draw it. In the next frame,
+ * before it is drawn, the layout they read is the one the browser makes for
+ * the frame anyway.
+ */
+let measuring = 0;
+function measureAfterLayout() {
+  if (measuring) return;
+  measuring = requestAnimationFrame(() => {
+    measuring = 0;
+    followRoads();
+    measureFolds();
+  });
 }
 
 function commit(changedIds, writtenTable = state.active) {
@@ -10466,13 +10581,31 @@ function bindStake() {
   }
 }
 
+/**
+ * The theme's colours, as the drawings bake them into their markup.
+ *
+ * Read off the root's computed style, which the browser has to bring up to
+ * date before it can answer -- after a render's changes, a style pass over the
+ * whole page, twice a coup. They change only with the theme, so each is read
+ * once per theme and kept, and let go when the theme changes, or the system's
+ * light or dark that the automatic theme follows.
+ */
+const themeColours = new Map();
+function themeColour(name) {
+  let v = themeColours.get(name);
+  if (v === undefined) {
+    v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    themeColours.set(name, v);
+  }
+  return v;
+}
+
 function renderScale() {
   const LO = 0.488, HI = 0.532, W = 720, H = 168;
   const x = (q) => ((q - LO) / (HI - LO)) * (W - 90) + 45;
   const o = observed();
   const svg = $("scale");
-  const css = getComputedStyle(document.documentElement);
-  const C = (n) => css.getPropertyValue(n).trim();
+  const C = themeColour;
 
   // One row of the drawing per thing being said, top to bottom: this table,
   // the fresh-shoe reference, the zones, then the two break-even lines.
@@ -10584,6 +10717,8 @@ function renderScale() {
  * banner says without anything having been dealt.
  */
 let bannerAt = null;
+/** Counts the banner's draws, so a flash queued for one is not put on the next. */
+let bannerDraws = 0;
 
 /**
  * What just landed, in the words the table's own screen uses.
@@ -10626,11 +10761,16 @@ function renderLastResult() {
     host.appendChild(meta);
   }
 
+  // Restarting an animation takes the class off, a frame drawn without it,
+  // and the class back on; the element is rebuilt above, so it is already
+  // off. Waiting out a frame, rather than forcing a layout to stand in for
+  // one, is what keeps a coup from laying the whole page out once more. A
+  // banner drawn again before then -- an undo, another table -- cancels it.
+  const draw = ++bannerDraws;
   if (arrived) {
-    // Restarting an animation takes the class off, a reflow, and the class
-    // back on; the element is rebuilt above, so it is already off.
-    void host.offsetWidth;
-    host.classList.add("fresh");
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      if (draw === bannerDraws) host.classList.add("fresh");
+    }));
   }
 }
 
@@ -10665,6 +10805,13 @@ function followRoads() {
 const ROADS_FILLED = ["big", "beb", "small", "roach"];
 /** The columns of paper each road was last drawn with. */
 const roadRuled = new WeakMap();
+/**
+ * The columns of paper each road's box was last measured to show, measured
+ * where the box is seen to change size -- see `bindRoads`. A render reads it
+ * from here: measured in the middle of one, the box made the browser lay the
+ * page out there and then.
+ */
+const roadPaper = new WeakMap();
 let roadRefill = 0;
 
 function bindRoads() {
@@ -10680,7 +10827,8 @@ function bindRoads() {
       roadRefill = requestAnimationFrame(() => {
         roadRefill = 0;
         if (!state) return;                   // nothing drawn yet: the first render rules it
-        if (ROADS_FILLED.some((id) => roadRuled.get($(id)) !== paperFor($(id)))) renderBoard();
+        for (const id of ROADS_FILLED) roadPaper.set($(id), paperFor($(id)));
+        if (ROADS_FILLED.some((id) => roadRuled.get($(id)) !== roadPaper.get($(id)))) renderBoard();
         else followRoads();
       });
     });
@@ -10739,6 +10887,11 @@ function renderBoard() {
     for (const box of document.querySelectorAll(".roadscroll")) roadFollowing.set(box, true);
   }
 
+  // Each road's paper as its box was last measured, or measured now -- before
+  // any road is redrawn, as each measure after one had been made the browser
+  // lay the page out again, four times a coup.
+  const paper = Object.fromEntries(ROADS_FILLED.map((id) => [id, roadPaper.get($(id)) ?? paperFor($(id))]));
+
   // The bead plate: every coup in order, a disc with its letter.
   const bead = beadPlate(outcomes, ROAD_ROWS);
   drawRoad($("bead"), bead[0].length, BEAD_COLUMNS, (cell, r, c) => {
@@ -10751,7 +10904,7 @@ function renderBoard() {
   // it -- with how many, when it is more than one.
   const big = road.grid(ROAD_ROWS);
   const ties = new Map(road.tieCells(ROAD_ROWS).map(([r, c, n]) => [`${r},${c}`, n]));
-  drawRoad($("big"), big[0].length, paperFor($("big")), (cell, r, c) => {
+  drawRoad($("big"), big[0].length, paper.big, (cell, r, c) => {
     const o = big[r][c], n = ties.get(`${r},${c}`) || 0;
     if (o) cell.appendChild(el("i", "mk " + o));
     if (n) cell.appendChild(el("i", "tie"));
@@ -10765,13 +10918,13 @@ function renderBoard() {
   for (const [id, marks] of [["beb", derived.big_eye_boy], ["small", derived.small_road],
                              ["roach", derived.cockroach_road]]) {
     const grid = wrapColumns(derivedColumns(marks), ROAD_ROWS);
-    drawRoad($(id), grid[0].length, paperFor($(id)), (cell, r, c) => {
+    drawRoad($(id), grid[0].length, paper[id], (cell, r, c) => {
       const m = grid[r][c];
       if (m) cell.appendChild(el("i", "mk " + (m === RED ? "red" : "blue")));
       return Boolean(m);
     });
   }
-  followRoads();
+  measureAfterLayout();
 
   const c = { P: 0, B: 0, T: 0 };
   for (const o of outcomes) c[o]++;
@@ -10841,8 +10994,7 @@ function renderShoeStrip(rows, summary) {
   const LO = 0.25, HI = 0.75, W = 720, H = 150;
   const x = (q) => ((q - LO) / (HI - LO)) * (W - 90) + 45;
   const svg = $("shoeStrip");
-  const css = getComputedStyle(document.documentElement);
-  const C = (n) => css.getPropertyValue(n).trim();
+  const C = themeColour;
 
   const yBand = 26, hBand = 56, yBottom = yBand + hBand;
   const yAxis = 116, yTick = 131, yCaption = H - 4;
@@ -11403,12 +11555,20 @@ function bindControls() {
   for (const [name, button] of Object.entries(themeButtons)) button.onclick = () => setTheme(name);
 
   onChange(() => {
+    themeColours.clear();
     for (const [name, button] of Object.entries(themeButtons)) {
       button.classList.toggle("on", currentTheme() === name);
     }
     langSel.value = currentLang();
     store.onStatus(store.status);
     renderAll();
+  });
+
+  // The automatic theme follows the system's light or dark as it changes, and
+  // the drawings, which carry their colours in their markup, follow it too.
+  window.matchMedia?.("(prefers-color-scheme: dark)")?.addEventListener?.("change", () => {
+    themeColours.clear();
+    if (state) render();
   });
 
   $("viewToggle").onclick = () => setView(viewNow === "full" ? "simple" : "full");
