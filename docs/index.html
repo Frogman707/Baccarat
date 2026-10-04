@@ -413,28 +413,46 @@ table.stake tr:last-child td{border-bottom:none}
    As many columns as the table's, so that a road shows what the table's does
    -- the same marks, and once it is longer than that, the same newest ones.
    The squares are sized to the board's box instead: the table's whole width
-   where that leaves a square of 11px or more, and otherwise the bead plate
-   above the roads, which then take the box's width. The sizes are registered
-   as lengths, so each reads back as the pixels it came to. */
-@property --f { syntax:"<length>"; inherits:true; initial-value:12px }
-@property --f2 { syntax:"<length>"; inherits:true; initial-value:24px }
-@property --fh { syntax:"<length>"; inherits:true; initial-value:6px }
-.sbwrap{container-type:inline-size}
-.scoreboard{--f:clamp(11px, round(down, (100cqi - 2px) / 71, 1px), 16px);
-  --f2:calc(2 * var(--f)); --fh:calc(var(--f) / 2);
+   on one line where that leaves a square of 11px or more, and otherwise the
+   bead plate above the roads, which then take the box's width. In whole
+   pixels, so the ruling stays sharp, and in steps rather than round(): the
+   steps work in every browser that knows container queries, and one that
+   does not keeps the one-line board at 11px and scrolls it in its box. */
+.sbwrap{container-type:inline-size; overflow-x:auto}
+.scoreboard{--f:11px; --f2:calc(2 * var(--f)); --fh:calc(var(--f) / 2);
+  min-width:calc(71 * var(--f) + 2px);
   display:grid; grid-template-columns:calc(11 * var(--f2)) calc(40 * var(--f)) minmax(0, 1fr);
   grid-template-areas:"bead roads side"; border:1px solid var(--road-line);
   border-radius:6px; overflow:hidden; background:var(--road-bg)}
+/* One line is 71 squares and the border: 22 of bead plate, 40 of roads, 9 or
+   more of counts. */
+@container (width >= 854px){ .scoreboard{--f:12px} }
+@container (width >= 925px){ .scoreboard{--f:13px} }
+@container (width >= 996px){ .scoreboard{--f:14px} }
+@container (width >= 1067px){ .scoreboard{--f:15px} }
+@container (width >= 1138px){ .scoreboard{--f:16px} }
+/* Narrower, the roads take the width, forty squares of it, and the bead
+   plate sits above them with the counts beside it. On a phone its square is
+   larger than twice the roads', where the counts leave it room: nine of the
+   roads' squares. */
 @container (width < 783px){
-  /* On a phone the bead plate takes a larger square than twice the roads',
-     where the counts leave it room beside it: nine of the roads' squares. */
-  .scoreboard{--f:clamp(6px, round(down, (100cqi - 2px) / 40, 1px), 18px);
-    --f2:clamp(2 * var(--f), round(down, 31 * var(--f) / 11, 1px), 22px);
-    width:calc(40 * var(--f) + 2px); margin-inline:auto;
+  .scoreboard{--f:6px; --f2:16px; width:calc(40 * var(--f) + 2px); min-width:0; margin-inline:auto;
     grid-template-columns:calc(11 * var(--f2)) minmax(0, 1fr);
     grid-template-areas:"bead side" "roads roads"}
   .sbroads{border-top:1px solid var(--road-line)}
 }
+@container (282px <= width < 783px){ .scoreboard{--f:7px; --f2:19px} }
+@container (322px <= width < 783px){ .scoreboard{--f:8px; --f2:22px} }
+@container (362px <= width < 783px){ .scoreboard{--f:9px; --f2:22px} }
+@container (402px <= width < 783px){ .scoreboard{--f:10px; --f2:22px} }
+@container (442px <= width < 783px){ .scoreboard{--f:11px; --f2:22px} }
+@container (482px <= width < 783px){ .scoreboard{--f:12px; --f2:24px} }
+@container (522px <= width < 783px){ .scoreboard{--f:13px; --f2:26px} }
+@container (562px <= width < 783px){ .scoreboard{--f:14px; --f2:28px} }
+@container (602px <= width < 783px){ .scoreboard{--f:15px; --f2:30px} }
+@container (642px <= width < 783px){ .scoreboard{--f:16px; --f2:32px} }
+@container (682px <= width < 783px){ .scoreboard{--f:17px; --f2:34px} }
+@container (722px <= width < 783px){ .scoreboard{--f:18px; --f2:36px} }
 .sbbead{grid-area:bead}
 .sbroads{grid-area:roads; min-width:0}
 .sblow{display:grid; grid-template-columns:1fr 1fr}
@@ -796,37 +814,8 @@ footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
     <p class="aiwarn" id="aiDisclaimer"></p>
   </section>
 
-  <section class="panel c12" data-full-only id="stakePanel">
-    <h2 data-i18n="stake.h"></h2>
-    <p class="sub" data-i18n-html="stake.sub"></p>
-    <div class="stakeform">
-      <label><span data-i18n="stake.bankroll"></span>
-        <input id="stakeBankroll" type="number" min="0" step="10000" inputmode="numeric"></label>
-      <label><span data-i18n="stake.unit"></span>
-        <input id="stakeUnit" type="number" min="0" step="1000" inputmode="numeric"></label>
-      <label><span data-i18n="stake.perHour"></span>
-        <input id="stakeRate" type="number" min="1" max="400" step="1" inputmode="numeric"></label>
-      <label><span data-i18n="stake.hours"></span>
-        <input id="stakeHours" type="number" min="0" max="24" step="0.5" inputmode="decimal"></label>
-      <label><span data-i18n="stake.days"></span>
-        <input id="stakeDays" type="number" min="0" max="31" step="1" inputmode="numeric"></label>
-    </div>
-    <div class="tablewrap">
-      <table class="stake" id="stakeTable">
-        <thead></thead><tbody></tbody>
-      </table>
-    </div>
-    <p class="aiverdict" id="stakeVerdict"></p>
-    <p class="ainote foldable" id="stakeNote"></p>
-  </section>
-
-  <section class="panel c12" data-full-only>
-    <h2 data-i18n="scale.h"></h2>
-    <p class="sub" data-i18n-html="scale.sub"></p>
-    <svg id="scale" viewBox="0 0 720 168" role="img" data-i18n-aria="scale.axis"></svg>
-    <div id="scaleNote" class="verdict neutral"></div>
-  </section>
-
+  <!-- The board straight after the prediction, before the planning panels:
+       it is what is read beside the table's own while the shoe is dealt. -->
   <section class="panel c12" id="boardPanel">
     <h2 data-i18n="board.h"></h2>
     <p class="sub" data-i18n="board.sub"></p>
@@ -868,6 +857,37 @@ footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
       </div>
     </div>
     <div id="boardMeta"></div>
+  </section>
+
+  <section class="panel c12" data-full-only id="stakePanel">
+    <h2 data-i18n="stake.h"></h2>
+    <p class="sub" data-i18n-html="stake.sub"></p>
+    <div class="stakeform">
+      <label><span data-i18n="stake.bankroll"></span>
+        <input id="stakeBankroll" type="number" min="0" step="10000" inputmode="numeric"></label>
+      <label><span data-i18n="stake.unit"></span>
+        <input id="stakeUnit" type="number" min="0" step="1000" inputmode="numeric"></label>
+      <label><span data-i18n="stake.perHour"></span>
+        <input id="stakeRate" type="number" min="1" max="400" step="1" inputmode="numeric"></label>
+      <label><span data-i18n="stake.hours"></span>
+        <input id="stakeHours" type="number" min="0" max="24" step="0.5" inputmode="decimal"></label>
+      <label><span data-i18n="stake.days"></span>
+        <input id="stakeDays" type="number" min="0" max="31" step="1" inputmode="numeric"></label>
+    </div>
+    <div class="tablewrap">
+      <table class="stake" id="stakeTable">
+        <thead></thead><tbody></tbody>
+      </table>
+    </div>
+    <p class="aiverdict" id="stakeVerdict"></p>
+    <p class="ainote foldable" id="stakeNote"></p>
+  </section>
+
+  <section class="panel c12" data-full-only>
+    <h2 data-i18n="scale.h"></h2>
+    <p class="sub" data-i18n-html="scale.sub"></p>
+    <svg id="scale" viewBox="0 0 720 168" role="img" data-i18n-aria="scale.axis"></svg>
+    <div id="scaleNote" class="verdict neutral"></div>
   </section>
 
   <section class="panel c12" data-full-only id="shoePanel">
@@ -1826,10 +1846,10 @@ const S = {
   /* --------------------------------------------------------------- boards */
   "board.h": { ko: "보드 — 현재 슈", en: "The board — this shoe", "zh-Hant": "路圖 — 目前牌靴", "zh-Hans": "路图 — 当前牌靴" },
   "board.sub": {
-    ko: "육매와 본매, 그리고 본매에서 파생되는 세 로드. 파생 로드는 본매의 결정론적 함수라 새로운 정보를 담지 않습니다 — 사람이 읽는 형태로 함께 보여줄 뿐입니다.",
-    en: "The bead plate, the big road, and the three roads derived from it. The derived roads are a deterministic function of the big road, so they hold no information it does not — they are shown because people read them.",
-    "zh-Hant": "珠盤路、大路，以及由大路推導出的三條下路。下路是大路的確定性函數，並不包含額外資訊 — 呈現它們只是因為玩家習慣看。",
-    "zh-Hans": "珠盘路、大路，以及由大路推导出的三条下路。下路是大路的确定性函数，并不包含额外信息 — 呈现它们只是因为玩家习惯看。",
+    ko: "카지노 화면의 보드와 같은 배치입니다: 육매, 본매, 본매에서 파생되는 세 로드, 그리고 오른쪽에 이번 슈의 개수와 다음 판이 뱅커·플레이어일 때 세 파생 로드에 생길 표시. 파생 로드는 본매의 결정론적 함수라 새로운 정보를 담지 않습니다 — 사람이 읽는 형태로 함께 보여줄 뿐입니다.",
+    en: "Laid out as the table's own board: the bead plate, the big road, the three roads derived from it, and on the right this shoe's counts and what the three derived roads would get from a Banker or a Player next. The derived roads are a deterministic function of the big road, so they hold no information it does not — they are shown because people read them.",
+    "zh-Hant": "與賭桌畫面的路單相同排列：珠盤路、大路、由大路推導出的三條下路，右側為本靴統計，以及下一局為莊或閒時三條下路將出現的記號。下路是大路的確定性函數，並不包含額外資訊 — 呈現它們只是因為玩家習慣看。",
+    "zh-Hans": "与赌桌画面的路单相同排列：珠盘路、大路、由大路推导出的三条下路，右侧为本靴统计，以及下一局为庄或闲时三条下路将出现的记号。下路是大路的确定性函数，并不包含额外信息 — 呈现它们只是因为玩家习惯看。",
   },
   /* ------------------------------------------------------- latest result */
   /* The three words a table's own screen shows, in English whatever the
