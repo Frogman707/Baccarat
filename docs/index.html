@@ -1500,8 +1500,8 @@ const S = {
     "zh-Hans": "百家乐两边的期望值皆为负。此推荐只是依本桌记录选出亏得稍少的一边，并不能保证盈利。",
   },
   "ai.betH": {
-    ko: "AI 추천 배팅 결과", en: "Backing the pick, in full",
-    "zh-Hant": "依 AI 推薦下注的總結果", "zh-Hans": "依 AI 推荐下注的总结果",
+    ko: "AI 추천 배팅 결과", en: "Backing the pick",
+    "zh-Hant": "依 AI 推薦下注的結果", "zh-Hans": "依 AI 推荐下注的结果",
   },
   "ai.betSub": {
     ko: "이 테이블 {shoes}슈 {coups}판 전부", en: "all {coups} [coups|coup|coups] over {shoes} [shoes|shoe|shoes] here",
@@ -9510,7 +9510,10 @@ function renderBetOutcome() {
   $("ledgerFrom").textContent = marked ? t("ai.countFromAll") : t("ai.countFromHere");
   $("ledgerFrom").hidden = byShoe || (!marked && !tableCoups());
 
-  if (!r.bets) {
+  // Nothing counted, rather than nothing bet: a shoe that opens on a tie has
+  // a coup the casino's screen counts, and its stake came back -- which is a
+  // row of this block, not an empty one.
+  if (!r.coups) {
     $("aiOutcomes").innerHTML = "";
     // Cleared as well as hidden: leaving the previous table's coup in the DOM
     // is a stale value waiting to be read by something that does not check.
