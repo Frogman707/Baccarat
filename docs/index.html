@@ -3485,6 +3485,51 @@ function unmerge(codes, w, h, blob, unit) {
   return out.length > 1 ? out : [];
 }
 
+/**
+ * How much of a line between two marks' worth of a block may be its colour,
+ * at most, for the block to be marks that met rather than one mark.
+ */
+const PINCH = 0.5;
+
+/**
+ * Whether a blob two or more marks across narrows where its marks would meet.
+ *
+ * A block of one side two marks wide and two tall is as round as one mark,
+ * and passes for one -- twice the size, so the board throws it out for its
+ * size, and three or four coups go with it. Two neighbouring columns of one
+ * side over the same rows is the commonest shape on a bead plate. One mark
+ * that big is solid through its middle; a block of marks only touches there.
+ * Measured on an owner's casino screen: 14% and 18% of the lines between a
+ * block's marks were its colour, where one disc twice the size, a letter
+ * across it, is 72% and more.
+ */
+function pinched(codes, w, blob, unit) {
+  const cols = Math.round(blob.w / unit), rows = Math.round(blob.h / unit);
+  if (cols < 2 && rows < 2) return false;
+  const share = (xa, ya, xb, yb) => {
+    let n = 0, all = 0;
+    for (let y = ya; y <= yb; y += 1) {
+      for (let x = xa; x <= xb; x += 1) {
+        all += 1;
+        if (codes[y * w + x] === blob.code) n += 1;
+      }
+    }
+    return all ? n / all : 1;
+  };
+  const cw = blob.w / cols, ch = blob.h / rows;
+  for (let c = 1; c < cols; c += 1) {
+    const x = Math.round(blob.minX + c * cw);
+    if (share(Math.max(blob.minX, x - 1), blob.minY,
+              Math.min(blob.maxX, x + 1), blob.maxY) > PINCH) return false;
+  }
+  for (let r = 1; r < rows; r += 1) {
+    const y = Math.round(blob.minY + r * ch);
+    if (share(blob.minX, Math.max(blob.minY, y - 1),
+              blob.maxX, Math.min(blob.maxY, y + 1)) > PINCH) return false;
+  }
+  return true;
+}
+
 /** Connected components over the classified mask, 4-connectivity. */
 function labelBlobs(codes, w, h) {
   const seen = new Uint8Array(w * h);
@@ -3879,10 +3924,50 @@ function detectBoards(imageData, { region = null, minCells = 8 } = {}) {
     }
   }
   if (unit >= 6) {
-    const merged = all.filter((b) => !marks.includes(b) && looksMerged(b, unit));
-    const split = [];
-    for (const blob of merged) split.push(...unmerge(codes, w, h, blob, unit));
-    if (split.length) marks = marks.concat(split);
+    // A blob that passed for a mark may be marks too: two across and two down
+    // is as round as one. How big one mark is has to be asked of the marks
+    // around it, not of the frame -- a band holds smaller roads beside the
+    // bead plate, and against their size every bead mark is a block.
+    const byX = marks.slice().sort((a, b) => a.cx - b.cx);
+    const xs = byX.map((m) => m.cx);
+    const from = (v) => {
+      let lo = 0, hi = xs.length;
+      while (lo < hi) { const mid = (lo + hi) >> 1; if (xs[mid] < v) lo = mid + 1; else hi = mid; }
+      return lo;
+    };
+    const around = (b) => {
+      const reach = size(b) * 1.5, sizes = [];
+      for (let i = from(b.cx - reach); i < byX.length && xs[i] <= b.cx + reach; i += 1) {
+        if (byX[i] !== b && Math.abs(byX[i].cy - b.cy) <= reach) sizes.push(size(byX[i]));
+      }
+      return sizes.length >= 3 ? median(sizes) : 0;
+    };
+    const split = [], replaced = new Set();
+    // Neither a bar nor a block can be smaller than two of the smallest marks,
+    // or fill its box less than a ragged run or more than a solid band does --
+    // which is most of a noisy frame's blobs, turned away before anything is
+    // measured around them.
+    const candidate = (b) => size(b) >= 9 && b.n / (b.w * b.h) >= 0.3 && b.n / (b.w * b.h) <= 0.9;
+    for (const blob of all) {
+      if (!candidate(blob)) continue;
+      let u = 0;
+      if (!marks.includes(blob)) {
+        // A bar is cut by the same measure: its neighbours' size where it has
+        // neighbours, the frame's where it has none.
+        const near = around(blob), at = near >= 6 ? near : unit;
+        if (looksMerged(blob, at)) u = at;
+      } else {
+        const near = around(blob);
+        if (near >= 6 && size(blob) >= near * 1.6 && looksMerged(blob, near)
+            && pinched(codes, w, blob, near)) u = near;
+      }
+      if (!u) continue;
+      const parts = unmerge(codes, w, h, blob, u);
+      if (!parts.length) continue;
+      split.push(...parts);
+      replaced.add(blob);
+    }
+    if (split.length) marks = marks.filter((m) => !replaced.has(m)).concat(split);
   }
 
   if (marks.length < minCells) return { boards: [], bounds: null, diameter: 0 };
