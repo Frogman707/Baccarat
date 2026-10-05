@@ -8301,6 +8301,22 @@ const RESTART_DEPTH = 8;
 const SAME_OPENING_DEPTH = 3;
 
 /**
+ * How many coups a shoe must lose, to an opening of itself, to be the next
+ * shoe opening the same way -- with no empty strip seen in between.
+ *
+ * The empty strip between shoes is easy to miss. Three empty looks call it,
+ * four and a half seconds at the reader's usual pace, and a table that deals
+ * the next shoe sooner never shows it for that long; a reader started on a
+ * new shoe while the last one is still open in the record never sees it at
+ * all. Then a new shoe whose first coup was the last shoe's first coup --
+ * nearly half of them -- read as that shoe cropped: an owner's table sat on a
+ * one-coup shoe under a warning about a cut-off bead plate, until a second
+ * coup told the two apart. A shoe dropping to its own first coup or three is
+ * a shoe change, once the drop is more than the newest mark blinking off.
+ */
+const REOPEN_DROP = 4;
+
+/**
  * Decide what a fresh reading means for the shoe in progress.
  *
  * Returns one of `same` (nothing changed), `grow` (the board gained coups),
@@ -9484,6 +9500,14 @@ function onLiveRead(seq, board, repeats, { afterClear = false } = {}) {
   // reading does, held if it is a prefix and asked about if it is deep.
   const restart = afterClear && (verdict === "reset" ? seq.length <= RESTART_DEPTH
     : verdict === "hold" && seq.length <= SAME_OPENING_DEPTH);
+  // Without the blank, the same short opening is still the next shoe when the
+  // shoe in progress has dropped to it from well past it (see `REOPEN_DROP`):
+  // the strip was cleared and redealt between two looks, or the reader was
+  // started on the new shoe. A cropped bead plate loses whole columns, and a
+  // board coming back half drawn comes back a column or more at a time. It is
+  // taken as what it is, a reset, on the agreement a reset needs.
+  const reopened = verdict === "hold" && seq.length <= SAME_OPENING_DEPTH
+    && current.length - seq.length >= REOPEN_DROP;
 
   // And where it is the same shoe after all, the log -- which said the shoe
   // had ended -- says so.
@@ -9495,7 +9519,7 @@ function onLiveRead(seq, board, repeats, { afterClear = false } = {}) {
 
   if (verdict === "same") { liveHolds = 0; setLiveWarn(road); return; }
 
-  if (verdict === "hold" && !restart) {
+  if (verdict === "hold" && !restart && !reopened) {
     liveHolds += 1;
     if (liveHolds >= 4) {
       setLiveWarn(
@@ -9529,7 +9553,7 @@ function onLiveRead(seq, board, repeats, { afterClear = false } = {}) {
       n: added, total: seq.length,
       sides: [...seq.slice(current.length)].map(side).join(" "),
     }));
-  } else if ((restart || verdict === "reset") && repeats >= enough) {
+  } else if ((restart || reopened || verdict === "reset") && repeats >= enough) {
     // A new shoe starts at one coup. A reading that shares nothing with the
     // shoe in progress and arrives already dozens deep, on a strip nobody
     // watched go empty, is a different board rather than a new shoe -- the big
