@@ -7345,6 +7345,18 @@ function gridLock(grid, frameW, frameH) {
 }
 
 /**
+ * The ruling inside a box drawn around a strip, or null.
+ *
+ * Only a ruling. Marks with none make a lattice too, but it lies between
+ * them, and the panel it grows to is whatever plain ground surrounds them --
+ * reading a box down by that, rather than as drawn, took in a cell above it.
+ */
+function rulingIn(frame, box) {
+  const grid = detectGrid(frame, { region: box });
+  return grid && isRuling(grid) ? grid : null;
+}
+
+/**
  * Which table a reading belongs to.
  *
  * The reader watches one table's screen. Changing the table selector changes
@@ -7459,6 +7471,7 @@ class LiveWatcher {
     this.grid = null;        // the lattice the region was pinned to
     this.gridBox = null;     // and the lock it gave, before any widening
     this.gridMisses = 0;     // consecutive re-checks that could not find it
+    this.boxLooks = 0;       // looks for the ruling inside a box the viewer drew
     this.bounds = null;      // the whole result strip, in frame pixels
     this.anchor = null;      // centre of the board being read, to keep the pick stable
     this.lastBox = null;     // and its box, so a neighbour is not mistaken for it
@@ -7679,6 +7692,7 @@ class LiveWatcher {
     this.grid = null;
     this.gridBox = null;
     this.gridMisses = 0;
+    this.boxLooks = 0;
     this.memory = null;              // being told the lock is wrong
     this.memoryAt = 0;
     this._unfollow();
@@ -7697,7 +7711,9 @@ class LiveWatcher {
    * and both are inferences about a screen it has never seen before. A box the
    * viewer drew around their own table's strip is not an inference, so nothing
    * in the sampler is allowed to move it, widen it, or hand it over to a
-   * better-looking board somewhere else.
+   * better-looking board somewhere else. Only its top and bottom edges are
+   * read by the strip's own ruling when one is found inside it, because a
+   * hand is not that exact (see `_readArea`).
    *
    * Given in frame pixels at working resolution, which is what the preview
    * canvas is drawn at, so the caller can pass a box read straight off it.
@@ -7710,6 +7726,7 @@ class LiveWatcher {
     this.grid = null;
     this.gridBox = null;
     this.gridMisses = 0;
+    this.boxLooks = 0;
     this._unfollow();
     this.candidate = null;
     this.repeats = 0;
@@ -7825,10 +7842,30 @@ class LiveWatcher {
       }
     }
 
+    // A box the viewer drew is theirs: nothing here moves it, or hands it to
+    // another board. But it is drawn by hand, on a preview a fraction of the
+    // frame's size, around a strip that sits under the table's video. On an
+    // owner's screen a box drawn fifteen pixels loose cut the felt above the
+    // strip into a big road of twenty Bankers; one drawn two pixels into the
+    // strip clipped its first row and lost the Tie in it; and a shoe of a few
+    // coups was not read at all, its one column waiting to be seen growing.
+    // So the ruling is looked for where the box was drawn, as it is
+    // everywhere else, and with one the box is read the way a strip found by
+    // its ruling is (see `_readArea`, `_opensThePanel`). Every sample until it
+    // is found, for a while: a box is drawn on whatever the preview shows, and
+    // that can be a frame with no strip in it.
+    if (this.pinned === "manual" && !this.grid) {
+      const look = this.boxLooks++;
+      if (look < RECHECK_EVERY || look % RECHECK_EVERY === 0) {
+        const grid = rulingIn(frame, this.region);
+        if (grid) this.grid = grid;
+      }
+    }
+
     const trusted = this.pinned === "grid" || this.pinned === "manual";
     const remembering = !this.region && !!this.memory;
     let boards = [], bounds = null;
-    for (const attempt of searchPlan(this.region, this.memory, this.cleared, w, h, trusted)) {
+    for (const attempt of searchPlan(this._readArea(w, h), this.memory, this.cleared, w, h, trusted)) {
       const got = detectBoards(frame, { region: attempt.where, minCells: attempt.minCells });
       if (!got.boards.length) continue;
       if (!boards.length || got.boards[0].cells.length > boards[0].cells.length) {
@@ -8097,13 +8134,30 @@ class LiveWatcher {
    * moment the reader is started on it, rather than once its column has been
    * seen growing: an owner who started sharing six coups into a shoe was told
    * the shoe had finished and the next one was awaited, while the casino's
-   * screen showed it being dealt.
+   * screen showed it being dealt. The same inside a box the viewer drew,
+   * once the ruling has been found in it.
    */
   _opensThePanel(board) {
-    const panel = this.pinned === "grid" && this.grid && this.grid.panel;
+    const panel = (this.pinned === "grid" || this.pinned === "manual") && this.grid
+      && this.grid.panel;
     if (!panel) return false;
     const reach = 1.5 * (board.diameter || this.grid.pitch);
     return Math.abs(board.box.x - panel.x) <= reach && Math.abs(board.box.y - panel.y) <= reach;
+  }
+
+  /**
+   * Where marks are read from: the region -- except that a box the viewer
+   * drew, with a ruling inside it, is read across as drawn and down as ruled:
+   * from a quarter of a cell above the ruling to a cell below it, the same
+   * rows the reader watches when it finds the strip on its own. None of the
+   * video the box took in above that, and the whole of a row it clipped a
+   * little of.
+   */
+  _readArea(w, h) {
+    const box = this.region;
+    if (!box || this.pinned !== "manual" || !this.grid) return box;
+    const lock = gridLock(this.grid, w, h);
+    return { x: box.x, y: lock.y, w: box.w, h: lock.h };
   }
 
   /**
