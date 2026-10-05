@@ -3858,6 +3858,30 @@ function opensLikeARoad(board) {
   return board.nCols === 1 || board.nRows === 6;
 }
 
+/**
+ * Whether a board's cells fill it the way a bead plate is filled: column by
+ * column from the top, every column but the last full.
+ */
+function fillsLikeABeadPlate(cells, nCols, nRows) {
+  const depth = new Array(nCols).fill(0);
+  for (const c of cells) depth[c.col] += 1;
+  for (const c of cells) if (c.row >= depth[c.col]) return false;   // a gap above it
+  for (let col = 0; col < nCols - 1; col += 1) if (depth[col] !== nRows) return false;
+  return nCols === 1 || nRows === 6;
+}
+
+/** Whether any column holds both sides -- which a big road's columns never do. */
+function mixesSides(cells) {
+  const side = new Map();
+  for (const c of cells) {
+    if (c.outcome === "T") continue;
+    const was = side.get(c.col);
+    if (was && was !== c.outcome) return true;
+    side.set(c.col, c.outcome);
+  }
+  return false;
+}
+
 function buildBoard(marks, diameter) {
   const gap = diameter * 0.55;
   const cols = binAxis(marks.map((m) => m.cx), gap);
@@ -3886,7 +3910,18 @@ function buildBoard(marks, diameter) {
   // their own cells. Anything taller is a stack of derived roads read as one
   // block; anything sparser is a big road, which marks a tie as a slash across
   // a Player/Banker cell rather than opening one.
-  const kind = nRows <= 6 && occupancy >= 0.82 ? "bead" : "bigroad";
+  //
+  // Sparse is not the whole test, though. A bead plate fills column by column,
+  // so a young shoe's second column is nearly empty: seven coups fill seven of
+  // twelve cells, and a shoe of seven to nine read as a big road -- the page
+  // telling the viewer they were reading the wrong board while they were
+  // reading the right one. A board filled the bead plate's way, every column
+  // but the last full and the last filled from the top, is a bead plate where
+  // it shows what no big road can: a tie as a cell of its own, or both sides
+  // in one column.
+  const kind = nRows <= 6 && (occupancy >= 0.82
+    || (fillsLikeABeadPlate(unique, nCols, nRows) && (hasTie || mixesSides(unique))))
+    ? "bead" : "bigroad";
 
   return {
     kind, cells: unique, nRows, nCols, occupancy, hasTie, diameter,
@@ -4735,6 +4770,44 @@ function growToPanel(imageData, box, pitch, bounds) {
 }
 
 /**
+ * The share of a lattice's cells with a mark in them.
+ *
+ * A ruling runs on through cells with nothing in them: a young shoe is one
+ * column of marks in a panel of empty cells, and a long one still has the
+ * rest of its roads empty beside it. But marks drawn with no ruling at all
+ * make a lattice too -- on a plain background a row of discs is a long edge,
+ * and six rows of them at one spacing pass every test a ruling is put to,
+ * in `detectGrid` below. That lattice
+ * lies *between* the marks, so it is a row short at the top and the bottom,
+ * and every cell of it is full. Measured: every lattice found on the owner's
+ * real strips and on the drawn screens was at most a third full; every one
+ * found among plain discs was entirely full.
+ *
+ * A cell counts as full when most of a small patch at its centre is mark.
+ */
+function latticeFill(imageData, box, cols, rows, pitch) {
+  const { width: W, data } = imageData;
+  if (cols < 1 || rows < 1) return 0;
+  const cw = (box.x2 - box.x) / cols, ch = (box.y2 - box.y) / rows;
+  const reach = pitch * 0.15;
+  let full = 0;
+  for (let i = 0; i < cols; i += 1) {
+    for (let j = 0; j < rows; j += 1) {
+      const cx = box.x + (i + 0.5) * cw, cy = box.y + (j + 0.5) * ch;
+      let mark = 0;
+      for (let a = -1; a <= 1; a += 1) {
+        for (let b = -1; b <= 1; b += 1) {
+          const p = (Math.round(cy + b * reach) * W + Math.round(cx + a * reach)) * 4;
+          if (classifyPixel(data[p], data[p + 1], data[p + 2]) !== NONE) mark += 1;
+        }
+      }
+      if (mark >= 5) full += 1;
+    }
+  }
+  return full / (cols * rows);
+}
+
+/**
  * Find a road's cell lattice, with or without anything dealt into it.
  *
  * Returns the box the ruling covers, the cell pitch, and how many cells across
@@ -4831,14 +4904,17 @@ function detectGrid(imageData, { region = null } = {}) {
         x: x0 + Math.round(cols[0]), y: y0 + Math.round(rows[0]),
         x2: x0 + Math.round(cols[cols.length - 1]), y2: y0 + Math.round(rows[rows.length - 1]),
       };
+      const nCols = Math.round((cols[cols.length - 1] - cols[0]) / across.pitch);
+      const nRows = Math.round((rows[rows.length - 1] - rows[0]) / down.pitch);
       return {
         box: lattice,
         panel: growToPanel(imageData, lattice, pitch,
           { x: x0, y: y0, x2: x1 - 1, y2: y1 - 1 }),
         pitch,
-        cols: Math.round((cols[cols.length - 1] - cols[0]) / across.pitch),
-        rows: Math.round((rows[rows.length - 1] - rows[0]) / down.pitch),
+        cols: nCols,
+        rows: nRows,
         solidity: Math.min(across.solidity, down.solidity),
+        filled: latticeFill(imageData, lattice, nCols, nRows, pitch),
       };
     }
   }
@@ -7228,20 +7304,44 @@ function findStrip(frame, frameW, frameH) {
 }
 
 /**
+ * A lattice at least this full is made of marks rather than ruled.
+ *
+ * See `latticeFill`: the rulings measured were at most a third full and the
+ * lattices of marks entirely full, so the line is drawn well clear of both.
+ */
+const MARK_LATTICE = 0.75;
+
+/** Whether a strip was found by a ruling, rather than by marks with none. */
+function isRuling(grid) {
+  return !!grid && !(grid.filled >= MARK_LATTICE);
+}
+
+/**
  * The region to watch, given a strip found by its ruling.
  *
- * Full width, like every other lock here, and padded by a cell so a road that
- * grows a row -- the derived roads appear a few columns into a shoe -- is not
- * cut off by a box drawn before it arrived.
+ * Full width, like every other lock here, and padded by a cell below so a
+ * panel found a row short does not cut the bead plate's last row off.
+ *
+ * Above, it depends on what was found. A ruling is the panel's own edge, and
+ * the roads sit under the table's video: on an owner's screen a cell above it
+ * was the bottom of the video -- an orange-red felt, the red of a Banker mark,
+ * which the region's edge cut into mark-sized pieces. Started on a shoe two
+ * coups old, the reader took those pieces for a big road of twenty-four
+ * Bankers; on the owner's own screen, six coups in, sixteen Bankers that
+ * were never dealt went into the record. So a ruling gets a quarter of a
+ * cell, for its own line: nothing mark-sized fits in it.
+ *
+ * Marks drawn with no ruling are found as a lattice too, and that lattice
+ * lies between them -- its top edge runs under the top row of marks, not
+ * over it. A quarter of a cell there cut the shoe's whole top row off, every
+ * reading; such a lattice gets the cell it is short by.
  */
 function gridLock(grid, frameW, frameH) {
-  const pad = Math.max(4, Math.round(grid.pitch));
-  return {
-    x: 0, w: frameW,
-    y: Math.max(0, Math.round(grid.panel.y - pad)),
-    h: Math.min(frameH, Math.round(grid.panel.y2 + pad))
-       - Math.max(0, Math.round(grid.panel.y - pad)),
-  };
+  const above = isRuling(grid) ? Math.max(3, Math.round(grid.pitch * 0.25))
+                               : Math.max(4, Math.round(grid.pitch));
+  const below = Math.max(4, Math.round(grid.pitch));
+  const y = Math.max(0, Math.round(grid.panel.y - above));
+  return { x: 0, w: frameW, y, h: Math.min(frameH, Math.round(grid.panel.y2 + below)) - y };
 }
 
 /**
@@ -7946,10 +8046,14 @@ class LiveWatcher {
     // cannot see what it is cutting off -- it reads a clipped board and stays
     // that way. So a board that comes within a cell or two of its own edge
     // pushes that edge out, keeping headroom ahead of where the shoe is going.
-    // Not a region the viewer drew. Widening it would be the reader deciding
-    // it knows better about the one thing it was told outright.
+    // Not a region the viewer drew: widening it would be the reader deciding
+    // it knows better about the one thing it was told outright. And one pinned
+    // to the ruling is not widened upwards: the bead plate opens on the
+    // ruling's top row, so every reading pushed that edge another eighty
+    // pixels up, into the table's video.
     if (this.region && this.pinned !== "manual") {
-      this.region = this.memory = widenFor(this.region, board, w, h);
+      this.region = this.memory = widenFor(this.region, board, w, h,
+                                           { up: this.pinned !== "grid" });
     }
 
     this.onRead(board.sequence, this.lastBoard, this.repeats, { afterClear });
@@ -7970,7 +8074,7 @@ class LiveWatcher {
   _roadsAmong(boards) {
     const before = this.sightings, now = [], shown = [];
     for (const b of boards) {
-      if (b.nCols > 1) { b.shown = true; shown.push(b); continue; }
+      if (b.nCols > 1 || this._opensThePanel(b)) { b.shown = true; shown.push(b); continue; }
       const was = before.find((s) => overlaps(s.box, b.box));
       now.push({ box: b.box, sequence: b.sequence,
                  held: was && was.sequence === b.sequence ? was.held + 1 : 1 });
@@ -7983,6 +8087,23 @@ class LiveWatcher {
     this.sightings = now;
     if (shown.length) return shown;
     return boards.length === 1 && boards[0].cells.length <= OPENING_MARKS ? boards : [];
+  }
+
+  /**
+   * Whether a board is the first column of the ruled panel the reader is
+   * pinned to: at its left edge and its top row, where every casino layout
+   * opens the bead plate. A fixed column -- the counts, the ask roads -- sits
+   * at the other end of the strip. So a shoe of a few coups is read the
+   * moment the reader is started on it, rather than once its column has been
+   * seen growing: an owner who started sharing six coups into a shoe was told
+   * the shoe had finished and the next one was awaited, while the casino's
+   * screen showed it being dealt.
+   */
+  _opensThePanel(board) {
+    const panel = this.pinned === "grid" && this.grid && this.grid.panel;
+    if (!panel) return false;
+    const reach = 1.5 * (board.diameter || this.grid.pitch);
+    return Math.abs(board.box.x - panel.x) <= reach && Math.abs(board.box.y - panel.y) <= reach;
   }
 
   /**
@@ -8184,7 +8305,7 @@ function growToStrip(region, bounds, frameW, frameH) {
   return { x: nx, y: ny, w: nx2 - nx, h: ny2 - ny };
 }
 
-function widenFor(region, board, frameW, frameH) {
+function widenFor(region, board, frameW, frameH, { up = true } = {}) {
   const d = board.diameter || 20;
   const margin = Math.max(48, d * 1.5);       // headroom kept ahead of the board
   const step = Math.max(80, d * 3);           // and how much is added when it runs out
@@ -8193,7 +8314,7 @@ function widenFor(region, board, frameW, frameH) {
 
   if (board.box.x - x < margin) x -= step;
   if (x2 - board.box.x2 < margin) x2 += step;
-  if (board.box.y - y < margin) y -= step;
+  if (up && board.box.y - y < margin) y -= step;
   if (y2 - board.box.y2 < margin) y2 += step;
 
   x = Math.max(0, x); y = Math.max(0, y);
