@@ -1382,6 +1382,10 @@ const S = {
   },
   "live.logStopped": { ko: "화면 공유 중단", en: "Screen sharing stopped", "zh-Hant": "已停止畫面分享", "zh-Hans": "已停止画面共享" },
   "live.logRelock": { ko: "영역을 다시 찾습니다", en: "Finding the board again", "zh-Hant": "重新尋找區域", "zh-Hans": "重新寻找区域" },
+  "live.logMended": {
+    ko: "슈의 끝을 다시 읽어 바로잡았습니다 — 이제 {total}판", en: "Re-read the end of the shoe and corrected it — now {total}",
+    "zh-Hant": "重新讀取牌靴末尾並已更正 — 現為 {total} 局", "zh-Hans": "重新读取牌靴末尾并已更正 — 现为 {total} 局",
+  },
   "live.logManual": { ko: "{n}판으로 수동 교체", en: "Replaced by hand with {n}", "zh-Hant": "手動替換為 {n} 局", "zh-Hans": "手动替换为 {n} 局" },
   "live.shortWarn": {
     ko: "읽은 값이 {read}판으로 현재 슈({cur}판)보다 짧습니다. 육매가 잘렸거나 옆으로 밀렸을 수 있습니다 — 화면에 육매 전체가 보이는지 확인하세요.",
@@ -4173,13 +4177,26 @@ function detectBoards(imageData, { region = null, minCells = 8 } = {}) {
   //
   // Company in the band is what tells them apart, so company decides first and
   // the score decides within it.
+  //
+  // Within it, and not board by board. Each board's own band is counted from
+  // where it stands, and a band of small marks counts as company every stray
+  // dot of a derived road that came through on its own -- which a bead disc,
+  // four times their size, does not. On an owner's screen with the bead plate
+  // full, the counts column and a derived road each had more such company
+  // than the bead plate, ranked above it, and the reader read thirty-nine
+  // marks of the derived roads as the shoe. So the board with the most
+  // company says which band is the strip, and inside it the score decides.
   for (const b of boards) {
     b.band = boards.filter((o) => sharesBand(o, b));
     b.bandScore = b.band.reduce((sum, o) => sum + o.score, 0);
   }
-  boards.sort((a, b) => (b.band.length - a.band.length)
-                     || (b.bandScore - a.bandScore)
-                     || (b.score - a.score));
+  const byCompany = (a, b) => (b.band.length - a.band.length)
+                           || (b.bandScore - a.bandScore)
+                           || (b.score - a.score);
+  const lead = boards.slice().sort(byCompany)[0];
+  const strip = new Set(lead ? lead.band : []);
+  boards.sort((a, b) => (strip.has(b) - strip.has(a))
+                     || (strip.has(a) ? b.score - a.score : byCompany(a, b)));
 
   return {
     boards,
@@ -8316,6 +8333,57 @@ const SAME_OPENING_DEPTH = 3;
 const REOPEN_DROP = 4;
 
 /**
+ * How much of the shoe in progress a filled bead plate must still show, in
+ * order, to be read as that shoe moved along. Four columns: twenty-four coups
+ * do not agree in order by chance.
+ */
+const SCROLL_OVERLAP = 24;
+
+/**
+ * The whole shoe a bead plate shows the end of, once it has filled -- or null.
+ *
+ * A bead plate is a fixed number of columns, eleven on an owner's table, so
+ * sixty-six coups; a shoe runs to seventy or eighty. Past that the table drops
+ * its oldest columns off the front, and what is on screen is the shoe with its
+ * start missing. As a reading that shared nothing with the shoe in progress,
+ * so every coup after the sixty-sixth would have stalled behind the warning
+ * that some other board was being read. Where the screen shows the shoe in
+ * progress from some point on, in order and at length, it is that shoe, and
+ * the coups past its end are new.
+ */
+function scrolledInto(shoe, reading) {
+  if (!shoe || !reading || sharePrefix(shoe, reading)) return null;
+  for (let from = 1; shoe.length - from >= SCROLL_OVERLAP; from += 1) {
+    if (reading.startsWith(shoe.slice(from))) return shoe.slice(0, from) + reading;
+  }
+  return null;
+}
+
+/** How many coups at the end of a shoe a steadier reading may correct. */
+const TAIL_FIX = 3;
+
+/**
+ * Whether a reading is the shoe in progress read differently at its very end:
+ * a long agreement from the first coup, then a difference no deeper than
+ * `TAIL_FIX` coups at the end of either.
+ *
+ * An owner's record held sixty-three coups agreeing with the casino and then
+ * three the table never showed -- the last column filled to the bottom, where
+ * the table's held four. Every reading after it, the casino's own, differed
+ * from the record at the sixty-fourth coup, so it read as some other board
+ * and stalled behind the warning for one: the record and the table stayed
+ * apart for the rest of the shoe. A difference only at the end is the end
+ * misread, once or now, and the reading that holds is the one to keep.
+ */
+function differsAtTheEnd(shoe, reading) {
+  if (!shoe || !reading || sharePrefix(shoe, reading)) return false;
+  let same = 0;
+  while (same < shoe.length && same < reading.length && shoe[same] === reading[same]) same += 1;
+  return same >= RESTART_DEPTH
+    && shoe.length - same <= TAIL_FIX && reading.length - same <= TAIL_FIX;
+}
+
+/**
  * Decide what a fresh reading means for the shoe in progress.
  *
  * Returns one of `same` (nothing changed), `grow` (the board gained coups),
@@ -9479,7 +9547,15 @@ function onLiveRead(seq, board, repeats, { afterClear = false } = {}) {
   // a warning's button can be pressed long after this reading.
   const into = liveTable;
   const current = openShoe(readingTable(into, state.tables, chosenTable())).o;
+  // A bead plate that has filled and moved along shows the shoe in progress
+  // with its start off screen: it is that shoe, and the coups past its end
+  // are new (see `scrolledInto`).
+  if (board.kind === "bead") seq = scrolledInto(current, seq) || seq;
   const verdict = diagnose(current, seq);
+  // And one that differs from the shoe in progress only in its last coup or
+  // three is that shoe with its end misread, once or now (see
+  // `differsAtTheEnd`). The reading that holds is the one kept.
+  const mended = verdict === "reset" && differsAtTheEnd(current, seq);
   // Reading the big road is not a failure -- it is the same coups -- but it
   // loses ties and folds long runs, so it must never pass unremarked.
   const road = board.kind === "bead" ? null : t("live.bigRoadWarn");
@@ -9499,7 +9575,7 @@ function onLiveRead(seq, board, repeats, { afterClear = false } = {}) {
   // in progress and opened a copy of it. So only a short reading starts a new
   // shoe on the strength of the blank; anything longer goes the way any other
   // reading does, held if it is a prefix and asked about if it is deep.
-  const restart = afterClear && (verdict === "reset" ? seq.length <= RESTART_DEPTH
+  const restart = !mended && afterClear && (verdict === "reset" ? seq.length <= RESTART_DEPTH
     : verdict === "hold" && seq.length <= SAME_OPENING_DEPTH);
   // Without the blank, the same short opening is still the next shoe when the
   // shoe in progress has dropped to it from well past it (see `REOPEN_DROP`):
@@ -9540,6 +9616,15 @@ function onLiveRead(seq, board, repeats, { afterClear = false } = {}) {
 
   liveHolds = 0;
   setLiveWarn(road);
+
+  if (mended) {
+    // Seen three times running, as a reset is: it rewrites coups already kept.
+    if (repeats >= CONFIRM_RESET) {
+      replaceCurrentShoe(seq, into);
+      liveLog(t("live.logMended", { total: seq.length }));
+    }
+    return;
+  }
 
   // A reset costs the shoe in progress, so it normally has to be seen three
   // times running. Where the strip was watched going empty that agreement has
