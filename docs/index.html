@@ -4776,12 +4776,11 @@ function growToPanel(imageData, box, pitch, bounds) {
  * column of marks in a panel of empty cells, and a long one still has the
  * rest of its roads empty beside it. But marks drawn with no ruling at all
  * make a lattice too -- on a plain background a row of discs is a long edge,
- * and six rows of them at one spacing pass every test a ruling is put to,
- * in `detectGrid` below. That lattice
- * lies *between* the marks, so it is a row short at the top and the bottom,
- * and every cell of it is full. Measured: every lattice found on the owner's
- * real strips and on the drawn screens was at most a third full; every one
- * found among plain discs was entirely full.
+ * and six rows of them at one spacing pass every test a ruling is put to in
+ * `detectGrid` below. That lattice lies *between* the marks, so it is a row
+ * short at the top and the bottom, and every cell of it is full. Measured:
+ * every lattice found on the owner's real strips and on the drawn screens was
+ * at most a third full; every one found among plain discs was entirely full.
  *
  * A cell counts as full when most of a small patch at its centre is mark.
  */
@@ -9456,8 +9455,10 @@ function loadAsNewShoe(seq, boundTo = null) {
    each change, so the rules for what a reading is allowed to do are strict:
    growth is applied once frames agree, a board reset needs more agreement
    because it discards the shoe in progress, and a reading shorter than the
-   shoe in progress is never applied silently -- that is what a cropped or
-   scrolled bead plate looks like, and it would truncate real data. */
+   shoe in progress is never applied to it silently -- that is what a cropped
+   or scrolled bead plate looks like, and it would truncate real data. Only
+   one that has dropped to the shoe's own opening is taken, and as the next
+   shoe, with the last kept whole (see `REOPEN_DROP`). */
 
 function liveLog(text, kind) {
   const box = $("liveLog");
