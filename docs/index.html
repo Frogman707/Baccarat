@@ -1392,6 +1392,12 @@ const S = {
     "zh-Hant": "剛讀到的第 {n} 局又從畫面上消失，已撤回 — 可能是問路按鈕的預覽，或被東西遮住。再次出現時會重新記錄。現為 {total} 局",
     "zh-Hans": "刚读到的第 {n} 局又从画面上消失，已撤回 — 可能是问路按钮的预览，或被东西挡住。再次出现时会重新记录。现为 {total} 局",
   },
+  "live.logClosedShoe": {
+    ko: "화면에서 방금 닫은 슈가 이어지고 있어 그 슈에 +{n}판을 더했습니다 — 이제 {total}판. 새 슈는 테이블이 새 슈를 시작하면 채웁니다",
+    en: "The shoe just closed is still being dealt on screen: +{n} added to it — now {total}. The new shoe fills once the table starts one",
+    "zh-Hant": "剛關閉的牌靴在畫面上還在繼續，已為它加上 {n} 局 — 現為 {total} 局。新牌靴會在桌台開始新靴後填入",
+    "zh-Hans": "刚关闭的牌靴在画面上还在继续，已为它加上 {n} 局 — 现为 {total} 局。新牌靴会在桌台开始新靴后填入",
+  },
   "live.logManual": { ko: "{n}판으로 수동 교체", en: "Replaced by hand with {n}", "zh-Hant": "手動替換為 {n} 局", "zh-Hans": "手动替换为 {n} 局" },
   "live.shortWarn": {
     ko: "읽은 값이 {read}판으로 현재 슈({cur}판)보다 짧습니다. 육매가 잘렸거나 옆으로 밀렸을 수 있습니다 — 화면에 육매 전체가 보이는지 확인하세요.",
@@ -9769,9 +9775,41 @@ function onLiveRead(seq, board, repeats, { afterClear = false } = {}) {
   // binding itself is handed to the writers, which resolve it when they write:
   // a warning's button can be pressed long after this reading.
   const into = liveTable;
-  const open = openShoe(readingTable(into, state.tables, chosenTable()));
+  const table = readingTable(into, state.tables, chosenTable());
+  const open = openShoe(table);
   const current = open.o;
   if (liveWrote) liveWrote.reads += 1;
+  // The shoe in progress is empty because "new shoe" was pressed -- and the
+  // shoe just closed is still on screen until the table clears it, or is
+  // still being dealt. Measured: pressed with the board still up, the reader
+  // copied all thirty of its coups into the fresh shoe, and the record held
+  // the shoe twice; pressed two coups early, the two went into the copy and
+  // the shoe itself stayed two short. So the reading is held against the
+  // shoe just closed first: that shoe as it was, or going on, is that shoe,
+  // and what it adds goes there, or puts its end right (see
+  // `differsAtTheEnd`); the fresh shoe waits for the table's next. A short
+  // opening of it is the next shoe opening the same way, as it is for any
+  // shoe (see `REOPEN_DROP`), and so is anything after a blank strip -- but
+  // not one cut short by a covered mark (see `beadPlaces`).
+  const closed = current ? null : shoeBefore(table);
+  if (closed && closed.o.length > SAME_OPENING_DEPTH) {
+    const onScreen = scrolledInto(closed.o, seq, board.kind) || seq;
+    const was = diagnose(closed.o, onScreen);
+    const mend = was === "reset" && differsAtTheEnd(closed.o, onScreen, board.kind);
+    const opening = was === "hold" && !board.holed && (afterClear
+      || (onScreen.length <= SAME_OPENING_DEPTH && closed.o.length - onScreen.length >= REOPEN_DROP));
+    if (was === "same" || was === "grow" || mend || (was === "hold" && !opening)) {
+      liveHolds = 0;
+      if ((was === "grow" && repeats >= CONFIRM_GROWTH) || (mend && repeats >= CONFIRM_RESET)) {
+        const added = onScreen.length - closed.o.length;
+        closed.o = onScreen;
+        commitTo(table, [closed.id]);
+        liveLog(mend ? t("live.logMended", { total: onScreen.length })
+          : t("live.logClosedShoe", { n: added, total: onScreen.length }));
+      }
+      return;
+    }
+  }
   const own = !!liveWrote && liveWrote.id === open.id;
   const justAdded = own && liveWrote.added && liveWrote.o === current
     && liveWrote.reads <= TAKE_BACK_READS;
@@ -9949,6 +9987,18 @@ function onLiveRead(seq, board, repeats, { afterClear = false } = {}) {
     noteWrite(into, true);
     liveLog(t("live.logNewShoe", { n: seq.length }), "new");
   }
+}
+
+/**
+ * The shoe before the one in progress, when the one in progress is empty or
+ * there is none: the shoe "new shoe" just closed. Null otherwise.
+ */
+function shoeBefore(name) {
+  const list = shoes(name);
+  const last = list[list.length - 1];
+  if (!last) return null;
+  if (last.closed) return last;
+  return last.o ? null : list[list.length - 2] || null;
 }
 
 /** Remember the shoe as the reader has just written it. See `liveWrote`. */
