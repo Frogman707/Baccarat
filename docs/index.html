@@ -1399,6 +1399,12 @@ const S = {
     "zh-Hant": "讀到 {read} 局，比目前牌靴的 {cur} 局還短。珠盤路可能被裁切或捲動 — 請確認畫面上看得到完整珠盤路。",
     "zh-Hans": "读到 {read} 局，比当前牌靴的 {cur} 局还短。珠盘路可能被裁切或滚动 — 请确认画面上看得到完整珠盘路。",
   },
+  "live.coveredWarn": {
+    ko: "육매 일부가 가려져서 가려진 칸 앞까지만 읽고 있습니다 — 마우스 포인터나 팝업, 다른 창이 결과를 가리고 있지 않은지 확인하세요.",
+    en: "Part of the bead plate is covered, so it is read only up to the covered cell — check that the pointer, a pop-up or another window isn't hiding a result.",
+    "zh-Hant": "珠盤路有一部分被遮住，只讀到被遮住的格子之前 — 請確認滑鼠指標、彈出視窗或其他視窗沒有擋住結果。",
+    "zh-Hans": "珠盘路有一部分被遮住，只读到被遮住的格子之前 — 请确认鼠标指针、弹出窗口或其他窗口没有挡住结果。",
+  },
   "live.bigRoadWarn": {
     ko: "지금 읽고 있는 건 육매가 아니라 본매입니다. 본매에는 타이가 표시되지 않고 6줄을 넘는 연속이 옆으로 꺾이므로 순서가 어긋날 수 있습니다 — 육매가 화면에 보이게 한 뒤 <b>영역 다시 찾기</b>를 누르세요.",
     en: "This is the big road, not the bead plate. The big road omits ties and turns a run past six rows sideways, so the order can come out wrong — bring the bead plate into view and press <b>find the board again</b>.",
@@ -3766,7 +3772,7 @@ const size = (m) => Math.max(m.w, m.h);
  * Reach scales with the SMALLER of the pair, so a small mark can never reach
  * out and capture a large one.
  */
-function groupBlobs(marks) {
+function groupBlobs(marks, whole = null) {
   // Sorted left to right, so the scan below can stop instead of finishing.
   //
   // Every pair used to be compared, which is a frame's mark count squared, and
@@ -3806,6 +3812,21 @@ function groupBlobs(marks) {
       const dy = Math.abs(mi.cy - mj.cy);
       if (dx <= reach && dy <= reach) union(i, j);
     }
+  }
+  // A board already being read is one board, whatever has come between its
+  // marks since. A mark hidden in a young shoe's only column leaves a gap
+  // nothing bridges, and the column came apart in two: either half read as a
+  // shoe of its own -- the lower one, sharing nothing with the shoe, was
+  // filed as the next shoe -- and the hole between them was in neither, so
+  // nothing said a mark was missing. Held together, the hole is in the board
+  // and the board is read as far as it (see `beadHole`).
+  if (whole) {
+    let first = -1;
+    marks.forEach((m, i) => {
+      if (m.cx < whole.x || m.cx > whole.x2 || m.cy < whole.y || m.cy > whole.y2) return;
+      if (first < 0) first = i;
+      else union(first, i);
+    });
   }
   const groups = new Map();
   marks.forEach((m, i) => {
@@ -3871,13 +3892,27 @@ function opensLikeARoad(board) {
 /**
  * Whether a board's cells fill it the way a bead plate is filled: column by
  * column from the top, every column but the last full.
+ *
+ * Bar one cell. A cell empty above a filled one, or at the foot of a column
+ * the next has gone past, is a mark the frame did not show -- a pointer on
+ * it -- and a young shoe's plate with one went down as a big road: read as
+ * one, the coups after the hole came out shifted, and short of the depth a
+ * reset is asked about at, they were filed as the next shoe. Full means the
+ * rows the board shows, not six: a pop-up over the foot of a young shoe's
+ * column takes those rows out of the board altogether. Kept a bead plate,
+ * either is read as far as the hole (see `beadHole`).
  */
 function fillsLikeABeadPlate(cells, nCols, nRows) {
-  const depth = new Array(nCols).fill(0);
-  for (const c of cells) depth[c.col] += 1;
-  for (const c of cells) if (c.row >= depth[c.col]) return false;   // a gap above it
-  for (let col = 0; col < nCols - 1; col += 1) if (depth[col] !== nRows) return false;
-  return nCols === 1 || nRows === 6;
+  const depth = new Array(nCols).fill(0), foot = new Array(nCols).fill(-1);
+  for (const c of cells) {
+    depth[c.col] += 1;
+    foot[c.col] = Math.max(foot[c.col], c.row);
+  }
+  let empty = 0;
+  for (let col = 0; col < nCols; col += 1) {
+    empty += (col < nCols - 1 ? nRows : foot[col] + 1) - depth[col];
+  }
+  return empty <= 1;
 }
 
 /** Whether any column holds both sides -- which a big road's columns never do. */
@@ -3890,6 +3925,52 @@ function mixesSides(cells) {
     side.set(c.col, c.outcome);
   }
   return false;
+}
+
+/**
+ * Where a bead plate's reading stops being one: the first of its cells that
+ * is not in the place the next coup would take, or -1.
+ *
+ * A bead plate fills its cells in order, down each column and then the next,
+ * so an empty cell before a filled one is a mark the frame did not show -- a
+ * pointer resting on it, a tooltip, a mark the detector missed -- and as a
+ * reading every coup after it lands one place early. Measured in the page,
+ * one mark of a thirty-seven-coup shoe hidden for nine seconds: second or
+ * third from the end, and the record was "mended" into the shoe without it
+ * until the mark showed again; in the middle, and the reader asked whether
+ * the screen showed some other board altogether, one click from filing the
+ * shoe again with a coup missing.
+ *
+ * Measured, not counted: a cell's place is the number of steps from the first
+ * row and column, a step being the closest two neighbouring rows or columns
+ * are. The bins only number the rows and columns that have a mark in them, so
+ * counted, a hole a whole row wide would close up behind itself.
+ */
+function beadHole(cells) {
+  if (cells.length < 2) return -1;
+  const centres = (bin, at) => {
+    const sum = [], n = [];
+    for (const c of cells) {
+      sum[c[bin]] = (sum[c[bin]] || 0) + c[at];
+      n[c[bin]] = (n[c[bin]] || 0) + 1;
+    }
+    return sum.map((v, i) => v / n[i]);
+  };
+  const place = (centre) => {
+    let step = Infinity;
+    for (let i = 1; i < centre.length; i += 1) step = Math.min(step, centre[i] - centre[i - 1]);
+    const at = [0];
+    for (let i = 1; i < centre.length; i += 1) {
+      at.push(at[i - 1] + Math.max(1, Math.round((centre[i] - centre[i - 1]) / step)));
+    }
+    return at;
+  };
+  const col = place(centres("col", "cx")), row = place(centres("row", "cy"));
+  for (let k = 0; k < cells.length; k += 1) {
+    const c = cells[k];
+    if (col[c.col] * 6 + row[c.row] !== k) return k;
+  }
+  return -1;
 }
 
 function buildBoard(marks, diameter) {
@@ -3932,10 +4013,15 @@ function buildBoard(marks, diameter) {
   const kind = nRows <= 6 && (occupancy >= 0.82
     || (fillsLikeABeadPlate(unique, nCols, nRows) && (hasTie || mixesSides(unique))))
     ? "bead" : "bigroad";
+  // A big road is sparse by nature; only a bead plate has holes to find.
+  const hole = kind === "bead" ? beadHole(unique) : -1;
 
   return {
     kind, cells: unique, nRows, nCols, occupancy, hasTie, diameter,
-    sequence: unique.map((c) => c.outcome).join(""),
+    // Read as far as the first hole, and said to have one: past it, nothing
+    // on screen is in the place it seems to be.
+    sequence: (hole < 0 ? unique : unique.slice(0, hole)).map((c) => c.outcome).join(""),
+    holed: hole >= 0,
     box: {
       x: Math.min(...marks.map((m) => m.minX)), y: Math.min(...marks.map((m) => m.minY)),
       x2: Math.max(...marks.map((m) => m.maxX)), y2: Math.max(...marks.map((m) => m.maxY)),
@@ -4026,9 +4112,11 @@ function glareStretch(data, stride, x0, y0, w, h) {
  * what a person watching the table actually sees, and it keeps the region
  * stable when the derived roads grow into it.
  *
- * A caller that wants only part of the picture passes `region` in pixels.
+ * A caller that wants only part of the picture passes `region` in pixels,
+ * and one already reading a board passes its box as `whole`: every mark
+ * inside it is that board's (see `groupBlobs`).
  */
-function detectBoards(imageData, { region = null, minCells = 8 } = {}) {
+function detectBoards(imageData, { region = null, minCells = 8, whole = null } = {}) {
   const { width: W, height: H, data } = imageData;
   const x0 = region ? Math.max(0, Math.round(region.x)) : 0;
   const y0 = region ? Math.max(0, Math.round(region.y)) : 0;
@@ -4155,13 +4243,17 @@ function detectBoards(imageData, { region = null, minCells = 8 } = {}) {
   // the derived roads -- and filtering against it discards the bead plate,
   // which is both the largest board and the one worth reading.
   const boards = [];
-  for (const group of groupBlobs(marks)) {
+  const inWhole = (m) => !!whole && m.cx >= whole.x && m.cx <= whole.x2
+    && m.cy >= whole.y && m.cy <= whole.y2;
+  for (const group of groupBlobs(marks, whole)) {
     if (group.length < minCells) continue;
     const d = median(group.map(size));
     const cells = group.filter((m) => size(m) >= d * 0.55 && size(m) <= d * 1.85);
     if (cells.length < minCells) continue;
     const board = buildBoard(cells, d);
-    if (opensLikeARoad(board)) boards.push(board);
+    // The board being followed has shown itself to be a road already, and a
+    // mark covered this frame leaves a young one an odd shape to judge it by.
+    if (cells.some(inWhole) || opensLikeARoad(board)) boards.push(board);
   }
 
   // Mark size only means something relative to the other boards on the same
@@ -7886,9 +7978,13 @@ class LiveWatcher {
 
     const trusted = this.pinned === "grid" || this.pinned === "manual";
     const remembering = !this.region && !!this.memory;
+    const following = !!(this.region && this.lastBox && this.proven);
+    // The board being followed is read as one, so a mark hidden inside it is
+    // a hole in it rather than a seam between two boards (see `groupBlobs`).
+    const whole = following ? this.lastBox : null;
     let boards = [], bounds = null;
     for (const attempt of searchPlan(this._readArea(w, h), this.memory, this.cleared, w, h, trusted)) {
-      const got = detectBoards(frame, { region: attempt.where, minCells: attempt.minCells });
+      const got = detectBoards(frame, { region: attempt.where, minCells: attempt.minCells, whole });
       if (!got.boards.length) continue;
       if (!boards.length || got.boards[0].cells.length > boards[0].cells.length) {
         boards = got.boards; bounds = got.bounds;
@@ -7914,7 +8010,6 @@ class LiveWatcher {
     // column beside the roads -- a legend, the ask-road icons -- is in the
     // same strip and outscores a young shoe, and protecting it locked the
     // reader onto it for good. See `OPENING_MARKS`.
-    const following = !!(this.region && this.lastBox && this.proven);
     boards = following ? boardsCarryingOn(boards, this.lastBox) : this._roadsAmong(boards);
 
     // A remembered strip is given up on time, not on emptiness: emptiness is
@@ -8158,13 +8253,22 @@ class LiveWatcher {
    * the shoe had finished and the next one was awaited, while the casino's
    * screen showed it being dealt. The same inside a box the viewer drew,
    * once the ruling has been found in it.
+   *
+   * Or at the first cell of the ruling itself. The panel is grown out from the
+   * ruling by its colour, and a dark panel on a dark page grows past its own
+   * edge into the page around it -- on the drawn screen the checks use, out to
+   * the whole frame -- so a shoe of five coups, its column at the corner of
+   * the ruling, was a fifth of the frame from the panel's corner: it waited to
+   * be seen growing, and the reader said the shoe had finished. The ruling's
+   * first cell is where the bead plate opens on every layout that rules it.
    */
   _opensThePanel(board) {
-    const panel = (this.pinned === "grid" || this.pinned === "manual") && this.grid
-      && this.grid.panel;
-    if (!panel) return false;
-    const reach = 1.5 * (board.diameter || this.grid.pitch);
-    return Math.abs(board.box.x - panel.x) <= reach && Math.abs(board.box.y - panel.y) <= reach;
+    const grid = (this.pinned === "grid" || this.pinned === "manual") && this.grid;
+    if (!grid || !grid.panel) return false;
+    const reach = 1.5 * (board.diameter || grid.pitch);
+    const at = (corner) => !!corner && Math.abs(board.box.x - corner.x) <= reach
+      && Math.abs(board.box.y - corner.y) <= reach;
+    return at(grid.panel) || at(grid.box);
   }
 
   /**
@@ -9667,6 +9771,19 @@ function onLiveRead(seq, board, repeats, { afterClear = false } = {}) {
       && (verdict === "same" || verdict === "grow" || verdict === "hold")) {
     liveResumed = true;
     liveLog(t("live.logResumed"));
+  }
+
+  // A bead plate with a hole in it -- a pointer resting on a mark, a pop-up
+  // over a few -- is read only as far as the hole (see `beadHole`), and says
+  // nothing about the coups it cannot see. Read whole, it "mended" a shoe
+  // into one with a coup missing for as long as the mark was covered, or
+  // asked whether some other board was on screen. It may still add the coups
+  // before the hole; it rewrites none, takes none back and opens no shoe, and
+  // while it holds the reader says the plate is covered.
+  if (board.holed && verdict !== "grow") {
+    liveHolds += 1;
+    if (liveHolds >= 4) setLiveWarn(t("live.coveredWarn"));
+    return;
   }
 
   if (verdict === "same") { liveHolds = 0; setLiveWarn(road); return; }
