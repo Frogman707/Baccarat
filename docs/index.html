@@ -1386,6 +1386,12 @@ const S = {
     ko: "슈의 끝을 다시 읽어 바로잡았습니다 — 이제 {total}판", en: "Re-read the end of the shoe and corrected it — now {total}",
     "zh-Hant": "重新讀取牌靴末尾並已更正 — 現為 {total} 局", "zh-Hans": "重新读取牌靴末尾并已更正 — 现为 {total} 局",
   },
+  "live.logTakenBack": {
+    ko: "방금 읽은 {n}번째 판이 화면에서 다시 사라져 지웠습니다 — 문의(Ask) 버튼 미리보기였던 것 같습니다. 이제 {total}판",
+    en: "Coup {n}, just read, went off the screen again and was taken back — most likely an ask-button preview. Now {total}",
+    "zh-Hant": "剛讀到的第 {n} 局又從畫面上消失，已撤回 — 應是問路按鈕的預覽。現為 {total} 局",
+    "zh-Hans": "刚读到的第 {n} 局又从画面上消失，已撤回 — 应是问路按钮的预览。现为 {total} 局",
+  },
   "live.logManual": { ko: "{n}판으로 수동 교체", en: "Replaced by hand with {n}", "zh-Hant": "手動替換為 {n} 局", "zh-Hans": "手动替换为 {n} 局" },
   "live.shortWarn": {
     ko: "읽은 값이 {read}판으로 현재 슈({cur}판)보다 짧습니다. 육매가 잘렸거나 옆으로 밀렸을 수 있습니다 — 화면에 육매 전체가 보이는지 확인하세요.",
@@ -8384,13 +8390,54 @@ const TAIL_FIX = 3;
  * apart for the rest of the shoe. A difference only at the end is the end
  * misread, once or now, and the reading that holds is the one to keep -- a
  * bead plate's: a big road drops the ties, and would correct them away.
+ *
+ * A shoe still in its opening is held to the same rule on narrower terms.
+ * There the end that differs is mostly a coup that was never dealt: a table's
+ * ask buttons show the side asked about in the cell the next coup will take,
+ * flashing, and a flash seen on two looks running is written down. The real
+ * coup then differs from it, with fewer than `RESTART_DEPTH` coups agreeing
+ * before it, and read as the next shoe. Measured in the page: an ask pressed
+ * at the second or third coup of a shoe left a two- or three-coup shoe the
+ * table never dealt in the record, and the shoe again from its first coup
+ * beside it. So a young shoe is its own end misread too, on two conditions.
+ * It is the shoe this run of the reader has been writing (`own`): a young
+ * shoe left open by a reader stopped a few coups in is a shoe of its own when
+ * a reader started later finds the next one, and the next one can open any
+ * way at all -- three coups is all a shoe needs to differ from it only at its
+ * end. And the reading has gone no more than a coup past it: a longer one
+ * that differs from a few opening coups is another table as often as not,
+ * and goes the way any other reading does. The first coup need not agree --
+ * it is the one an ask at the first coup stands in for -- and an empty strip
+ * in between does not make it the next shoe: shoes end seventy and eighty
+ * coups in, not three, and a strip that goes blank a few coups into a shoe is
+ * a panel being redrawn.
  */
-function differsAtTheEnd(shoe, reading, kind) {
+function differsAtTheEnd(shoe, reading, kind, { own = false } = {}) {
   if (kind !== "bead" || !shoe || !reading || sharePrefix(shoe, reading)) return false;
   let same = 0;
   while (same < shoe.length && same < reading.length && shoe[same] === reading[same]) same += 1;
-  return same >= RESTART_DEPTH && shoe.length - same <= TAIL_FIX;
+  if (shoe.length - same > TAIL_FIX) return false;
+  return same >= RESTART_DEPTH || (own && reading.length <= shoe.length + 1);
 }
+
+/**
+ * For how many readings after the reader adds a coup it takes it back, if
+ * the strip drops it again and keeps it dropped.
+ *
+ * A mark that comes and goes is the ask preview again (see `differsAtTheEnd`):
+ * flashing for a few seconds in the next coup's cell, written down if it was
+ * caught lit on two looks running, and then gone -- the strip back to the shoe
+ * as it was, while the table takes bets for the coup the preview stood in for.
+ * Measured in the page with the ten seconds a table gives that, the record
+ * held the coup that was never dealt the whole time, and the reader warned
+ * that the bead plate looked cut off. The newest mark blinking does not do it:
+ * a blink is back within a look, and taking the coup back needs it gone for
+ * as many looks as a reset needs. Eight readings is the length of a preview
+ * and its confirmation at the reader's pace, with room; a coup that has stood
+ * for longer than that and then goes missing is something else covering it,
+ * and is only warned about.
+ */
+const TAKE_BACK_READS = 8;
 
 /**
  * Decide what a fresh reading means for the shoe in progress.
@@ -9161,6 +9208,14 @@ let lastReport = null;      // kept so a language change can redraw the verdict
 let liveHolds = 0;          // consecutive readings shorter than the shoe in progress
 let liveCleared = false;    // the strip was last seen empty, so the log says so once
 let liveResumed = false;    // and the same shoe came back after it, said once too
+/**
+ * The shoe this run of the reader has been writing: its id, its coups as the
+ * reader last wrote them, whether that write added the newest of them, and
+ * how many readings have come since. Null while the reader is stopped. What
+ * it added may still be taken back (see `TAKE_BACK_READS`), and a young
+ * shoe's end is mended only in a shoe of its own (see `differsAtTheEnd`).
+ */
+let liveWrote = null;
 /** The language the whole-screen warning was last drawn in; null while hidden. */
 let liveSurfaceDrawn = null;
 
@@ -9535,7 +9590,9 @@ function loadAsNewShoe(seq, boundTo = null) {
    shoe in progress is never applied to it silently -- that is what a cropped
    or scrolled bead plate looks like, and it would truncate real data. Only
    one that has dropped to the shoe's own opening is taken, and as the next
-   shoe, with the last kept whole (see `REOPEN_DROP`). */
+   shoe, with the last kept whole (see `REOPEN_DROP`) -- and one that has lost
+   just the coup the reader added a moment ago, which the table never dealt
+   (see `TAKE_BACK_READS`), and the log says so. */
 
 function liveLog(text, kind) {
   const box = $("liveLog");
@@ -9555,7 +9612,12 @@ function onLiveRead(seq, board, repeats, { afterClear = false } = {}) {
   // binding itself is handed to the writers, which resolve it when they write:
   // a warning's button can be pressed long after this reading.
   const into = liveTable;
-  const current = openShoe(readingTable(into, state.tables, chosenTable())).o;
+  const open = openShoe(readingTable(into, state.tables, chosenTable()));
+  const current = open.o;
+  if (liveWrote) liveWrote.reads += 1;
+  const own = !!liveWrote && liveWrote.id === open.id;
+  const justAdded = own && liveWrote.added && liveWrote.o === current
+    && liveWrote.reads <= TAKE_BACK_READS;
   // A bead plate that has filled and moved along shows the shoe in progress
   // with its start off screen: it is that shoe, and the coups past its end
   // are new (see `scrolledInto`).
@@ -9564,7 +9626,7 @@ function onLiveRead(seq, board, repeats, { afterClear = false } = {}) {
   // And one that differs from the shoe in progress only in its last coup or
   // three is that shoe with its end misread, once or now (see
   // `differsAtTheEnd`). The reading that holds is the one kept.
-  const mended = verdict === "reset" && differsAtTheEnd(current, seq, board.kind);
+  const mended = verdict === "reset" && differsAtTheEnd(current, seq, board.kind, { own });
   // Reading the big road is not a failure -- it is the same coups -- but it
   // loses ties and folds long runs, so it must never pass unremarked.
   const road = board.kind === "bead" ? null : t("live.bigRoadWarn");
@@ -9594,6 +9656,10 @@ function onLiveRead(seq, board, repeats, { afterClear = false } = {}) {
   // taken as what it is, a reset, on the agreement a reset needs.
   const reopened = verdict === "hold" && seq.length <= SAME_OPENING_DEPTH
     && current.length - seq.length >= REOPEN_DROP;
+  // And the coup the reader has only just written, gone from the strip again,
+  // is a mark that came and went -- an ask button's preview -- and not a bead
+  // plate cut short (see `TAKE_BACK_READS`).
+  const cameAndWent = verdict === "hold" && justAdded && seq === current.slice(0, -1);
 
   // And where it is the same shoe after all, the log -- which said the shoe
   // had ended -- says so.
@@ -9604,6 +9670,18 @@ function onLiveRead(seq, board, repeats, { afterClear = false } = {}) {
   }
 
   if (verdict === "same") { liveHolds = 0; setLiveWarn(road); return; }
+
+  if (cameAndWent) {
+    // On the agreement a reset needs, since it takes back a coup that was
+    // kept. Until then it is not a hold either: nothing is cut off.
+    liveHolds = 0;
+    if (repeats >= CONFIRM_RESET) {
+      replaceCurrentShoe(seq, into);
+      noteWrite(into, false);
+      liveLog(t("live.logTakenBack", { n: current.length, total: seq.length }));
+    }
+    return;
+  }
 
   if (verdict === "hold" && !restart && !reopened) {
     liveHolds += 1;
@@ -9630,6 +9708,7 @@ function onLiveRead(seq, board, repeats, { afterClear = false } = {}) {
     // Seen three times running, as a reset is: it rewrites coups already kept.
     if (repeats >= CONFIRM_RESET) {
       replaceCurrentShoe(seq, into);
+      noteWrite(into, false);
       liveLog(t("live.logMended", { total: seq.length }));
     }
     return;
@@ -9644,6 +9723,7 @@ function onLiveRead(seq, board, repeats, { afterClear = false } = {}) {
   if (verdict === "grow" && repeats >= CONFIRM_GROWTH) {
     const added = seq.length - current.length;
     replaceCurrentShoe(seq, into);
+    noteWrite(into, true);
     liveLog(t("live.logGrow", {
       n: added, total: seq.length,
       sides: [...seq.slice(current.length)].map(side).join(" "),
@@ -9696,8 +9776,32 @@ function onLiveRead(seq, board, repeats, { afterClear = false } = {}) {
       return;
     }
     loadAsNewShoe(seq, into);
+    noteWrite(into, true);
     liveLog(t("live.logNewShoe", { n: seq.length }), "new");
   }
+}
+
+/** Remember the shoe as the reader has just written it. See `liveWrote`. */
+function noteWrite(into, added) {
+  const shoe = openShoe(readingTable(into, state.tables, chosenTable()));
+  liveWrote = { id: shoe.id, o: shoe.o, added, reads: 0 };
+}
+
+/**
+ * Take back a shoe the reader opened on a single mark, when the strip has gone
+ * empty again straight after: the mark was the new shoe's first cell showing
+ * an ask, not its first coup. Kept, it closed as a shoe of one coup the table
+ * never dealt the moment the real first coup arrived. True when it was taken.
+ */
+function takeBackOpening() {
+  const into = liveTable;
+  const shoe = openShoe(readingTable(into, state.tables, chosenTable()));
+  if (!liveWrote || !liveWrote.added || liveWrote.id !== shoe.id || liveWrote.o !== shoe.o
+      || shoe.o.length !== 1 || liveWrote.reads > TAKE_BACK_READS) return false;
+  replaceCurrentShoe("", into);
+  noteWrite(into, false);
+  liveLog(t("live.logTakenBack", { n: 1, total: 0 }));
+  return true;
 }
 
 /**
@@ -9843,6 +9947,7 @@ function onLiveState(st) {
   // none of its paragraphs had anything to open.
   if (flipped) foldExplanations();
 
+  if (st.error || !st.active) liveWrote = null;
   if (st.error) { liveTable = null; renderLiveBinding(); renderLiveError(st.error, st.source); return; }
   if (!st.active) { liveTable = null; renderLiveBinding(); renderLiveSources(); return; }
 
@@ -9900,7 +10005,7 @@ function onLiveState(st) {
   // The gap between a shoe ending and the next one being readable can run to
   // minutes, so the moment itself goes in the log rather than only the status.
   if (st.cleared && !liveCleared) {
-    liveLog(t("live.logCleared"), "new");
+    if (!takeBackOpening()) liveLog(t("live.logCleared"), "new");
     liveResumed = false;
   }
   liveCleared = st.cleared;
