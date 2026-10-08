@@ -3819,11 +3819,16 @@ function groupBlobs(marks, whole = null) {
   // shoe of its own -- the lower one, sharing nothing with the shoe, was
   // filed as the next shoe -- and the hole between them was in neither, so
   // nothing said a mark was missing. Held together, the hole is in the board
-  // and the board is read as far as it (see `beadHole`).
-  if (whole) {
+  // and the board is read as far as it (see `beadPlaces`).
+  //
+  // Only marks the size of its own, though. The box is where the board was,
+  // and what is there now need not be the board -- a window scrolled puts
+  // whatever is above or beside it in the same place.
+  if (whole && whole.d) {
     let first = -1;
     marks.forEach((m, i) => {
       if (m.cx < whole.x || m.cx > whole.x2 || m.cy < whole.y || m.cy > whole.y2) return;
+      if (size(m) < 0.7 * whole.d || size(m) > 1.4 * whole.d) return;
       if (first < 0) first = i;
       else union(first, i);
     });
@@ -3885,8 +3890,10 @@ function opensLikeARoad(board) {
 
   if (n > 6) return true;
   // Under one column's worth, only the shape settles it: the first six marks
-  // of any road are one column, so six lying in a row are six chips.
-  return board.nCols === 1 || board.nRows === 6;
+  // of any road are one column, so six lying in a row are six chips. Six rows
+  // as measured: a young plate with a mark covered at the foot of its first
+  // column has a row with nothing in it, which a count of rows skips.
+  return board.nCols === 1 || board.nRows === 6 || board.rowSpan === 6;
 }
 
 /**
@@ -3900,7 +3907,7 @@ function opensLikeARoad(board) {
  * reset is asked about at, they were filed as the next shoe. Full means the
  * rows the board shows, not six: a pop-up over the foot of a young shoe's
  * column takes those rows out of the board altogether. Kept a bead plate,
- * either is read as far as the hole (see `beadHole`).
+ * either is read as far as the hole (see `beadPlaces`).
  */
 function fillsLikeABeadPlate(cells, nCols, nRows) {
   const depth = new Array(nCols).fill(0), foot = new Array(nCols).fill(-1);
@@ -3928,8 +3935,9 @@ function mixesSides(cells) {
 }
 
 /**
- * Where a bead plate's reading stops being one: the first of its cells that
- * is not in the place the next coup would take, or -1.
+ * Where a bead plate's reading stops being one -- the first of its cells that
+ * is not in the place the next coup would take, or -1 -- and how many rows it
+ * spans, measured the same way.
  *
  * A bead plate fills its cells in order, down each column and then the next,
  * so an empty cell before a filled one is a mark the frame did not show -- a
@@ -3946,8 +3954,8 @@ function mixesSides(cells) {
  * are. The bins only number the rows and columns that have a mark in them, so
  * counted, a hole a whole row wide would close up behind itself.
  */
-function beadHole(cells) {
-  if (cells.length < 2) return -1;
+function beadPlaces(cells) {
+  if (cells.length < 2) return { hole: -1, rows: cells.length };
   const centres = (bin, at) => {
     const sum = [], n = [];
     for (const c of cells) {
@@ -3966,11 +3974,12 @@ function beadHole(cells) {
     return at;
   };
   const col = place(centres("col", "cx")), row = place(centres("row", "cy"));
+  const rows = row[row.length - 1] + 1;
   for (let k = 0; k < cells.length; k += 1) {
     const c = cells[k];
-    if (col[c.col] * 6 + row[c.row] !== k) return k;
+    if (col[c.col] * 6 + row[c.row] !== k) return { hole: k, rows };
   }
-  return -1;
+  return { hole: -1, rows };
 }
 
 function buildBoard(marks, diameter) {
@@ -4014,7 +4023,8 @@ function buildBoard(marks, diameter) {
     || (fillsLikeABeadPlate(unique, nCols, nRows) && (hasTie || mixesSides(unique))))
     ? "bead" : "bigroad";
   // A big road is sparse by nature; only a bead plate has holes to find.
-  const hole = kind === "bead" ? beadHole(unique) : -1;
+  const placed = kind === "bead" ? beadPlaces(unique) : { hole: -1, rows: nRows };
+  const hole = placed.hole;
 
   return {
     kind, cells: unique, nRows, nCols, occupancy, hasTie, diameter,
@@ -4022,6 +4032,8 @@ function buildBoard(marks, diameter) {
     // on screen is in the place it seems to be.
     sequence: (hole < 0 ? unique : unique.slice(0, hole)).map((c) => c.outcome).join(""),
     holed: hole >= 0,
+    // The rows it spans, a row a hole has emptied included (see `beadPlaces`).
+    rowSpan: placed.rows,
     box: {
       x: Math.min(...marks.map((m) => m.minX)), y: Math.min(...marks.map((m) => m.minY)),
       x2: Math.max(...marks.map((m) => m.maxX)), y2: Math.max(...marks.map((m) => m.maxY)),
@@ -4113,8 +4125,9 @@ function glareStretch(data, stride, x0, y0, w, h) {
  * stable when the derived roads grow into it.
  *
  * A caller that wants only part of the picture passes `region` in pixels,
- * and one already reading a board passes its box as `whole`: every mark
- * inside it is that board's (see `groupBlobs`).
+ * and one already reading a board passes its box as `whole`, with the size of
+ * its marks as `d`: every mark that size inside it is that board's (see
+ * `groupBlobs`).
  */
 function detectBoards(imageData, { region = null, minCells = 8, whole = null } = {}) {
   const { width: W, height: H, data } = imageData;
@@ -4243,17 +4256,13 @@ function detectBoards(imageData, { region = null, minCells = 8, whole = null } =
   // the derived roads -- and filtering against it discards the bead plate,
   // which is both the largest board and the one worth reading.
   const boards = [];
-  const inWhole = (m) => !!whole && m.cx >= whole.x && m.cx <= whole.x2
-    && m.cy >= whole.y && m.cy <= whole.y2;
   for (const group of groupBlobs(marks, whole)) {
     if (group.length < minCells) continue;
     const d = median(group.map(size));
     const cells = group.filter((m) => size(m) >= d * 0.55 && size(m) <= d * 1.85);
     if (cells.length < minCells) continue;
     const board = buildBoard(cells, d);
-    // The board being followed has shown itself to be a road already, and a
-    // mark covered this frame leaves a young one an odd shape to judge it by.
-    if (cells.some(inWhole) || opensLikeARoad(board)) boards.push(board);
+    if (opensLikeARoad(board)) boards.push(board);
   }
 
   // Mark size only means something relative to the other boards on the same
@@ -7589,6 +7598,8 @@ class LiveWatcher {
     this.bounds = null;      // the whole result strip, in frame pixels
     this.anchor = null;      // centre of the board being read, to keep the pick stable
     this.lastBox = null;     // and its box, so a neighbour is not mistaken for it
+    this.lastSize = 0;       // and the size of its marks
+    this.lastRead = null;    // and what it read last, through a shoe change too
     /**
      * Whether the board being followed has shown itself to be a road: two
      * columns or more, or a column watched gaining a mark. Only such a board
@@ -7867,6 +7878,8 @@ class LiveWatcher {
   /** Stop following the board being read: the next one has to show itself. */
   _unfollow() {
     this.lastBox = null;
+    this.lastSize = 0;
+    this.lastRead = null;
     this.anchor = null;
     this.proven = false;
     this.sightings = [];
@@ -7981,7 +7994,7 @@ class LiveWatcher {
     const following = !!(this.region && this.lastBox && this.proven);
     // The board being followed is read as one, so a mark hidden inside it is
     // a hole in it rather than a seam between two boards (see `groupBlobs`).
-    const whole = following ? this.lastBox : null;
+    const whole = following ? { ...this.lastBox, d: this.lastSize } : null;
     let boards = [], bounds = null;
     for (const attempt of searchPlan(this._readArea(w, h), this.memory, this.cleared, w, h, trusted)) {
       const got = detectBoards(frame, { region: attempt.where, minCells: attempt.minCells, whole });
@@ -8010,7 +8023,21 @@ class LiveWatcher {
     // column beside the roads -- a legend, the ask-road icons -- is in the
     // same strip and outscores a young shoe, and protecting it locked the
     // reader onto it for good. See `OPENING_MARKS`.
-    boards = following ? boardsCarryingOn(boards, this.lastBox) : this._roadsAmong(boards);
+    //
+    // Unless it has moved. The window scrolled, or was resized, or laid out
+    // again: the board is elsewhere, and what is where it was is empty. Read as
+    // a shoe change, the reader sat on the empty place waiting for a shoe that
+    // was being dealt somewhere else -- measured in the page, a strip moved a
+    // board's height down or across stayed "finished" for as long as it was
+    // watched, the coups dealt meanwhile unread. Where nothing at all is left
+    // where it was, a board elsewhere that reads as what was read last, and
+    // goes on from it, is that board.
+    if (following) {
+      const carried = boardsCarryingOn(boards, this.lastBox);
+      boards = carried.length ? carried : movedTo(boards, this.lastRead);
+    } else {
+      boards = this._roadsAmong(boards);
+    }
 
     // A remembered strip is given up on time, not on emptiness: emptiness is
     // what a shoe change looks like, and it lasts for the whole shuffle.
@@ -8035,6 +8062,7 @@ class LiveWatcher {
     if (this.pinned === "grid" && this.samples % RECHECK_EVERY === 0) {
       const grid = findStrip(frame, w, h);
       if (grid) {
+        const before = this.grid;
         this.gridMisses = 0;
         this.grid = grid;
         const want = gridLock(grid, w, h);
@@ -8044,7 +8072,15 @@ class LiveWatcher {
         // with that would read the reader's own widening as the window having
         // moved, and re-pin every time, undoing it.
         const was = this.gridBox || want;
-        if (Math.abs(want.y - was.y) > grid.pitch || Math.abs(want.h - was.h) > grid.pitch) {
+        // The ruling's own corner says when it has moved, too. The lock is
+        // the panel grown out around it, and a dark panel on a dark page
+        // grows to the whole frame, where it does not move however far the
+        // ruling inside it does.
+        const shifted = !!before && !!before.box
+          && (Math.abs(grid.box.x - before.box.x) > grid.pitch
+              || Math.abs(grid.box.y - before.box.y) > grid.pitch);
+        if (shifted || Math.abs(want.y - was.y) > grid.pitch
+            || Math.abs(want.h - was.h) > grid.pitch) {
           this.region = this.memory = want;
           this._unfollow();
         }
@@ -8174,6 +8210,8 @@ class LiveWatcher {
     this.proven = following || !!board.shown;
     this.anchor = centreOf(board.box);
     this.lastBox = board.box;
+    this.lastSize = board.diameter;
+    this.lastRead = board.sequence;
     this.bounds = bounds;
     this.lastBoard = { ...board, frameWidth: w, frameHeight: h };
     this.lastReadAt = Date.now();
@@ -8656,6 +8694,21 @@ function pickBoard(boards, anchor) {
 function boardsCarryingOn(found, lastBox) {
   if (!lastBox) return found;
   return found.filter((b) => overlaps(b.box, lastBox));
+}
+
+/**
+ * How many coups a board elsewhere must read alike, from the first, to be
+ * taken for the board last read moved. Ten in a row do not agree by chance:
+ * a board that happens to open the way this shoe did is one in a thousand
+ * or more at ten, and nothing a casino screen draws besides it reads as a
+ * shoe at all.
+ */
+const MOVED_MIN = 10;
+
+/** The boards in `found` that read as `last` and go on from it. */
+function movedTo(found, last) {
+  if (!last || last.length < MOVED_MIN) return [];
+  return found.filter((b) => b.sequence.startsWith(last));
 }
 
 /** Whether two boxes share any ground. */
