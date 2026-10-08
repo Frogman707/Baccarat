@@ -6733,9 +6733,37 @@ function recordPrediction(log, table, entry) {
     f: String(entry.features || ""),
     t: entry.at || Date.now(),
     r: null,                          // the outcome, once it is known
+    // The shoe it was made from, up to the coup it is about (see `basisOf`).
+    h: typeof entry.basis === "string" ? basisOf(entry.basis) : "",
   });
   trim(t);
   return true;
+}
+
+/**
+ * A fingerprint of the coups a prediction was made from: the shoe up to the
+ * coup it is about.
+ *
+ * The live reader rewrites what it wrote when the screen says otherwise -- a
+ * coup taken back that an ask button only previewed, an end read wrong once
+ * and put right -- and the prediction for the coup after it was made from
+ * the history that turned out not to be. The log keeps the first prediction
+ * for each coup, so that one was the one scored: measured in the page, three
+ * ask previews in a shoe left three predictions in the record made from coups
+ * that were never dealt, and none of them the one on screen when the coup
+ * was decided. With the history it came from fingerprinted, a prediction
+ * still waiting for its coup is let go once that history changes, and the
+ * page records the one it makes from the shoe as it stands.
+ *
+ * FNV-1a, 32 bits, in base 36: six or seven characters an entry.
+ */
+function basisOf(seq) {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < seq.length; i += 1) {
+    h ^= seq.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return h.toString(36);
 }
 
 /** Six places is finer than any figure this shows and keeps the store small. */
@@ -6867,6 +6895,15 @@ function settlePredictions(log, table, sequences) {
     // A shoe the record no longer holds at all: an import replaced it, or it
     // was dropped. Nothing can be said about those predictions, either way.
     if (!known) { keep.push(e); continue; }
+
+    // Still waiting, and the shoe up to its coup is not the shoe it was made
+    // from: let go, for the prediction made from the shoe as it now stands
+    // (see `basisOf`). A settled one stays as it was made -- that was the
+    // call on screen when its coup came -- and only follows its outcome.
+    if (!e.r && e.h && seq.length >= e.i && basisOf(seq.slice(0, e.i)) !== e.h) {
+      done += 1;
+      continue;
+    }
 
     if (seq.length > e.i) {
       if (e.r !== seq[e.i]) { e.r = seq[e.i]; done += 1; }
@@ -7186,6 +7223,7 @@ function sanitiseEntry(e) {
     f: typeof e.f === "string" ? e.f : "",
     t: Number.isFinite(Number(e.t)) ? Number(e.t) : 0,
     r,
+    h: typeof e.h === "string" && /^[0-9a-z]{1,8}$/.test(e.h) ? e.h : "",
   };
 }
 
@@ -10397,6 +10435,7 @@ function logPrediction(p, chosen, worthBacking) {
     confidence: sureOf(p, chosen).score,
     model: usingNet ? NET_MODEL_VERSION : BASE_MODEL_VERSION,
     features: FEATURE_VERSION,
+    basis: shoe.o,
   });
   if (wrote) store.saveLog(predictionLog);
 }
