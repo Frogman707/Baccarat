@@ -8119,10 +8119,15 @@ class LiveWatcher {
         // The ruling's own corner says when it has moved, too. The lock is
         // the panel grown out around it, and a dark panel on a dark page
         // grows to the whole frame, where it does not move however far the
-        // ruling inside it does.
+        // ruling inside it does. Half a cell is enough to say so: the board
+        // being followed is looked for where it was (see `boardsCarryingOn`),
+        // and a young shoe's single column is one mark wide -- measured in a
+        // long sitting, the window resized and moved thirty pixels at the
+        // second coup of a shoe, short of a whole cell, and the reader sat on
+        // the empty place for the rest of the shoe.
         const shifted = !!before && !!before.box
-          && (Math.abs(grid.box.x - before.box.x) > grid.pitch
-              || Math.abs(grid.box.y - before.box.y) > grid.pitch);
+          && (Math.abs(grid.box.x - before.box.x) > grid.pitch / 2
+              || Math.abs(grid.box.y - before.box.y) > grid.pitch / 2);
         if (shifted || Math.abs(want.y - was.y) > grid.pitch
             || Math.abs(want.h - was.h) > grid.pitch) {
           this.region = this.memory = want;
@@ -11756,16 +11761,29 @@ const ROAD_ROWS = 6;
     eighty under it and forty each at its foot. */
 const ROAD_PAPER = { bead: 11, big: 40, beb: 80, small: 40, roach: 40 };
 let roadRefollow = 0;
+/** Each road's box's width as the watch on its size last saw it laid out. */
+const roadWidth = new WeakMap();
 
+/* A box made narrower has its scroll pulled back to its new end as it is laid
+   out, and the browser reports that scroll in the next frame -- by when a
+   window dragged narrower and back has made the box wider again, so the road
+   reads as scrolled back from its newest column and would stop following it
+   for good, every coup after drawn off its edge. A scroll reported against a
+   width the watch has not seen yet is the browser's, not the owner's: it
+   leaves the road following as it was, and the watch, seeing the new width,
+   puts a following road back at its end. */
 function bindRoads() {
   const boxes = document.querySelectorAll(".roadscroll");
   for (const box of boxes) {
     box.addEventListener("scroll", () => {
+      const seen = roadWidth.get(box);
+      if (seen !== undefined && seen !== box.clientWidth) return;
       roadFollowing.set(box, box.scrollLeft + box.clientWidth >= box.scrollWidth - 2);
     }, { passive: true });
   }
   if (typeof ResizeObserver === "function") {
-    const watch = new ResizeObserver(() => {
+    const watch = new ResizeObserver((entries) => {
+      for (const entry of entries) roadWidth.set(entry.target, entry.target.clientWidth);
       if (roadRefollow) return;
       roadRefollow = requestAnimationFrame(() => {
         roadRefollow = 0;
