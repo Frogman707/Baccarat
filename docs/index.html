@@ -8349,12 +8349,20 @@ const SCROLL_OVERLAP = 24;
  * so every coup after the sixty-sixth would have stalled behind the warning
  * that some other board was being read. Where the screen shows the shoe in
  * progress from some point on, in order and at length, it is that shoe, and
- * the coups past its end are new.
+ * the coups past its end are new. A bead plate's reading only: a big road
+ * has no ties and folds its long runs, and lines up with nothing.
  */
-function scrolledInto(shoe, reading) {
-  if (!shoe || !reading || sharePrefix(shoe, reading)) return null;
-  for (let from = 1; shoe.length - from >= SCROLL_OVERLAP; from += 1) {
-    if (reading.startsWith(shoe.slice(from))) return shoe.slice(0, from) + reading;
+function scrolledInto(shoe, reading, kind) {
+  if (kind !== "bead" || !shoe || !reading || sharePrefix(shoe, reading)) return null;
+  // The shoe's own last coup or three may be what the screen now has right
+  // (see `differsAtTheEnd`) -- on the owner's table the misread end was the
+  // bead plate's last column, the very one that moves along next -- so up to
+  // `TAIL_FIX` of them are not asked for.
+  for (let wrong = 0; wrong <= TAIL_FIX; wrong += 1) {
+    const kept = shoe.slice(0, shoe.length - wrong);
+    for (let from = 1; kept.length - from >= SCROLL_OVERLAP; from += 1) {
+      if (reading.startsWith(kept.slice(from))) return shoe.slice(0, from) + reading;
+    }
   }
   return null;
 }
@@ -8365,7 +8373,8 @@ const TAIL_FIX = 3;
 /**
  * Whether a reading is the shoe in progress read differently at its very end:
  * a long agreement from the first coup, then a difference no deeper than
- * `TAIL_FIX` coups at the end of either.
+ * `TAIL_FIX` coups at the end of the shoe -- the reading may have gone on
+ * past it since, which is the table dealing.
  *
  * An owner's record held sixty-three coups agreeing with the casino and then
  * three the table never showed -- the last column filled to the bottom, where
@@ -8373,14 +8382,14 @@ const TAIL_FIX = 3;
  * from the record at the sixty-fourth coup, so it read as some other board
  * and stalled behind the warning for one: the record and the table stayed
  * apart for the rest of the shoe. A difference only at the end is the end
- * misread, once or now, and the reading that holds is the one to keep.
+ * misread, once or now, and the reading that holds is the one to keep -- a
+ * bead plate's: a big road drops the ties, and would correct them away.
  */
-function differsAtTheEnd(shoe, reading) {
-  if (!shoe || !reading || sharePrefix(shoe, reading)) return false;
+function differsAtTheEnd(shoe, reading, kind) {
+  if (kind !== "bead" || !shoe || !reading || sharePrefix(shoe, reading)) return false;
   let same = 0;
   while (same < shoe.length && same < reading.length && shoe[same] === reading[same]) same += 1;
-  return same >= RESTART_DEPTH
-    && shoe.length - same <= TAIL_FIX && reading.length - same <= TAIL_FIX;
+  return same >= RESTART_DEPTH && shoe.length - same <= TAIL_FIX;
 }
 
 /**
@@ -9550,12 +9559,12 @@ function onLiveRead(seq, board, repeats, { afterClear = false } = {}) {
   // A bead plate that has filled and moved along shows the shoe in progress
   // with its start off screen: it is that shoe, and the coups past its end
   // are new (see `scrolledInto`).
-  if (board.kind === "bead") seq = scrolledInto(current, seq) || seq;
+  seq = scrolledInto(current, seq, board.kind) || seq;
   const verdict = diagnose(current, seq);
   // And one that differs from the shoe in progress only in its last coup or
   // three is that shoe with its end misread, once or now (see
   // `differsAtTheEnd`). The reading that holds is the one kept.
-  const mended = verdict === "reset" && differsAtTheEnd(current, seq);
+  const mended = verdict === "reset" && differsAtTheEnd(current, seq, board.kind);
   // Reading the big road is not a failure -- it is the same coups -- but it
   // loses ties and folds long runs, so it must never pass unremarked.
   const road = board.kind === "bead" ? null : t("live.bigRoadWarn");
