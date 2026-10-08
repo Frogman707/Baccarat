@@ -1387,10 +1387,10 @@ const S = {
     "zh-Hant": "重新讀取牌靴末尾並已更正 — 現為 {total} 局", "zh-Hans": "重新读取牌靴末尾并已更正 — 现为 {total} 局",
   },
   "live.logTakenBack": {
-    ko: "방금 읽은 {n}번째 판이 화면에서 다시 사라져 지웠습니다 — 문의(Ask) 버튼 미리보기였던 것 같습니다. 이제 {total}판",
-    en: "Coup {n}, just read, went off the screen again and was taken back — most likely an ask-button preview. Now {total}",
-    "zh-Hant": "剛讀到的第 {n} 局又從畫面上消失，已撤回 — 應是問路按鈕的預覽。現為 {total} 局",
-    "zh-Hans": "刚读到的第 {n} 局又从画面上消失，已撤回 — 应是问路按钮的预览。现为 {total} 局",
+    ko: "방금 읽은 {n}번째 판이 화면에서 다시 사라져 지웠습니다 — 문의(Ask) 버튼 미리보기였거나 무언가에 가려진 것 같습니다. 다시 보이면 다시 기록합니다. 이제 {total}판",
+    en: "Coup {n}, just read, went off the screen again and was taken back — an ask-button preview, or something covering it. It is recorded again if it comes back. Now {total}",
+    "zh-Hant": "剛讀到的第 {n} 局又從畫面上消失，已撤回 — 可能是問路按鈕的預覽，或被東西遮住。再次出現時會重新記錄。現為 {total} 局",
+    "zh-Hans": "刚读到的第 {n} 局又从画面上消失，已撤回 — 可能是问路按钮的预览，或被东西挡住。再次出现时会重新记录。现为 {total} 局",
   },
   "live.logManual": { ko: "{n}판으로 수동 교체", en: "Replaced by hand with {n}", "zh-Hant": "手動替換為 {n} 局", "zh-Hans": "手动替换为 {n} 局" },
   "live.shortWarn": {
@@ -9827,7 +9827,7 @@ function onLiveRead(seq, board, repeats, { afterClear = false } = {}) {
   }
 
   // A bead plate with a hole in it -- a pointer resting on a mark, a pop-up
-  // over a few -- is read only as far as the hole (see `beadHole`), and says
+  // over a few -- is read only as far as the hole (see `beadPlaces`), and says
   // nothing about the coups it cannot see. Read whole, it "mended" a shoe
   // into one with a coup missing for as long as the mark was covered, or
   // asked whether some other board was on screen. It may still add the coups
