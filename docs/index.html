@@ -3961,31 +3961,48 @@ function fillsLikeABeadPlate(cells, nCols, nRows) {
  * coups from the wrong rows, and stayed -- so nothing on it is read. Within a
  * row of the edge, because a mark the edge cuts across is too flat to be
  * kept as one at all.
+ *
+ * A young shoe's single column is short of six rows by nature, so against
+ * the top it may be whole or cut, and cannot be told. It is taken as cut: a
+ * casino's roads sit under its video, and a plate against the top of the
+ * shared window is one the window has been scrolled past. In a long sitting,
+ * a three-coup shoe scrolled one row above the window read as a two-coup
+ * shoe wanting its first coup, and was filed as a new one, a fragment left
+ * in the record. At the foot, a single column's top rows are its first
+ * coups, rightly read.
  */
 function markFrameCut(board, frameH) {
   board.cut = null;
-  if (board.kind !== "bead" || board.nCols < 2 || board.rowSpan >= 6) return;
+  if (board.kind !== "bead" || board.rowSpan >= 6) return;
   const reach = board.diameter * 1.2;
   if (board.box.y < reach) {
     board.cut = "top";
     board.holed = true;
     board.sequence = "";
-  } else if (frameH - board.box.y2 < reach) {
+  } else if (board.nCols >= 2 && frameH - board.box.y2 < reach) {
     board.cut = "bottom";
   }
 }
 
 /** Whether any column holds both sides -- which a big road's columns never do. */
 function mixesSides(cells) {
-  const side = new Map();
+  return mixedColumns(cells) > 0;
+}
+
+/** How many columns hold both sides. */
+function mixedColumns(cells) {
+  const side = new Map(), mixed = new Set();
   for (const c of cells) {
     if (c.outcome === "T") continue;
     const was = side.get(c.col);
-    if (was && was !== c.outcome) return true;
+    if (was && was !== c.outcome) mixed.add(c.col);
     side.set(c.col, c.outcome);
   }
-  return false;
+  return mixed.size;
 }
+
+/** How solid a tie's mark must be to be a bead plate's own disc (see `buildBoard`). */
+const SOLID_TIE = 0.55;
 
 /**
  * Where a bead plate's reading stops being one -- the first of its cells that
@@ -4043,7 +4060,7 @@ function buildBoard(marks, diameter) {
   const cells = marks.map((m, i) => ({
     col: cols.bin[i], row: rows.bin[i],
     outcome: CODE_TO_OUTCOME[m.code],
-    cx: m.cx, cy: m.cy, r: Math.max(m.w, m.h) / 2,
+    cx: m.cx, cy: m.cy, r: Math.max(m.w, m.h) / 2, fill: m.n / (m.w * m.h),
   }));
 
   // One mark per grid slot: if two landed in the same slot, keep the larger.
@@ -4072,8 +4089,22 @@ function buildBoard(marks, diameter) {
   // but the last full and the last filled from the top, is a bead plate where
   // it shows what no big road can: a tie as a cell of its own, or both sides
   // in one column.
+  //
+  // And one that does not fill like one -- a pop-up over a block of a young
+  // plate, on a reader's first look, with nothing on record to hold it
+  // against: a 20-coup plate with four marks covered went down as a big road
+  // and into the record wrong -- is a bead plate still where it shows that
+  // past doubt: a tie as a disc of its own, solid and the size of the rest,
+  // or both sides in two columns. A big road writes a tie across a mark, as a
+  // stroke or a figure: on an owner's screen a green "1", two thirds the size
+  // of the rings and 0.44 solid, where every bead plate's ties on record were
+  // full size and 0.64 or more. And a big road's column holds one side, but
+  // for a long run turned under along its foot -- so its foot is not counted.
+  const showsIt = unique.some((c) => c.outcome === "T" && c.fill >= SOLID_TIE && c.r * 2 >= diameter * 0.8)
+    || mixedColumns(unique.filter((c) => c.row < nRows - 1)) >= 2;
   const kind = nRows <= 6 && (occupancy >= 0.82
-    || (fillsLikeABeadPlate(unique, nCols, nRows) && (hasTie || mixesSides(unique))))
+    || (fillsLikeABeadPlate(unique, nCols, nRows) && (hasTie || mixesSides(unique)))
+    || (occupancy >= 0.5 && showsIt))
     ? "bead" : "bigroad";
   // A big road is sparse by nature; only a bead plate has holes to find.
   const placed = kind === "bead" ? beadPlaces(unique) : { hole: -1, rows: nRows };
