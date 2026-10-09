@@ -1411,6 +1411,12 @@ const S = {
     "zh-Hant": "珠盤路有一部分被遮住，只讀到被遮住的格子之前 — 請確認滑鼠指標、彈出視窗或其他視窗沒有擋住結果。",
     "zh-Hans": "珠盘路有一部分被遮住，只读到被遮住的格子之前 — 请确认鼠标指针、弹出窗口或其他窗口没有挡住结果。",
   },
+  "live.smallWarn": {
+    ko: "육매 표시가 작아서 일부 칸을 읽지 못해 그 앞까지만 읽고 있습니다 — 카지노 창을 더 크게 하거나 카지노 화면을 확대(Ctrl +)해 보세요. 무언가가 결과를 가리고 있을 수도 있습니다.",
+    en: "The bead plate's marks are too small to read every cell, so it is read only up to the first it could not — make the casino window bigger or zoom the casino page in (Ctrl +). Something may also be hiding a result.",
+    "zh-Hant": "珠盤路的標記太小，有些格子讀不出來，只讀到那裡之前 — 請把賭場視窗放大，或放大賭場頁面（Ctrl +）。也可能有東西擋住了結果。",
+    "zh-Hans": "珠盘路的标记太小，有些格子读不出来，只读到那里之前 — 请把赌场窗口放大，或放大赌场页面（Ctrl +）。也可能有东西挡住了结果。",
+  },
   "live.bigRoadWarn": {
     ko: "지금 읽고 있는 건 육매가 아니라 본매입니다. 본매에는 타이가 표시되지 않고 6줄을 넘는 연속이 옆으로 꺾이므로 순서가 어긋날 수 있습니다 — 육매가 화면에 보이게 한 뒤 <b>영역 다시 찾기</b>를 누르세요.",
     en: "This is the big road, not the bead plate. The big road omits ties and turns a run past six rows sideways, so the order can come out wrong — bring the bead plate into view and press <b>find the board again</b>.",
@@ -3906,14 +3912,22 @@ function opensLikeARoad(board) {
  * Whether a board's cells fill it the way a bead plate is filled: column by
  * column from the top, every column but the last full.
  *
- * Bar one cell. A cell empty above a filled one, or at the foot of a column
- * the next has gone past, is a mark the frame did not show -- a pointer on
- * it -- and a young shoe's plate with one went down as a big road: read as
- * one, the coups after the hole came out shifted, and short of the depth a
- * reset is asked about at, they were filed as the next shoe. Full means the
- * rows the board shows, not six: a pop-up over the foot of a young shoe's
- * column takes those rows out of the board altogether. Kept a bead plate,
- * either is read as far as the hole (see `beadPlaces`).
+ * Bar a cell, and one more for every column's worth of marks. A cell empty
+ * above a filled one, or at the foot of a column the next has gone past, is a
+ * mark the frame did not show -- a pointer on it -- and a young shoe's plate
+ * with one went down as a big road: read as one, the coups after the hole
+ * came out shifted, and short of the depth a reset is asked about at, they
+ * were filed as the next shoe. A pop-up covers more than a pointer does, and
+ * marks too small for the frame they were shrunk with run together and are
+ * lost in twos: a 37-coup plate with four marks gone, under 82% full, went
+ * down as a big road the same way, and read so on a reader's first look,
+ * with nothing yet to hold it against, the coups after the hole were written
+ * down shifted, for good. A big road comes no nearer to passing for one: this
+ * is only asked of a board that shows a tie as a cell of its own or both
+ * sides in one column, and a big road shows neither (see `buildBoard`). Full
+ * means the rows the board shows, not six: a pop-up over the foot of a young
+ * shoe's column takes those rows out of the board altogether. Kept a bead
+ * plate, it is read as far as the first hole (see `beadPlaces`).
  */
 function fillsLikeABeadPlate(cells, nCols, nRows) {
   const depth = new Array(nCols).fill(0), foot = new Array(nCols).fill(-1);
@@ -3925,7 +3939,7 @@ function fillsLikeABeadPlate(cells, nCols, nRows) {
   for (let col = 0; col < nCols; col += 1) {
     empty += (col < nCols - 1 ? nRows : foot[col] + 1) - depth[col];
   }
-  return empty <= 1;
+  return empty <= Math.max(1, Math.floor(cells.length / 6));
 }
 
 /** Whether any column holds both sides -- which a big road's columns never do. */
@@ -8637,6 +8651,16 @@ function differsAtTheEnd(shoe, reading, kind, { own = false } = {}) {
 const TAKE_BACK_READS = 8;
 
 /**
+ * Marks this small, in the pixels the reader works at, leave a gap between
+ * them that shrinking a frame can close. Measured: a full-HD share of a bead
+ * plate drawn fourteen pixels a mark, shrunk to be read, came out eleven
+ * across, and two of them ran together and were lost; a plate drawn twelve
+ * pixels a mark in a window half that width, read as it came, is read whole.
+ * A plate this small with a hole in it is said to be small, not covered.
+ */
+const SMALL_MARKS = 12;
+
+/**
  * Decide what a fresh reading means for the shoe in progress.
  *
  * Returns one of `same` (nothing changed), `grow` (the board gained coups),
@@ -9919,10 +9943,16 @@ function onLiveRead(seq, board, repeats, { afterClear = false } = {}) {
   // into one with a coup missing for as long as the mark was covered, or
   // asked whether some other board was on screen. It may still add the coups
   // before the hole; it rewrites none, takes none back and opens no shoe, and
-  // while it holds the reader says the plate is covered.
+  // while it holds the reader says the plate is covered -- or, where its marks
+  // are this small, that they are: a full-HD share of a plate drawn fourteen
+  // pixels a mark, shrunk to be read, ran its marks together and lost two,
+  // with nothing over them, and a bigger window or the casino page zoomed in
+  // is what reads it.
   if (board.holed && verdict !== "grow") {
     liveHolds += 1;
-    if (liveHolds >= 4) setLiveWarn(t("live.coveredWarn"));
+    if (liveHolds >= 4) {
+      setLiveWarn(t(board.diameter <= SMALL_MARKS ? "live.smallWarn" : "live.coveredWarn"));
+    }
     return;
   }
 
