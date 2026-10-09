@@ -7831,6 +7831,12 @@ class LiveWatcher {
 
     this._reset();
     this._startPreview();
+    // A timer, not a frame callback, and never stood down while this page is
+    // hidden: the owner shares the casino's tab and goes there to watch, and
+    // this page is then a tab behind it, where nothing is drawn at all. Its
+    // timers are only slowed, and not by enough to matter -- measured in a
+    // real window, hidden for seven and a half minutes, every coup was read
+    // within two and a half seconds (see `tests/browser/test_hidden_tab.py`).
     this.timer = setInterval(() => this._sample(), this.intervalMs);
     this._sample();
     this._emit();
