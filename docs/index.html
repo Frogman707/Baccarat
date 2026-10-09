@@ -1411,6 +1411,12 @@ const S = {
     "zh-Hant": "珠盤路有一部分被遮住，只讀到被遮住的格子之前 — 請確認滑鼠指標、彈出視窗或其他視窗沒有擋住結果。",
     "zh-Hans": "珠盘路有一部分被遮住，只读到被遮住的格子之前 — 请确认鼠标指针、弹出窗口或其他窗口没有挡住结果。",
   },
+  "live.cutWarn": {
+    ko: "육매가 공유한 창 밖으로 잘려 있어서 보이는 칸까지만 읽고 있습니다 — 결과판 전체가 보이도록 카지노 창의 크기나 스크롤을 맞춰 주세요.",
+    en: "The bead plate runs off the edge of the shared window, so it is read only as far as it shows — size or scroll the casino window so the whole board is in view.",
+    "zh-Hant": "珠盤路超出了分享的視窗邊緣，只讀到看得見的部分 — 請調整賭場視窗的大小或捲動，讓整個結果板都顯示出來。",
+    "zh-Hans": "珠盘路超出了共享的窗口边缘，只读到看得见的部分 — 请调整赌场窗口的大小或滚动，让整个结果板都显示出来。",
+  },
   "live.smallWarn": {
     ko: "육매 표시가 작아서 일부 칸을 읽지 못해 그 앞까지만 읽고 있습니다 — 카지노 창을 더 크게 하거나 카지노 화면을 확대(Ctrl +)해 보세요. 무언가가 결과를 가리고 있을 수도 있습니다.",
     en: "The bead plate's marks are too small to read every cell, so it is read only up to the first it could not — make the casino window bigger or zoom the casino page in (Ctrl +). Something may also be hiding a result.",
@@ -3942,6 +3948,33 @@ function fillsLikeABeadPlate(cells, nCols, nRows) {
   return empty <= Math.max(1, Math.floor(cells.length / 6));
 }
 
+/**
+ * Whether a bead plate runs off the top or the foot of the frame.
+ *
+ * A bead plate's columns are six tall, so one that shows fewer rows past its
+ * first column has rows out of sight -- the casino's window too short for
+ * it, or scrolled. At the foot of the frame those are its last rows, and the
+ * plate is read as far as the first of them, as it is past any hole. At the
+ * top they are its first: every mark on screen sits lower in its column than
+ * it looks, and read as from the top -- measured in the page, a 37-coup plate
+ * with its top two rows above the shared window went into the record as four
+ * coups from the wrong rows, and stayed -- so nothing on it is read. Within a
+ * row of the edge, because a mark the edge cuts across is too flat to be
+ * kept as one at all.
+ */
+function markFrameCut(board, frameH) {
+  board.cut = null;
+  if (board.kind !== "bead" || board.nCols < 2 || board.rowSpan >= 6) return;
+  const reach = board.diameter * 1.2;
+  if (board.box.y < reach) {
+    board.cut = "top";
+    board.holed = true;
+    board.sequence = "";
+  } else if (frameH - board.box.y2 < reach) {
+    board.cut = "bottom";
+  }
+}
+
 /** Whether any column holds both sides -- which a big road's columns never do. */
 function mixesSides(cells) {
   const side = new Map();
@@ -4282,6 +4315,7 @@ function detectBoards(imageData, { region = null, minCells = 8, whole = null } =
     const cells = group.filter((m) => size(m) >= d * 0.55 && size(m) <= d * 1.85);
     if (cells.length < minCells) continue;
     const board = buildBoard(cells, d);
+    markFrameCut(board, H);
     if (opensLikeARoad(board)) boards.push(board);
   }
 
@@ -8276,7 +8310,10 @@ class LiveWatcher {
     // but only among boards still worth reading, so the preference cannot
     // outlive the reason for it.
     const board = pickBoard(boards, this.anchor);
-    this.proven = following || !!board.shown;
+    // A plate the frame cuts off is not one to start following (see the lock
+    // below): followed, it was the one board the reader would accept once the
+    // window was put right, and the whole plate, somewhere else, was not it.
+    this.proven = following || (!!board.shown && !board.cut);
     this.anchor = centreOf(board.box);
     this.lastBox = board.box;
     this.lastSize = board.diameter;
@@ -8293,7 +8330,14 @@ class LiveWatcher {
     // strip, not just the board being read: the derived roads fill in as the
     // shoe goes on, and a box drawn tight around the bead plate would keep
     // cutting them off.
-    if (!this.region && this.repeats >= CONFIRM_GROWTH) {
+    //
+    // Not on a plate the frame cuts off (see `markFrameCut`): it is where the
+    // board is while the casino's window is too short for it, not where it
+    // will be read. Locked there by its marks, with no ruling found to follow
+    // it by, the reader held the place as a strip between shoes for the
+    // memory's two minutes after the window had been put right, the whole
+    // plate in view and the shoe going on unread.
+    if (!this.region && this.repeats >= CONFIRM_GROWTH && !board.cut) {
       this.region = bandLock(bounds, w, h);
     }
     // Whatever strip is being read from, that is the place worth remembering.
@@ -9947,11 +9991,13 @@ function onLiveRead(seq, board, repeats, { afterClear = false } = {}) {
   // are this small, that they are: a full-HD share of a plate drawn fourteen
   // pixels a mark, shrunk to be read, ran its marks together and lost two,
   // with nothing over them, and a bigger window or the casino page zoomed in
-  // is what reads it.
+  // is what reads it. A plate the shared window cuts off at its top or foot
+  // is said to run off it (see `markFrameCut`).
   if (board.holed && verdict !== "grow") {
     liveHolds += 1;
     if (liveHolds >= 4) {
-      setLiveWarn(t(board.diameter <= SMALL_MARKS ? "live.smallWarn" : "live.coveredWarn"));
+      setLiveWarn(t(board.cut ? "live.cutWarn"
+        : board.diameter <= SMALL_MARKS ? "live.smallWarn" : "live.coveredWarn"));
     }
     return;
   }
