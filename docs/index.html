@@ -1376,6 +1376,10 @@ const S = {
   },
   "live.logGrow": { ko: "+{n}판 → {total}판  {sides}", en: "+{n} → {total}  {sides}", "zh-Hant": "+{n} 局 → {total} 局  {sides}", "zh-Hans": "+{n} 局 → {total} 局  {sides}" },
   "live.logNewShoe": { ko: "새 슈 시작 — {n}판 읽음", en: "New shoe — {n} read", "zh-Hant": "新牌靴 — 已讀 {n} 局", "zh-Hans": "新牌靴 — 已读 {n} 局" },
+  "live.logTableChange": {
+    ko: "테이블이 바뀐 것으로 보고 새 슈로 이어서 기록 — {n}판 읽음", en: "Taken for a change of table, carried on as a new shoe — {n} read",
+    "zh-Hant": "視為換桌，以新牌靴接續記錄 — 已讀 {n} 局", "zh-Hans": "视为换桌，以新牌靴接续记录 — 已读 {n} 局",
+  },
   "live.logNewTable": {
     ko: "새 테이블 {table} — {n}판 읽음", en: "New table {table} — {n} read",
     "zh-Hant": "新桌台 {table} — 已讀 {n} 局", "zh-Hans": "新桌台 {table} — 已读 {n} 局",
@@ -1434,6 +1438,18 @@ const S = {
     en: "The {read}-coup reading has <b>nothing in common</b> with this shoe's {cur}. A new shoe starts at one coup, so this is more likely a <b>different board</b> — the big road, or the table next door — than a new shoe. Check the region. If you did move to another table, press <b>Record as a new table</b> — it stays out of this table's record.",
     "zh-Hant": "讀到的 {read} 局與目前牌靴的 {cur} 局<b>完全不重疊</b>。新牌靴從第 1 局開始，所以這更可能是在讀<b>另一個路單</b>（大路或隔壁桌），而非新牌靴。請確認區域。若確實換了桌，請按<b>記到新桌台</b> — 不會混入本桌的紀錄。",
     "zh-Hans": "读到的 {read} 局与当前牌靴的 {cur} 局<b>完全不重叠</b>。新牌靴从第 1 局开始，所以这更可能是在读<b>另一个路单</b>（大路或隔壁桌），而非新牌靴。请确认区域。若确实换了桌，请按<b>记到新桌台</b> — 不会混入本桌的记录。",
+  },
+  "live.tableChange": {
+    ko: "읽은 육매 {read}판이 지금 슈({cur}판)와 <b>전혀 겹치지 않습니다</b> — 테이블을 바꾼 것으로 보고 <b>잠시 뒤 이 테이블에 새 슈로 이어서 기록합니다.</b> 바꾼 테이블을 따로 모으려면 <b>새 테이블로 기록</b>을 누르세요.",
+    en: "The {read}-coup bead plate has <b>nothing in common</b> with this shoe's {cur} — taken for a change of table, it <b>carries on here as a new shoe in a moment.</b> To keep that table apart, press <b>Record as a new table</b>.",
+    "zh-Hant": "讀到的珠盤路 {read} 局與目前牌靴的 {cur} 局<b>完全不重疊</b> — 視為換桌，<b>稍後會在本桌以新牌靴接續記錄。</b>若想把新桌台分開記錄，請按<b>記到新桌台</b>。",
+    "zh-Hans": "读到的珠盘路 {read} 局与当前牌靴的 {cur} 局<b>完全不重叠</b> — 视为换桌，<b>稍后会在本桌以新牌靴接续记录。</b>若想把新桌台分开记录，请按<b>记到新桌台</b>。",
+  },
+  "live.backToTable": {
+    ko: "읽은 육매 {read}판은 앞서 기록하다 멈춘 슈({was}판)가 <b>이어진 것</b>입니다 — 그 테이블로 돌아온 것 같습니다. 새 슈로 적으면 앞의 {was}판이 <b>두 번 들어가므로</b> 저절로 이어 쓰지 않았습니다.",
+    en: "The {read}-coup bead plate <b>carries on</b> a shoe already recorded and left at {was} — this looks like a return to that table. Recorded as a new shoe, its first {was} [was|coup|coups] would be <b>in twice</b>, so it is not carried on by itself.",
+    "zh-Hant": "讀到的珠盤路 {read} 局是先前記錄到一半的牌靴（{was} 局）<b>的延續</b> — 似乎回到了那張桌台。若記為新牌靴，前面的 {was} 局會<b>重複記錄兩次</b>，所以不會自動接續。",
+    "zh-Hans": "读到的珠盘路 {read} 局是先前记录到一半的牌靴（{was} 局）<b>的延续</b> — 似乎回到了那张桌台。若记为新牌靴，前面的 {was} 局会<b>重复记录两次</b>，所以不会自动接续。",
   },
   // No count in the label: the sentence above it has just given the count, and
   // a bare number here reads as "1 as" at a shoe of one -- which is the plural
@@ -8599,6 +8615,26 @@ class LiveWatcher {
 const RESTART_DEPTH = 8;
 
 /**
+ * How many looks running a whole bead plate with nothing in common with the
+ * shoe in progress must hold, deep as it is, before it is taken for a change
+ * of table and carried on as a new shoe.
+ *
+ * The owner changes tables in the casino and wants the record to go on: told
+ * each time that the reader was looking at a different board, and left to
+ * press a button before anything more was written, they asked for it to carry
+ * on by itself. The question was there for the big road beside the bead
+ * plate, read as a shoe of its own, and for a reader going back and forth
+ * between two boards, filing a fragment of each in turn. The big road is no
+ * bead plate, and is still only offered; a reading that comes and goes does
+ * not hold for eight looks; and the board gone back to, carrying on a shoe
+ * already filed, is asked about too (see `shoeCarriedOn` in the app).
+ * A whole bead plate, the same for twelve seconds at the reader's usual
+ * pace, is the table on screen now, and the warning shown meanwhile says it
+ * is about to be carried on and offers that table a record of its own.
+ */
+const TABLE_CHANGE_LOOKS = 8;
+
+/**
  * How long a first reading after a blank strip may be and still be a new shoe
  * that happens to open the way the last one did.
  *
@@ -10112,9 +10148,31 @@ function onLiveRead(seq, board, repeats, { afterClear = false } = {}) {
     // every figure about it -- the shares, the bet results -- was a mix of two
     // tables. So the choice offered first is a table of its own, named by the
     // person who knows which table it is; the reader then fills that table.
+    //
+    // Unless nobody chooses. The owner changes tables in the casino and wants
+    // the record to carry on: a whole bead plate, held long enough, is taken
+    // for the new table's and carried on here as a new shoe (see
+    // `TABLE_CHANGE_LOOKS`), and the warning shown meanwhile says that is what
+    // will happen. A reading that is not a bead plate -- the big road -- is
+    // only ever offered. (One with a hole in it, or cut off by the window,
+    // never gets this far: see the hold above.)
     if (!restart && seq.length > RESTART_DEPTH) {
+      const tableChange = board.kind === "bead";
+      // Back to a table left in the middle of its shoe, though, the plate
+      // carries on a shoe already recorded, and as a new shoe its first coups
+      // would go in twice -- counted twice in the shares and the bet results
+      // -- so that is not done by itself (see `shoeCarriedOn`).
+      const back = tableChange ? shoeCarriedOn(seq, table) : null;
+      if (tableChange && !back && repeats >= TABLE_CHANGE_LOOKS) {
+        loadAsNewShoe(seq, into);
+        noteWrite(into, true);
+        setLiveWarn(null);
+        liveLog(t("live.logTableChange", { n: seq.length }), "new");
+        return;
+      }
       setLiveWarn(
-        t("live.deepReset", { read: seq.length, cur: current.length }),
+        t(back ? "live.backToTable" : tableChange ? "live.tableChange" : "live.deepReset",
+          { read: seq.length, cur: current.length, was: back ? back.o.length : 0 }),
         [{
           id: "newTable",
           label: t("live.deepResetNewTable"),
@@ -10143,6 +10201,23 @@ function onLiveRead(seq, board, repeats, { afterClear = false } = {}) {
     noteWrite(into, true);
     liveLog(t("live.logNewShoe", { n: seq.length }), "new");
   }
+}
+
+/**
+ * A shoe this table has already closed that `seq` carries on -- the owner gone
+ * back to a table they left in the middle of its shoe -- or null.
+ *
+ * Deeper than a new shoe's opening, so that two shoes beginning alike are not
+ * taken for one, and among the last few closed: a table left long ago has
+ * long since finished the shoe it was on.
+ */
+function shoeCarriedOn(seq, name) {
+  const list = shoes(name);
+  for (let i = list.length - 2; i >= 0 && i >= list.length - 6; i -= 1) {
+    const s = list[i];
+    if (s.closed && s.o.length > RESTART_DEPTH && seq.startsWith(s.o)) return s;
+  }
+  return null;
 }
 
 /**
