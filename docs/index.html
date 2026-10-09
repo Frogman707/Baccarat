@@ -1380,6 +1380,10 @@ const S = {
     ko: "테이블이 바뀐 것으로 보고 새 슈로 이어서 기록 — {n}판 읽음", en: "Taken for a change of table, carried on as a new shoe — {n} read",
     "zh-Hant": "視為換桌，以新牌靴接續記錄 — 已讀 {n} 局", "zh-Hans": "视为换桌，以新牌靴接续记录 — 已读 {n} 局",
   },
+  "live.logBackToShoe": {
+    ko: "떠났던 테이블로 돌아와 그 슈에 이어서 기록 — {was}판 → {total}판", en: "Back at a table left mid-shoe, carried on in its shoe — {was} → {total}",
+    "zh-Hant": "回到中途離開的桌台，接續在那個牌靴 — {was} 局 → {total} 局", "zh-Hans": "回到中途离开的桌台，接续在那个牌靴 — {was} 局 → {total} 局",
+  },
   "live.logNewTable": {
     ko: "새 테이블 {table} — {n}판 읽음", en: "New table {table} — {n} read",
     "zh-Hant": "新桌台 {table} — 已讀 {n} 局", "zh-Hans": "新桌台 {table} — 已读 {n} 局",
@@ -1444,12 +1448,6 @@ const S = {
     en: "The {read}-coup bead plate has <b>nothing in common</b> with this shoe's {cur} — taken for a change of table, it <b>carries on here as a new shoe in a moment.</b> To keep that table apart, press <b>Record as a new table</b>.",
     "zh-Hant": "讀到的珠盤路 {read} 局與目前牌靴的 {cur} 局<b>完全不重疊</b> — 視為換桌，<b>稍後會在本桌以新牌靴接續記錄。</b>若想把新桌台分開記錄，請按<b>記到新桌台</b>。",
     "zh-Hans": "读到的珠盘路 {read} 局与当前牌靴的 {cur} 局<b>完全不重叠</b> — 视为换桌，<b>稍后会在本桌以新牌靴接续记录。</b>若想把新桌台分开记录，请按<b>记到新桌台</b>。",
-  },
-  "live.backToTable": {
-    ko: "읽은 육매 {read}판은 앞서 기록하다 멈춘 슈({was}판)가 <b>이어진 것</b>입니다 — 그 테이블로 돌아온 것 같습니다. 새 슈로 적으면 앞의 {was}판이 <b>두 번 들어가므로</b> 저절로 이어 쓰지 않았습니다.",
-    en: "The {read}-coup bead plate <b>carries on</b> a shoe already recorded and left at {was} — this looks like a return to that table. Recorded as a new shoe, its first {was} [was|coup|coups] would be <b>in twice</b>, so it is not carried on by itself.",
-    "zh-Hant": "讀到的珠盤路 {read} 局是先前記錄到一半的牌靴（{was} 局）<b>的延續</b> — 似乎回到了那張桌台。若記為新牌靴，前面的 {was} 局會<b>重複記錄兩次</b>，所以不會自動接續。",
-    "zh-Hans": "读到的珠盘路 {read} 局是先前记录到一半的牌靴（{was} 局）<b>的延续</b> — 似乎回到了那张桌台。若记为新牌靴，前面的 {was} 局会<b>重复记录两次</b>，所以不会自动接续。",
   },
   // No count in the label: the sentence above it has just given the count, and
   // a bare number here reads as "1 as" at a shoe of one -- which is the plural
@@ -8626,8 +8624,9 @@ const RESTART_DEPTH = 8;
  * plate, read as a shoe of its own, and for a reader going back and forth
  * between two boards, filing a fragment of each in turn. The big road is no
  * bead plate, and is still only offered; a reading that comes and goes does
- * not hold for eight looks; and the board gone back to, carrying on a shoe
- * already filed, is asked about too (see `shoeCarriedOn` in the app).
+ * not hold for eight looks; and the board gone back to carries on the shoe
+ * already filed from it, which is taken up again rather than filed a second
+ * time (see `shoeReturnedTo` in the app).
  * A whole bead plate, the same for twelve seconds at the reader's usual
  * pace, is the table on screen now, and the warning shown meanwhile says it
  * is about to be carried on and offers that table a record of its own.
@@ -10039,10 +10038,20 @@ function onLiveRead(seq, board, repeats, { afterClear = false } = {}) {
   // is a mark that came and went -- an ask button's preview -- and not a bead
   // plate cut short (see `TAKE_BACK_READS`).
   const cameAndWent = verdict === "hold" && justAdded && seq === current.slice(0, -1);
+  // And a bead plate carrying on a shoe this table left in the middle is the
+  // owner back at the table they left: it is that shoe, taken up again (see
+  // `shoeReturnedTo`). Asked only where the shoe in progress does not account
+  // for the reading -- one that shares nothing with it, or one it is too short
+  // to be the whole of. A table's next shoe of a coup or two opens the way the
+  // shoe left behind did as often as not, and measured in the page, grown
+  // into the whole of that shoe's plate, it held the shoe's first thirty
+  // coups a second time and lost its own.
+  const back = !mended && (verdict === "reset" || verdict === "grow")
+    ? shoeReturnedTo(seq, table, board.kind, verdict === "grow" ? current.length : 0) : null;
 
   // And where it is the same shoe after all, the log -- which said the shoe
   // had ended -- says so.
-  if (afterClear && current.length && !restart && !liveResumed
+  if (afterClear && current.length && !restart && !liveResumed && !back
       && (verdict === "same" || verdict === "grow" || verdict === "hold")) {
     liveResumed = true;
     liveLog(t("live.logResumed"));
@@ -10065,6 +10074,19 @@ function onLiveRead(seq, board, repeats, { afterClear = false } = {}) {
     if (liveHolds >= 4) {
       setLiveWarn(t(board.cut ? "live.cutWarn"
         : board.diameter <= SMALL_MARKS ? "live.smallWarn" : "live.coveredWarn"));
+    }
+    return;
+  }
+
+  if (back) {
+    // On the agreement a reset needs: it closes the shoe in progress.
+    liveHolds = 0;
+    setLiveWarn(null);
+    if (repeats >= CONFIRM_RESET) {
+      const was = back.shoe.o.length;
+      resumeShoe(back.shoe, back.seq, into);
+      noteWrite(into, back.seq.length > was);
+      liveLog(t("live.logBackToShoe", { was, total: back.seq.length }), "new");
     }
     return;
   }
@@ -10155,15 +10177,11 @@ function onLiveRead(seq, board, repeats, { afterClear = false } = {}) {
     // `TABLE_CHANGE_LOOKS`), and the warning shown meanwhile says that is what
     // will happen. A reading that is not a bead plate -- the big road -- is
     // only ever offered. (One with a hole in it, or cut off by the window,
-    // never gets this far: see the hold above.)
+    // never gets this far: see the hold above. Nor does one carrying on a
+    // shoe this table left: that is the shoe, taken up again above.)
     if (!restart && seq.length > RESTART_DEPTH) {
       const tableChange = board.kind === "bead";
-      // Back to a table left in the middle of its shoe, though, the plate
-      // carries on a shoe already recorded, and as a new shoe its first coups
-      // would go in twice -- counted twice in the shares and the bet results
-      // -- so that is not done by itself (see `shoeCarriedOn`).
-      const back = tableChange ? shoeCarriedOn(seq, table) : null;
-      if (tableChange && !back && repeats >= TABLE_CHANGE_LOOKS) {
+      if (tableChange && repeats >= TABLE_CHANGE_LOOKS) {
         loadAsNewShoe(seq, into);
         noteWrite(into, true);
         setLiveWarn(null);
@@ -10171,8 +10189,8 @@ function onLiveRead(seq, board, repeats, { afterClear = false } = {}) {
         return;
       }
       setLiveWarn(
-        t(back ? "live.backToTable" : tableChange ? "live.tableChange" : "live.deepReset",
-          { read: seq.length, cur: current.length, was: back ? back.o.length : 0 }),
+        t(tableChange ? "live.tableChange" : "live.deepReset",
+          { read: seq.length, cur: current.length }),
         [{
           id: "newTable",
           label: t("live.deepResetNewTable"),
@@ -10204,20 +10222,91 @@ function onLiveRead(seq, board, repeats, { afterClear = false } = {}) {
 }
 
 /**
- * A shoe this table has already closed that `seq` carries on -- the owner gone
- * back to a table they left in the middle of its shoe -- or null.
+ * The shoe a bead plate is when it is one this table left in the middle --
+ * the owner gone to another table and back while this one dealt on -- with
+ * the reading as that shoe, or null.
  *
- * Deeper than a new shoe's opening, so that two shoes beginning alike are not
- * taken for one, and among the last few closed: a table left long ago has
- * long since finished the shoe it was on.
+ * Told by the record. The plate carries on the shoe from its first coup, or
+ * shows it only in part -- half drawn, or with its end still to come back --
+ * or has moved along with its start off the plate (see `scrolledInto`), or
+ * reads its last coup or three differently now (see `differsAtTheEnd`).
+ * Deeper than a new shoe's opening, so that a new table opening the way a
+ * short shoe left behind did is not taken for it, and deeper than the shoe in
+ * progress agrees with the reading (`beyond`): as deep as that, the shoe in
+ * progress is the one being dealt. Among the last few shoes closed: a table
+ * left long ago has long since finished the shoe it was on.
  */
-function shoeCarriedOn(seq, name) {
+function shoeReturnedTo(seq, name, kind, beyond = 0) {
+  if (kind !== "bead") return null;
   const list = shoes(name);
-  for (let i = list.length - 2; i >= 0 && i >= list.length - 6; i -= 1) {
+  let looked = 0;
+  for (let i = list.length - 1; i >= 0 && looked < 5; i -= 1) {
     const s = list[i];
-    if (s.closed && s.o.length > RESTART_DEPTH && seq.startsWith(s.o)) return s;
+    if (!s.closed) continue;
+    looked += 1;
+    if (s.o.length <= Math.max(RESTART_DEPTH, beyond)) continue;
+    if (seq.startsWith(s.o)) return { shoe: s, seq };
+    if (seq.length > RESTART_DEPTH && s.o.startsWith(seq)) return { shoe: s, seq: s.o };
+    const moved = scrolledInto(s.o, seq, kind);
+    if (moved) return { shoe: s, seq: moved };
+    if (differsAtTheEnd(s.o, seq, kind)) return { shoe: s, seq };
   }
   return null;
+}
+
+/**
+ * Take up a shoe left in the middle again, as the shoe in progress, holding
+ * `seq`.
+ *
+ * Back at a table they left while it was still dealing, the owner's record
+ * already holds the coups of its shoe up to where they left. Filed again as
+ * a new shoe, those were in twice -- counted twice in the shares and the bet
+ * results -- and left alone, nothing more was written while they sat there.
+ * So that shoe is the one in progress again, and the one that was is left in
+ * its turn, as it stands.
+ *
+ * The shoe in progress is a table's last, so the shoe moves to the end. Its
+ * coups keep their places in it, and the predictions made on them stay with
+ * them: they are filed by shoe and place. Its time becomes now, which is what
+ * orders a table's shoes when they come back from the shared store.
+ *
+ * And the tally's mark (see `ledgerFrom`) is a place in the table's coups,
+ * which this reorders. At the end of the table it stays where it is, and
+ * counts what comes next, the shoe's new coups among them. In or past the
+ * shoe, it moves back with the coups that were after it, so every coup it
+ * counted still counts -- and the shoe that moved counts whole, since a tally
+ * cannot skip the part of it before the mark. The other way, the shoes it was
+ * left for went uncounted.
+ */
+function resumeShoe(shoe, seq, boundTo = null) {
+  const name = readingTable(boundTo, state.tables, chosenTable());
+  const list = shoes(name);
+  const at = list.indexOf(shoe);
+  if (at < 0) return;
+  const changed = [];
+  const last = list[list.length - 1];
+  if (last !== shoe) {
+    if (!last.o.length) list.pop();
+    else if (!last.closed) { last.closed = true; changed.push(last.id); }
+  }
+  const entry = name ? state.tables[name] : unsaved;
+  const mark = entry && Number(entry.from);
+  if (Number.isFinite(mark) && mark > 0) {
+    const start = list.slice(0, at).reduce((n, s) => n + s.o.length, 0);
+    const end = list.reduce((n, s) => n + s.o.length, 0);
+    if (mark > start && mark < end) {
+      const moved = Math.max(start, mark - shoe.o.length);
+      if (moved > 0) entry.from = moved;
+      else delete entry.from;
+    }
+  }
+  list.splice(at, 1);
+  shoe.o = seq;
+  shoe.closed = false;
+  shoe.t = list.reduce((t, s) => Math.max(t, (Number(s.t) || 0) + 1), Date.now());
+  list.push(shoe);
+  changed.push(shoe.id);
+  commitTo(name, changed);
 }
 
 /**
