@@ -520,6 +520,7 @@ table.stake tr:last-child td{border-bottom:none}
   background:var(--c); transform:rotate(45deg)}
 .blabel{font-size:11px; color:var(--ink-3); margin-bottom:6px; letter-spacing:.02em}
 #boardMeta{font-family:var(--mono); font-size:12px; color:var(--ink-2); margin-top:10px}
+.beadkey{font-size:12px; color:var(--ink-3); line-height:1.5; margin:8px 0 0}
 
 /* ── per-shoe table ─────────────────────────────────────────────────── */
 #shoeStrip{width:100%; height:auto; display:block; max-width:760px; margin:4px auto 14px}
@@ -856,6 +857,7 @@ footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
         </div>
       </div>
     </div>
+    <p class="beadkey" data-i18n-html="board.beadKey"></p>
     <div id="boardMeta"></div>
   </section>
 
@@ -1947,6 +1949,29 @@ const S = {
   "board.small": { ko: "스몰아이", en: "Small road", "zh-Hant": "小路", "zh-Hans": "小路" },
   "board.roach": { ko: "카카로치", en: "Cockroach road", "zh-Hant": "曱甴路", "zh-Hans": "蟑螂路" },
   "board.counts": { ko: "이번 슈 집계", en: "This shoe's counts", "zh-Hant": "本靴統計", "zh-Hans": "本靴统计" },
+  /* What the AI's pick did on a coup, written in its bead: one character, in
+     the page's language, because this is the page talking about its own pick
+     -- unlike the B, P and T a table's screen writes, which stay as they are
+     wherever they still appear. */
+  "board.call.win": { ko: "승", en: "W", "zh-Hant": "贏", "zh-Hans": "赢" },
+  "board.call.lose": { ko: "패", en: "L", "zh-Hant": "輸", "zh-Hans": "输" },
+  "board.call.push": { ko: "무", en: "=", "zh-Hant": "和", "zh-Hans": "和" },
+  "board.callName.win": { ko: "승 (맞힘)", en: "won", "zh-Hant": "贏（猜中）", "zh-Hans": "赢（猜中）" },
+  "board.callName.lose": { ko: "패 (틀림)", en: "lost", "zh-Hant": "輸（猜錯）", "zh-Hans": "输（猜错）" },
+  "board.callName.push": {
+    ko: "무 (타이, 배팅금 반환)", en: "push (a tie returns the stake)",
+    "zh-Hant": "和（和局退還本金）", "zh-Hans": "和（和局退还本金）",
+  },
+  "board.callTitle": {
+    ko: "결과 {came} · AI 추천 {pick} → {result}", en: "Result {came} · AI pick {pick} → {result}",
+    "zh-Hant": "結果 {came} · AI 推薦 {pick} → {result}", "zh-Hans": "结果 {came} · AI 推荐 {pick} → {result}",
+  },
+  "board.beadKey": {
+    ko: "육매 칸 안의 글자는 그 판에서 <b>AI 추천</b>이 맞혔으면 <b>승</b>, 틀렸으면 <b>패</b>, 타이라 배팅금이 돌아왔으면 <b>무</b>입니다. 칸 색은 실제 결과(빨강 뱅커 · 파랑 플레이어 · 초록 타이)입니다. 각 판의 추천은 그 앞 판들만 보고 정한 것이고, AI 추천 배팅 결과의 이김 · 짐 · 무효와 같은 기록입니다.",
+    en: "Each bead says what the <b>AI pick</b> did on that coup: <b>W</b> won, <b>L</b> lost, <b>=</b> a tie, which returned the stake. Its colour is the result (red Banker · blue Player · green Tie). Each pick was made from the coups before it only, and these are the same wins, losses and pushes as in backing the pick.",
+    "zh-Hant": "珠盤路格內的字是該局 <b>AI 推薦</b> 的結果：猜中為 <b>贏</b>、猜錯為 <b>輸</b>、和局退還本金為 <b>和</b>。格子顏色是實際結果（紅莊 · 藍閒 · 綠和）。每局的推薦只根據之前的局，與 AI 推薦下注結果的贏 · 輸 · 和局退還是同一份紀錄。",
+    "zh-Hans": "珠盘路格内的字是该局 <b>AI 推荐</b> 的结果：猜中为 <b>赢</b>、猜错为 <b>输</b>、和局退还本金为 <b>和</b>。格子颜色是实际结果（红庄 · 蓝闲 · 绿和）。每局的推荐只根据之前的局，与 AI 推荐下注结果的赢 · 输 · 和局退还是同一份记录。",
+  },
   "board.askB": {
     ko: "다음 판이 뱅커면 빅아이·스몰아이·카카로치에 생길 표시",
     en: "If Banker comes next: what the big eye boy, small road and cockroach road would get",
@@ -5891,10 +5916,14 @@ function posterior(sample = {}) {
  * coups repeat each other, not which side is going to win, so it cannot leak
  * the answer -- and using it keeps this replay on the same footing as the
  * estimate the panel shows live.
+ *
+ * `keepFrom` also hands back the pick made at every coup from that one on, as
+ * a string -- the board marks each coup of the shoe with what its pick did.
  */
-function replayPicks(sequences, { deff = 1, commission = 0.05, from = 0 } = {}) {
+function replayPicks(sequences, { deff = 1, commission = 0.05, from = 0, keepFrom = null } = {}) {
   const step = 1 / Math.max(1, deff);
   let a = PRIOR_A, b = PRIOR_B;
+  let kept = keepFrom === null ? null : "";
 
   // Coups before `from` still train the estimate -- they are what the pick is
   // made of -- but they are not settled. That is the difference between the
@@ -5920,6 +5949,7 @@ function replayPicks(sequences, { deff = 1, commission = 0.05, from = 0 } = {}) 
       const q = a / (a + b);
       const se = Math.sqrt((q * (1 - q)) / (a + b + 1));
       const pick = sides[i] === "-" ? sidePick(q, se) : sides[i];
+      if (kept !== null && seen >= keepFrom) kept += pick;
       const settling = seen >= from;
       seen += 1;
       if (settling) coups += 1;
@@ -5964,6 +5994,7 @@ function replayPicks(sequences, { deff = 1, commission = 0.05, from = 0 } = {}) 
     bankerBets, playerBets,
     winRate: bets ? wins / bets : 0,
     perBet: bets ? units / bets : 0,
+    picks: kept,
   };
 }
 
@@ -6586,6 +6617,14 @@ class Learner {
   settle(sequences, { commission = BANKER_COMMISSION, deff = 1, from = 0 } = {}) {
     const { model, base, coups } = settleAll(sequences, this.run.picks, { commission, deff, from });
     return { model: finish(model), base: finish(base), coups };
+  }
+
+  /**
+   * The network's pick at each coup from `from` up to `to`, over the record
+   * `update` was last given, as a string: the picks the books above settle.
+   */
+  picksBetween(from, to) {
+    return this.run.picks.slice(from, to).join("");
   }
 }
 
@@ -11127,10 +11166,29 @@ function ledger() {
     value = from === ledgerFrom() ? l.model
       : learners.for(state.active ?? "").settle(sequences, { deff, from }).model;
   } else {
-    value = replayPicks(sequences, { deff, from });
+    // The picks over the shoe in progress come back too, for the board.
+    value = replayPicks(sequences, { deff, from, keepFrom: shoeStart() });
   }
   ledgerCache = { revision, table: state.active, from, value };
   return value;
+}
+
+/**
+ * The pick the recommendation made at each coup of the shoe in progress, as a
+ * string beside its coups, or null with nothing to mark.
+ *
+ * The very picks the bet results settle -- the network's where it is the one
+ * followed, the estimate's otherwise -- so the board's marks and the tally's
+ * wins and losses are one record. Each was made from the coups before it.
+ */
+function shoeCalls() {
+  const n = openShoe().o.length;
+  if (!n) return null;
+  const start = shoeStart();
+  const picks = learned().trusted
+    ? learners.for(state.active ?? "").picksBetween(start, start + n)
+    : ledger().picks;
+  return typeof picks === "string" && picks.length === n ? picks : null;
 }
 
 function renderBetOutcome() {
@@ -12119,14 +12177,29 @@ function renderBoard() {
     for (const box of document.querySelectorAll(".roadscroll")) roadFollowing.set(box, true);
   }
 
-  // The bead plate: every coup in order, a disc with its letter -- B, P or
-  // T, as the table's own screen writes them, whatever language the page is
-  // in: the two are read side by side.
+  // The bead plate: every coup in order, a disc in its side's colour as the
+  // table's own screen draws it -- the two are read side by side -- and in it,
+  // as the owner asked, what the AI's pick did on that coup: won, lost, or
+  // had its stake back on a tie (see `shoeCalls`). A coup with no pick to
+  // mark keeps the table's letter.
+  const calls = shoeCalls();
   const bead = beadPlate(outcomes, ROAD_ROWS);
   drawRoad($("bead"), bead[0].length, ROAD_PAPER.bead, (cell, r, c) => {
     const o = bead[r][c];
-    if (o) cell.appendChild(el("i", "mk " + o, o));
-    return Boolean(o);
+    if (!o) return false;
+    const pick = calls && calls[c * ROAD_ROWS + r];
+    if (!pick) {
+      cell.appendChild(el("i", "mk " + o, o));
+      return true;
+    }
+    const kind = o === "T" ? "push" : o === pick ? "win" : "lose";
+    const mk = el("i", `mk ${o} ${kind}`, t("board.call." + kind));
+    mk.dataset.pick = pick;
+    mk.title = t("board.callTitle", {
+      came: side(o), pick: side(pick), result: t("board.callName." + kind),
+    });
+    cell.appendChild(mk);
+    return true;
   });
 
   // The big road: rings, and a tie as a green stroke across the coup before
