@@ -225,6 +225,15 @@ table.stake th{color:var(--ink-3); font-weight:500; font-size:11px; text-align:r
 table.stake th:first-child,table.stake td:first-child{text-align:left; font-variant-numeric:normal}
 table.stake td.m{font-family:var(--mono)}
 table.stake td.neg{color:var(--p-ink,#c0392b)}
+.stakeform select{padding:7px 9px; border:1px solid var(--line-2); border-radius:7px;
+  background:var(--surface); color:var(--ink); font:inherit; font-size:13px; max-width:100%}
+.plannext{margin:12px 0 2px; padding:10px 12px; border:1px solid var(--line-2); border-radius:9px;
+  background:var(--surface-2); font-size:13px; line-height:1.5}
+.plannext p{margin:0}
+.plannext .ps,.plannext .pw{margin-top:4px; font-size:12px; color:var(--ink-2)}
+.plannext.win,.plannext.loss,.plannext.broke{border-color:var(--p-ink,#c0392b)}
+table.plancmp tr.on td{background:var(--surface-2); font-weight:600}
+.plannow{margin:6px 0 0; font-size:12.5px; color:var(--ink-2)}
 table.stake tr:last-child td{border-bottom:none}
 .betbadge{margin-left:10px; padding:3px 9px; border-radius:999px; font-size:11px;
   font-weight:500; letter-spacing:.01em; white-space:nowrap; vertical-align:2px}
@@ -778,6 +787,7 @@ footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
       <span class="betbadge" id="aiBetBadge"></span>
     </div>
     <p class="ainote" id="aiBetWhy" hidden></p>
+    <p class="plannow" id="planNow" hidden></p>
     <div class="aigrid" id="aiFacts"></div>
     <div class="obshead ledgerhead">
       <span class="blabel" id="aiOverallH"></span>
@@ -883,6 +893,40 @@ footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
     </div>
     <p class="aiverdict" id="stakeVerdict"></p>
     <p class="ainote foldable" id="stakeNote"></p>
+  </section>
+
+  <!-- How much to stake on each coup: the plan, what it stakes next on the
+       pick above, and every plan side by side on fair shoes at these settings.
+       The bankroll and the base stake are the form's above. -->
+  <section class="panel c12" data-full-only id="planPanel">
+    <h2 data-i18n="plan.h"></h2>
+    <p class="sub" data-i18n-html="plan.sub"></p>
+    <div class="stakeform">
+      <label><span data-i18n="plan.choose"></span>
+        <select id="planSel">
+          <option value="flat" data-i18n="plan.name.flat"></option>
+          <option value="martingale" data-i18n="plan.name.martingale"></option>
+          <option value="paroli" data-i18n="plan.name.paroli"></option>
+          <option value="1326" data-i18n="plan.name.1326"></option>
+          <option value="fibonacci" data-i18n="plan.name.fibonacci"></option>
+          <option value="dalembert" data-i18n="plan.name.dalembert"></option>
+          <option value="oscar" data-i18n="plan.name.oscar"></option>
+          <option value="labouchere" data-i18n="plan.name.labouchere"></option>
+        </select></label>
+      <label><span data-i18n="plan.max"></span>
+        <input id="stakeMax" type="number" min="0" step="10000" inputmode="numeric"></label>
+      <label><span data-i18n="plan.stopWin"></span>
+        <input id="stakeStopWin" type="number" min="0" step="10000" inputmode="numeric"></label>
+      <label><span data-i18n="plan.stopLoss"></span>
+        <input id="stakeStopLoss" type="number" min="0" step="10000" inputmode="numeric"></label>
+    </div>
+    <div class="plannext" id="planNext" aria-live="polite"></div>
+    <div class="tablewrap">
+      <table class="stake plancmp" id="planTable">
+        <thead></thead><tbody></tbody>
+      </table>
+    </div>
+    <p class="ainote" id="planNote"></p>
   </section>
 
   <section class="panel c12" data-full-only>
@@ -1549,6 +1593,110 @@ const S = {
     en: "Computed from the stake a hand; the bankroll only sets the percentage column. Hands are hands an hour x hours a day x days a month. The mean grows with the number of hands and the spread only with its square root, so luck's share shrinks as hands accumulate -- shrinks, not disappears.",
     "zh-Hant": "以每手下注額計算，本金僅用於換算百分比。手數為每小時手數 × 每天小時 × 每月天數。平均值隨手數線性成長，區間只隨平方根成長，所以手數越多，運氣的比重越小 — 只是變小，不會消失。",
     "zh-Hans": "以每手下注额计算，本金仅用于换算百分比。手数为每小时手数 × 每天小时 × 每月天数。平均值随手数线性增长，区间只随平方根增长，所以手数越多，运气的比重越小 — 只是变小，不会消失。",
+  },
+  /* ------------------------------------------------------ staking plans */
+  "plan.h": { ko: "배팅 방식", en: "Staking plan", "zh-Hant": "下注方式", "zh-Hans": "下注方式" },
+  "plan.sub": {
+    ko: "같은 AI 추천에 판마다 <b>얼마를</b> 걸지 정하는 방식입니다. 원금과 한 판 배팅액은 위 <b>투자 계획</b>의 값을 씁니다. 공정한 8덱 슈 1만 개로 미리 재 보니, <b>어떤 방식도 판당 기대 손실(약 1.1%)을 바꾸지 못했습니다</b>. 이기는 슈가 많은 방식은 그만큼 크게 걸고, 일부 슈에서 원금을 모두 잃습니다. 아래 표는 지금 설정 그대로 공정한 슈에서 겨뤄 본 결과입니다.",
+    en: "How much to stake on each coup on the same AI pick. The bankroll and the base stake are the plan's above. Measured first on 10,000 fair 8-deck shoes, <b>no plan changed the expected loss on a unit staked (about 1.1%)</b>: the plans that win more shoes stake more to do it, and lose the whole bankroll in some of the rest. The table below sets them side by side on fair shoes at these settings.",
+    "zh-Hant": "在同一個 AI 推薦上，決定每局押<b>多少</b>的方式。本金與每手下注額沿用上方<b>投注計畫</b>的數值。先用 1 萬靴公平的八副牌靴實測：<b>沒有任何方式能改變每單位下注的期望損失（約 1.1%）</b>。贏的牌靴較多的方式押得更大，並在部分牌靴輸光本金。下表是以目前設定在公平牌靴上的比較。",
+    "zh-Hans": "在同一个 AI 推荐上，决定每局押<b>多少</b>的方式。本金与每手下注额沿用上方<b>投注计划</b>的数值。先用 1 万靴公平的八副牌靴实测：<b>没有任何方式能改变每单位下注的期望损失（约 1.1%）</b>。赢的牌靴较多的方式押得更大，并在部分牌靴输光本金。下表是以当前设定在公平牌靴上的比较。",
+  },
+  "plan.choose": { ko: "방식", en: "Plan", "zh-Hant": "方式", "zh-Hans": "方式" },
+  "plan.max": { ko: "테이블 최대 배팅", en: "Table limit", "zh-Hant": "桌台上限", "zh-Hans": "桌台上限" },
+  "plan.stopWin": {
+    ko: "목표 이익 (슈마다, 0 = 없음)", en: "Stop at a win of (a shoe; 0 = none)",
+    "zh-Hant": "停利（每靴，0 = 不設）", "zh-Hans": "停利（每靴，0 = 不设）",
+  },
+  "plan.stopLoss": {
+    ko: "손실 한도 (슈마다, 0 = 없음)", en: "Stop at a loss of (a shoe; 0 = none)",
+    "zh-Hant": "停損（每靴，0 = 不設）", "zh-Hans": "停损（每靴，0 = 不设）",
+  },
+  "plan.name.flat": { ko: "정액 — 매판 1유닛", en: "Flat — one unit every coup", "zh-Hant": "平注 — 每局 1 單位", "zh-Hans": "平注 — 每局 1 单位" },
+  "plan.name.martingale": { ko: "마틴 — 지면 2배", en: "Martingale — double after a loss", "zh-Hant": "馬丁 — 輸了加倍", "zh-Hans": "马丁 — 输了加倍" },
+  "plan.name.paroli": {
+    ko: "역마틴(파롤리) — 이기면 2배, 3연승까지", en: "Paroli — double after a win, up to three",
+    "zh-Hant": "反馬丁（帕羅利）— 贏了加倍，最多三連勝", "zh-Hans": "反马丁（帕罗利）— 赢了加倍，最多三连胜",
+  },
+  "plan.name.1326": { ko: "1-3-2-6 — 이기면 다음 단계", en: "1-3-2-6 — the next step after a win", "zh-Hant": "1-3-2-6 — 贏了進下一步", "zh-Hans": "1-3-2-6 — 赢了进下一步" },
+  "plan.name.fibonacci": {
+    ko: "피보나치 — 지면 다음 수, 이기면 두 칸 뒤로", en: "Fibonacci — the next number after a loss, two back after a win",
+    "zh-Hant": "斐波那契 — 輸了用下一個數，贏了退兩格", "zh-Hans": "斐波那契 — 输了用下一个数，赢了退两格",
+  },
+  "plan.name.dalembert": {
+    ko: "달랑베르 — 지면 +1, 이기면 −1", en: "d'Alembert — one more after a loss, one less after a win",
+    "zh-Hant": "達朗貝爾 — 輸了 +1，贏了 −1", "zh-Hans": "达朗贝尔 — 输了 +1，赢了 −1",
+  },
+  "plan.name.oscar": {
+    ko: "오스카 그라인드 — 한 회차에 +1유닛 목표", en: "Oscar's Grind — one unit up a series",
+    "zh-Hant": "奧斯卡磨坊 — 每輪目標 +1 單位", "zh-Hans": "奥斯卡磨坊 — 每轮目标 +1 单位",
+  },
+  "plan.name.labouchere": { ko: "라부셰르 — 1-2-3-4 줄", en: "Labouchère — the 1-2-3-4 line", "zh-Hant": "拉布歇爾 — 1-2-3-4 數列", "zh-Hans": "拉布歇尔 — 1-2-3-4 数列" },
+  "plan.short.flat": { ko: "정액", en: "Flat", "zh-Hant": "平注", "zh-Hans": "平注" },
+  "plan.short.martingale": { ko: "마틴", en: "Martingale", "zh-Hant": "馬丁", "zh-Hans": "马丁" },
+  "plan.short.paroli": { ko: "역마틴", en: "Paroli", "zh-Hant": "帕羅利", "zh-Hans": "帕罗利" },
+  "plan.short.1326": { ko: "1-3-2-6", en: "1-3-2-6", "zh-Hant": "1-3-2-6", "zh-Hans": "1-3-2-6" },
+  "plan.short.fibonacci": { ko: "피보나치", en: "Fibonacci", "zh-Hant": "斐波那契", "zh-Hans": "斐波那契" },
+  "plan.short.dalembert": { ko: "달랑베르", en: "d'Alembert", "zh-Hant": "達朗貝爾", "zh-Hans": "达朗贝尔" },
+  "plan.short.oscar": { ko: "오스카 그라인드", en: "Oscar's Grind", "zh-Hant": "奧斯卡磨坊", "zh-Hans": "奥斯卡磨坊" },
+  "plan.short.labouchere": { ko: "라부셰르", en: "Labouchère", "zh-Hant": "拉布歇爾", "zh-Hans": "拉布歇尔" },
+  "plan.next": {
+    ko: "{plan} 방식으로 건다면 다음 판: <b>{side} {units}유닛</b> · {money}",
+    en: "With {plan}, the next coup: <b>{side}, {units} [units|unit|units]</b> · {money}",
+    "zh-Hant": "若用{plan}方式，下一局：<b>{side} {units} 單位</b> · {money}",
+    "zh-Hans": "若用{plan}方式，下一局：<b>{side} {units} 单位</b> · {money}",
+  },
+  "plan.shoe": {
+    ko: "이번 슈 {from}번째 판부터 이 방식으로: {bets}번 배팅 · 손익 {profit} ({units}유닛) · 가장 깊이 떨어진 폭 {fall}",
+    en: "This shoe with the plan from coup {from}: {bets} [bets|bet|bets] · {profit} ({units} [units|unit|units]) · deepest fall {fall}",
+    "zh-Hant": "本靴從第 {from} 局起用此方式：下注 {bets} 次 · 損益 {profit}（{units} 單位）· 最大回落 {fall}",
+    "zh-Hans": "本靴从第 {from} 局起用此方式：下注 {bets} 次 · 损益 {profit}（{units} 单位）· 最大回落 {fall}",
+  },
+  "plan.capped": {
+    ko: "이 방식대로라면 지금 {wanted}유닛을 걸 차례지만, 테이블 최대나 남은 원금을 넘어 처음 배팅({units}유닛)으로 돌아갑니다 — 진행이 이렇게 끊기는 것이 이런 방식이 크게 잃는 길입니다.",
+    en: "The plan's turn now is {wanted} [wanted|unit|units], past the table limit or what is left, so it starts over at {units} [units|unit|units] — which is how a plan like this loses big.",
+    "zh-Hant": "按此方式現在該押 {wanted} 單位，但超過桌台上限或剩餘本金，只能從頭（{units} 單位）開始 — 這正是這類方式大輸的原因。",
+    "zh-Hans": "按此方式现在该押 {wanted} 单位，但超过桌台上限或剩余本金，只能从头（{units} 单位）开始 — 这正是这类方式大输的原因。",
+  },
+  "plan.end.win": {
+    ko: "이 방식으로 이번 슈를 걸었다면 목표 이익에 닿았습니다 — 계획대로라면 여기서 멈춥니다.",
+    en: "Played this shoe, the plan has reached the win to stop at — by the plan, it stops here.",
+    "zh-Hant": "若用此方式玩本靴，已達停利 — 按計畫在此停止。", "zh-Hans": "若用此方式玩本靴，已达停利 — 按计划在此停止。",
+  },
+  "plan.end.loss": {
+    ko: "이 방식으로 이번 슈를 걸었다면 손실 한도에 닿았습니다 — 계획대로라면 여기서 멈춥니다.",
+    en: "Played this shoe, the plan has reached the loss to stop at — by the plan, it stops here.",
+    "zh-Hant": "若用此方式玩本靴，已達停損 — 按計畫在此停止。", "zh-Hans": "若用此方式玩本靴，已达停损 — 按计划在此停止。",
+  },
+  "plan.end.broke": {
+    ko: "이 방식으로 이번 슈를 걸었다면 원금을 다 잃었습니다 — 다음 배팅을 할 원금이 남지 않습니다.",
+    en: "Played this shoe, the plan has lost the whole bankroll — nothing is left for its next stake.",
+    "zh-Hant": "若用此方式玩本靴，已輸光本金 — 沒有本金可下下一注。", "zh-Hans": "若用此方式玩本靴，已输光本金 — 没有本金可下下一注。",
+  },
+  "plan.idle": {
+    ko: "판이 들어오면 이 방식의 다음 배팅이 여기에 나옵니다.", en: "Once coups come in, the plan's next stake shows here.",
+    "zh-Hant": "有局數進來後，此方式的下一注會顯示在這裡。", "zh-Hans": "有局数进来后，此方式的下一注会显示在这里。",
+  },
+  "plan.noBankroll": {
+    ko: "위 투자 계획에 원금과 한 판 배팅액을 넣으면 계산합니다.", en: "Set a bankroll and a stake in the plan above to work this out.",
+    "zh-Hant": "在上方投注計畫填入本金與每手下注額後計算。", "zh-Hans": "在上方投注计划填入本金与每手下注额后计算。",
+  },
+  "plan.computing": {
+    ko: "공정한 슈로 방식들을 비교하는 중…", en: "Comparing the plans on fair shoes…",
+    "zh-Hant": "正在以公平牌靴比較各方式…", "zh-Hans": "正在以公平牌靴比较各方式…",
+  },
+  "plan.off": { ko: "없음", en: "none", "zh-Hant": "不設", "zh-Hans": "不设" },
+  "plan.colPlan": { ko: "방식", en: "Plan", "zh-Hant": "方式", "zh-Hans": "方式" },
+  "plan.colCost": { ko: "한 슈 예상 손실", en: "Expected a shoe", "zh-Hant": "每靴預期損失", "zh-Hans": "每靴预期损失" },
+  "plan.colAhead": { ko: "앞서서 끝난 슈", en: "Shoes ended ahead", "zh-Hant": "以贏結束的牌靴", "zh-Hans": "以赢结束的牌靴" },
+  "plan.colBroke": { ko: "원금을 다 잃은 슈", en: "Bankroll gone", "zh-Hant": "輸光本金的牌靴", "zh-Hans": "输光本金的牌靴" },
+  "plan.colWorst": { ko: "나쁜 5% 슈", en: "Worst 5%", "zh-Hant": "最差 5%", "zh-Hans": "最差 5%" },
+  "plan.colStaked": { ko: "한 슈 총 배팅", en: "Staked a shoe", "zh-Hant": "每靴總下注", "zh-Hans": "每靴总下注" },
+  "plan.note": {
+    ko: "공정한 8덱 슈 {n}개(이 페이지의 규칙 엔진)에서 이 페이지의 AI 추천으로 한 슈씩 걸어 본 결과입니다 — 원금 {bankroll} · 테이블 최대 {max} · 목표 이익 {win} · 손실 한도 {loss}. <b>예상 손실은 총 배팅액에 판당 기대 손실(어느 방식이든 약 {pct})을 곱한 값</b>이고, 나머지 칸은 모의 결과라 몇 %p 흔들릴 수 있습니다. 앞서서 끝나는 슈가 많은 방식일수록 크게 걸고, 원금을 다 잃는 슈가 생깁니다. 고른 방식({plan})의 예상 손실은 한 슈 {cost}입니다.",
+    en: "Every plan played a shoe at a time, on {n} fair 8-deck shoes dealt by this page's rules engine, on this page's AI pick — at a bankroll of {bankroll}, a table limit of {max}, a win to stop at of {win} and a loss to stop at of {loss}. <b>The expected loss is what a plan stakes times the loss on a unit staked, about {pct} whatever the plan</b>; the other columns are simulated and can move by a few points. The plans that end more shoes ahead stake more, and lose the whole bankroll in some. The plan chosen ({plan}) expects {cost} a shoe.",
+    "zh-Hant": "以本頁規則引擎發出的 {n} 靴公平八副牌靴，用本頁的 AI 推薦每次玩一靴的結果 — 本金 {bankroll} · 桌台上限 {max} · 停利 {win} · 停損 {loss}。<b>預期損失是總下注額乘以每單位的期望損失（無論哪種方式約 {pct}）</b>，其餘欄位為模擬結果，可能有幾個百分點的波動。以贏結束的牌靴越多的方式押得越大，並會在部分牌靴輸光本金。所選方式（{plan}）每靴預期損失 {cost}。",
+    "zh-Hans": "以本页规则引擎发出的 {n} 靴公平八副牌靴，用本页的 AI 推荐每次玩一靴的结果 — 本金 {bankroll} · 桌台上限 {max} · 停利 {win} · 停损 {loss}。<b>预期损失是总下注额乘以每单位的期望损失（无论哪种方式约 {pct}）</b>，其余栏位为模拟结果，可能有几个百分点的波动。以赢结束的牌靴越多的方式押得越大，并会在部分牌靴输光本金。所选方式（{plan}）每靴预期损失 {cost}。",
   },
   // The conditional is not decoration. On a fair table the share drifts back to
   // the pack's own rate, so the count is never reached -- it is what *this*
@@ -6115,6 +6263,240 @@ function coupsForConfidence(sample = {}, pick = "B") {
   return need > PRACTICAL_HORIZON ? null : need;
 }
 
+/* ═══ plans.js ═══ */
+/**
+ * Staking plans: how much to put on each coup, given how the coups before it
+ * went.
+ *
+ * The pick says which side; a plan says how much. The owner asked for the
+ * betting to be upgraded "by every means there is", and the honest answer was
+ * measured before any of this was written: on 10,000 shoes dealt by the
+ * project's own rules, no pick and no plan changed what a unit staked is worth.
+ * Flat on Banker lost 1.06% of every unit, the page's pick 1.18%, and every
+ * plan on every pick landed within chance of the same. What a plan changes is
+ * how a session's result is spread. The ones that win more sessions -- the
+ * Martingale, the Fibonacci, d'Alembert, Oscar's Grind -- stake more to do it
+ * and lose the whole bankroll in some of the rest: with seventy units at a
+ * table that takes five hundred, the Martingale finished 57% of shoes ahead
+ * and went broke in 14%; Labouchère went broke in 48%.
+ *
+ * So a plan is offered as what it is. The page plays the chosen one through
+ * the shoe beside the pick, says what it would stake next, and sets every plan
+ * side by side on fair shoes at the owner's own bankroll, limit and stops --
+ * the sessions it wins, the ones it loses everything in, and what it costs on
+ * average, which is the edge times what it stakes. Nothing here is a reason to
+ * expect money back.
+ *
+ * Everything is in units of the base stake; the page turns them into money.
+ */
+
+
+
+/** The plans, in the order the page lists them. */
+const PLANS = ["flat", "martingale", "paroli", "1326", "fibonacci", "dalembert",
+                      "oscar", "labouchere"];
+
+/** Labouchère's opening line, the one most tables are taught. */
+const LABOUCHERE_LINE = [1, 2, 3, 4];
+
+/**
+ * One plan's state: what it stakes next, what it does with a result, and how
+ * it starts over.
+ *
+ * `settle(kind, paid)` takes "win", "lose" or "push" and what the coup paid in
+ * units, signed -- a Banker win pays 0.95 of the stake. A push leaves every
+ * plan where it was: the stake came back and nothing was decided.
+ */
+function makePlan(id) {
+  switch (id) {
+    case "martingale": {
+      // Double after a loss, back to one after a win.
+      let s = 1;
+      return { id, stake: () => s, step: () => Math.round(Math.log2(s)),
+               settle: (k) => { if (k === "win") s = 1; else if (k === "lose") s *= 2; },
+               restart: () => { s = 1; } };
+    }
+    case "paroli": {
+      // Double after a win, three wins and back to one; a loss, back to one.
+      let k = 0;
+      return { id, stake: () => 2 ** k, step: () => k,
+               settle: (r) => { if (r === "win") k = k === 2 ? 0 : k + 1; else if (r === "lose") k = 0; },
+               restart: () => { k = 0; } };
+    }
+    case "1326": {
+      // One, three, two, six on a run of wins; a loss or the fourth win, back to one.
+      const steps = [1, 3, 2, 6];
+      let k = 0;
+      return { id, stake: () => steps[k], step: () => k,
+               settle: (r) => { if (r === "win") k = k === 3 ? 0 : k + 1; else if (r === "lose") k = 0; },
+               restart: () => { k = 0; } };
+    }
+    case "fibonacci": {
+      // One step along 1, 1, 2, 3, 5, 8 ... after a loss, two back after a win.
+      const fib = [1, 1];
+      let k = 0;
+      return { id, step: () => k,
+               stake: () => { while (fib.length <= k) fib.push(fib[fib.length - 1] + fib[fib.length - 2]); return fib[k]; },
+               settle: (r) => { if (r === "win") k = Math.max(0, k - 2); else if (r === "lose") k += 1; },
+               restart: () => { k = 0; } };
+    }
+    case "dalembert": {
+      // One more after a loss, one fewer after a win, never under one.
+      let s = 1;
+      return { id, stake: () => s, step: () => s - 1,
+               settle: (r) => { if (r === "win") s = Math.max(1, s - 1); else if (r === "lose") s += 1; },
+               restart: () => { s = 1; } };
+    }
+    case "oscar": {
+      // Oscar's Grind: a series aims at one unit of profit. A loss keeps the
+      // stake; a win raises it by one, but never past what the series still
+      // needs; reaching the unit starts a new series.
+      let s = 1, series = 0;
+      return { id, stake: () => s, step: () => s - 1,
+               settle: (r, paid) => {
+                 series += paid;
+                 if (series >= 1 - 1e-9) { s = 1; series = 0; }
+                 else if (r === "win") s = Math.min(s + 1, Math.max(1, Math.ceil(1 - series)));
+               },
+               restart: () => { s = 1; series = 0; } };
+    }
+    case "labouchere": {
+      // Stake the line's first and last; a win crosses them off, a loss adds
+      // the stake to the end; an empty line starts again.
+      let line = LABOUCHERE_LINE.slice();
+      const stake = () => {
+        if (!line.length) line = LABOUCHERE_LINE.slice();
+        return line.length > 1 ? line[0] + line[line.length - 1] : line[0];
+      };
+      return { id, stake, step: () => line.length,
+               settle: (r, paid, staked) => {
+                 if (r === "win") line = line.slice(1, -1);
+                 else if (r === "lose") line.push(staked);
+               },
+               restart: () => { line = LABOUCHERE_LINE.slice(); } };
+    }
+    default:
+      return { id: "flat", stake: () => 1, step: () => 0, settle: () => {}, restart: () => {} };
+  }
+}
+
+/** What a coup paid a stake of one on `pick`: the table's own settlement. */
+function payout(pick, outcome) {
+  if (outcome === "T") return { kind: "push", paid: 0 };
+  if (outcome === pick) return { kind: "win", paid: pick === "B" ? 1 - BANKER_COMMISSION : 1 };
+  return { kind: "lose", paid: -1 };
+}
+
+/**
+ * One session -- a shoe -- played by a plan: the picks beside the coups.
+ *
+ * `bankroll` and `max` (the table's limit) are in units, and so are the stops:
+ * `stopWin` ends the session once that much is won, `stopLoss` once that much
+ * is lost; zero is no stop. A plan asking for more than the table or the
+ * bankroll allows cannot be followed: it starts over at its base stake, which
+ * is counted (`broken`), and with less than one unit left the bankroll is gone.
+ *
+ * Returns the result, what was staked and what the house expected to keep of
+ * it (each stake times its side's edge on a fresh shoe), the deepest fall, how
+ * it ended, and what the plan would stake on the next coup -- zero once it has
+ * stopped or gone broke.
+ */
+function playSession(picks, outcomes, {
+  plan = "flat", bankroll = 100, max = Infinity, stopWin = 0, stopLoss = 0,
+} = {}) {
+  const p = makePlan(plan);
+  const edge = edges(BASE_BANKER_SHARE, BASE_TIE);
+  let bank = bankroll, staked = 0, expected = 0, peak = bankroll, drawdown = 0;
+  let bets = 0, broken = 0, ended = null;
+  const n = Math.min(picks.length, outcomes.length);
+  const stopped = () => (stopWin > 0 && bank - bankroll >= stopWin - 1e-9 ? "win"
+    : stopLoss > 0 && bankroll - bank >= stopLoss - 1e-9 ? "loss" : null);
+  const next = () => {
+    let s = p.stake();
+    const cap = Math.min(max, bank);
+    if (s > cap + 1e-9) { p.restart(); broken += 1; s = Math.min(p.stake(), cap); }
+    return s;
+  };
+  for (let i = 0; i < n && !ended; i += 1) {
+    ended = stopped();
+    if (ended) break;
+    const s = next();
+    if (s < 1 - 1e-9) { ended = "broke"; break; }
+    const { kind, paid } = payout(picks[i], outcomes[i]);
+    staked += s;
+    expected += s * edge[picks[i]];
+    bets += 1;
+    bank += paid * s;
+    p.settle(kind, paid * s, s);
+    peak = Math.max(peak, bank);
+    drawdown = Math.min(drawdown, bank - peak);
+  }
+  if (!ended) ended = stopped();
+  let upcoming = 0;
+  if (!ended) {
+    // What the plan asks for next, without counting a break it has not made:
+    // past the table or the bankroll, it starts over at its opening stake.
+    const s = p.stake();
+    const cap = Math.min(max, bank);
+    upcoming = s > cap + 1e-9 ? Math.min(makePlan(plan).stake(), cap) : s;
+    if (upcoming < 1 - 1e-9) { ended = "broke"; upcoming = 0; }
+  }
+  return {
+    profit: bank - bankroll, staked, expected, bets, broken, drawdown,
+    ended, next: upcoming, wanted: ended ? 0 : p.stake(), step: p.step(),
+  };
+}
+
+/** How many fair shoes the comparison deals, and how many a simulated table holds. */
+const PLAN_SHOES = 2000;
+const PLAN_TABLE = 40;
+
+/**
+ * Every plan on the same fair shoes, at the owner's bankroll, limit and stops.
+ *
+ * The shoes are dealt by the page's own rules engine from a fixed seed, so the
+ * table is the same every time it is drawn for the same settings; the picks
+ * are the page's own, each made from the coups before it on a table of forty
+ * shoes, as the page makes them. A session is a shoe.
+ *
+ * `cost` is what the plan expects to lose a shoe -- what it stakes, each unit
+ * at its side's edge. It is the steady figure: the simulated mean wanders with
+ * the luck of two thousand shoes, the cost does not, and the two agree within
+ * that luck. `perUnit` is the cost a unit staked, which no plan changes.
+ */
+function comparePlans({ bankroll = 100, max = Infinity, stopWin = 0, stopLoss = 0 } = {},
+                             { shoes = PLAN_SHOES, seed = 20261010 } = {}) {
+  const dealt = simulate(shoes, seed);
+  const picks = [];
+  for (let t = 0; t < dealt.length; t += PLAN_TABLE) {
+    const table = dealt.slice(t, t + PLAN_TABLE);
+    const all = replayPicks(table, { keepFrom: 0 }).picks;
+    let at = 0;
+    for (const shoe of table) { picks.push(all.slice(at, at + shoe.length)); at += shoe.length; }
+  }
+  const out = {};
+  for (const plan of PLANS) {
+    const results = dealt.map((shoe, i) => playSession(picks[i], shoe,
+      { plan, bankroll, max, stopWin, stopLoss }));
+    const profits = results.map((r) => r.profit).sort((a, b) => a - b);
+    const sum = (f) => results.reduce((a, r) => a + f(r), 0);
+    const staked = sum((r) => r.staked);
+    out[plan] = {
+      sessions: results.length,
+      mean: sum((r) => r.profit) / results.length,
+      cost: sum((r) => r.expected) / results.length,
+      perUnit: staked ? sum((r) => r.expected) / staked : 0,
+      staked: staked / results.length,
+      ahead: results.filter((r) => r.profit > 1e-9).length / results.length,
+      broke: results.filter((r) => r.ended === "broke").length / results.length,
+      worst: profits[Math.floor(0.05 * (profits.length - 1))],
+      best: profits[Math.ceil(0.95 * (profits.length - 1))],
+      median: profits[Math.floor(profits.length / 2)],
+    };
+  }
+  return out;
+}
+
 /* ═══ learn.js ═══ */
 /* A network that learns from the table in front of it.
  *
@@ -9525,6 +9907,7 @@ function newId(taken) {
 
 
 
+
 // Named, and spelled out: the page is served as one concatenated scope, where
 // a namespace import has nothing to be a namespace of.
 
@@ -9794,8 +10177,12 @@ function setView(view) {
   viewNow = view === "full" ? "full" : "simple";
   try { localStorage.setItem(VIEW_KEY, viewNow); } catch { /* this visit only */ }
   applyView();
-  // The header says less in the guest's view.
-  if (state) renderHeader();
+  // The header says less in the guest's view, and the staking plans' table
+  // is the full view's alone.
+  if (state) {
+    renderHeader();
+    renderPlan();
+  }
 }
 
 /**
@@ -11523,6 +11910,7 @@ function render() {
   renderKpis();
   renderScale();
   renderStake();
+  renderPlan();
   renderLastResult();
   renderBoard();
   renderShoes();
@@ -11700,6 +12088,10 @@ const STAKE_FIELDS = {
   stakeRate: { def: 120, min: 1 },          // hands an hour on a speed table
   stakeHours: { def: 4, min: 0 },
   stakeDays: { def: 20, min: 0 },
+  // The staking plan's: the table's limit, and the shoe's stops (none at zero).
+  stakeMax: { def: 5000000, min: 0 },
+  stakeStopWin: { def: 0, min: 0 },
+  stakeStopLoss: { def: 0, min: 0 },
 };
 
 function stakeSettings() {
@@ -11788,6 +12180,170 @@ function renderStake() {
   $("stakeNote").textContent = t("stake.note");
 }
 
+/* --------------------------------------------------------- staking plans */
+
+/** The staking plan chosen, kept on this device like the stake (see `plans.js`). */
+const PLAN_KEY = "baccarat.plan.v1";
+
+function chosenPlan() {
+  try {
+    const v = localStorage.getItem(PLAN_KEY);
+    return PLANS.includes(v) ? v : "flat";
+  } catch {
+    return "flat";
+  }
+}
+
+/**
+ * Where a plan's shoe starts: the first coup the page called while the shoe
+ * was being dealt -- the earliest of its predictions in the log.
+ *
+ * A shoe the reader found already dozens of coups in -- a change of table, a
+ * reader started mid-shoe -- arrives whole, and nobody bet on what it arrived
+ * with. Played from its first coup, a Martingale through a shoe read at once
+ * could come out asking for its sixth doubling, or broke, before the owner had
+ * staked anything; the plan starts where the owner did. A shoe with no call
+ * yet starts at its end, and the unsaved sheet, which keeps no log, at its
+ * first coup.
+ */
+function planStart(shoe) {
+  const log = state.active ? predictionLog.tables[state.active] : null;
+  if (!log || !shoe.id) return 0;
+  let first = Infinity;
+  for (const e of log.entries) if (e.s === shoe.id && e.i < first) first = e.i;
+  return Number.isFinite(first) ? Math.min(first, shoe.o.length) : shoe.o.length;
+}
+
+/** The stake form in base stakes, which is what the plans count in. */
+function planUnits(cfg = stakeSettings()) {
+  // No base stake, no plan: a bankroll of nothing says so instead of dividing.
+  const unit = cfg.stakeUnit > 0 ? cfg.stakeUnit : 1;
+  const of = (x) => (x > 0 ? x / unit : 0);
+  return {
+    unit,
+    bankroll: cfg.stakeUnit > 0 ? Math.floor(of(cfg.stakeBankroll)) : 0,
+    max: cfg.stakeMax > 0 ? Math.floor(of(cfg.stakeMax)) : Infinity,
+    stopWin: of(cfg.stakeStopWin),
+    stopLoss: of(cfg.stakeStopLoss),
+  };
+}
+
+/**
+ * The comparison, and the settings it was made for. Fair shoes do not change
+ * with the coups, so it is made again only when the settings do -- and after
+ * the page has drawn, never on the way to drawing a coup: it deals two
+ * thousand shoes and plays every plan through them, half a second on a desk.
+ */
+let planCompared = null;
+let planComparing = 0;
+
+const planKey = (u) => [u.bankroll, u.max, u.stopWin, u.stopLoss].join("|");
+
+function renderPlan() {
+  const plan = chosenPlan();
+  const u = planUnits();
+  const amount = (units) => Math.round(Math.abs(units) * u.unit).toLocaleString();
+  const signed = (units) => (units >= 0 ? "+" : "−") + amount(units);
+  const name = (id) => t("plan.short." + id);
+
+  // Played through the shoe on the table, beside the picks the bet results
+  // settle: what it has come to, and what it stakes next on the side the
+  // panel above names.
+  const box = $("planNext"), now = $("planNow");
+  const idle = notStarted() || u.bankroll < 1;
+  box.innerHTML = "";
+  if (idle) {
+    box.className = "plannext";
+    box.textContent = t(u.bankroll < 1 ? "plan.noBankroll" : "plan.idle");
+    now.hidden = true;
+  } else {
+    const shoe = openShoe();
+    const calls = shoeCalls() || "";
+    const from = Math.min(planStart(shoe), calls.length);
+    const run = playSession(calls.slice(from), shoe.o.slice(from, calls.length), { plan, ...u });
+    const pick = recommended(predict());
+    box.className = "plannext" + (run.ended ? " " + run.ended : "");
+    const line = run.ended
+      ? t("plan.end." + run.ended)
+      : t("plan.next", { plan: name(plan), side: side(pick), units: run.next, money: amount(run.next) });
+    box.appendChild(el("p", "pn", null)).innerHTML = line;
+    if (run.bets) {
+      box.appendChild(el("p", "ps", t("plan.shoe", {
+        from: from + 1, bets: run.bets, profit: signed(run.profit),
+        units: (run.profit >= 0 ? "+" : "−") + Math.abs(run.profit).toFixed(2),
+        fall: signed(run.drawdown),
+      })));
+    }
+    if (!run.ended && run.wanted > run.next) {
+      box.appendChild(el("p", "pw", t("plan.capped", { wanted: run.wanted, units: run.next })));
+    }
+    // A line beside the pick, where the next coup is decided -- for a plan
+    // other than one unit a coup, or a shoe that has reached its stop.
+    now.hidden = plan === "flat" && !run.ended;
+    if (!now.hidden) now.innerHTML = line;
+  }
+
+  // The comparison is the full view's: the guest's has no table to fill, and
+  // is not made to wait for one.
+  if (viewNow !== "full") return;
+  const key = planKey(u);
+  if (u.bankroll >= 1 && (!planCompared || planCompared.key !== key)) {
+    renderPlanTable(null);
+    if (!planComparing) {
+      planComparing = setTimeout(() => {
+        planComparing = 0;
+        const at = planUnits();
+        if (at.bankroll >= 1) planCompared = { key: planKey(at), value: comparePlans(at) };
+        renderPlan();
+      }, 60);
+    }
+    return;
+  }
+  renderPlanTable(u.bankroll >= 1 ? planCompared.value : null, plan, u);
+}
+
+/** Every plan side by side on fair shoes, at these settings. See `comparePlans`. */
+function renderPlanTable(cmp, plan, u) {
+  const table = $("planTable"), note = $("planNote");
+  const head = table.tHead, body = table.tBodies[0];
+  head.innerHTML = "";
+  body.innerHTML = "";
+  if (!cmp) {
+    table.hidden = true;
+    note.textContent = t("plan.computing");
+    return;
+  }
+  table.hidden = false;
+  const amount = (units) => Math.round(Math.abs(units) * u.unit).toLocaleString();
+  const signed = (units) => (units >= 0 ? "+" : "−") + amount(units);
+  const hr = el("tr");
+  for (const k of ["plan.colPlan", "plan.colCost", "plan.colAhead", "plan.colBroke",
+                   "plan.colWorst", "plan.colStaked"]) hr.appendChild(el("th", null, t(k)));
+  head.appendChild(hr);
+  for (const id of PLANS) {
+    const r = cmp[id];
+    const tr = el("tr", id === plan ? "on" : null);
+    tr.dataset.plan = id;
+    tr.appendChild(el("td", null, t("plan.name." + id)));
+    tr.appendChild(el("td", "m neg", signed(r.cost)));
+    tr.appendChild(el("td", "m", pct(r.ahead, 1)));
+    tr.appendChild(el("td", "m" + (r.broke > 0 ? " neg" : ""), pct(r.broke, 1)));
+    tr.appendChild(el("td", "m" + (r.worst < 0 ? " neg" : ""), signed(r.worst)));
+    tr.appendChild(el("td", "m", amount(r.staked)));
+    body.appendChild(tr);
+  }
+  const off = t("plan.off");
+  note.innerHTML = t("plan.note", {
+    n: PLAN_SHOES.toLocaleString(),
+    bankroll: amount(u.bankroll),
+    max: Number.isFinite(u.max) ? amount(u.max) : off,
+    win: u.stopWin ? amount(u.stopWin) : off,
+    loss: u.stopLoss ? amount(u.stopLoss) : off,
+    pct: pct(-cmp.flat.perUnit, 2),
+    cost: signed(cmp[plan].cost), plan: t("plan.short." + plan),
+  });
+}
+
 /**
  * Let the viewer draw the region themselves.
  *
@@ -11862,8 +12418,15 @@ function bindStake() {
       const next = { ...stakeSettings(), [id]: Number.isFinite(v) && v >= spec.min ? v : spec.def };
       saveStakeSettings(next);
       renderStake();
+      renderPlan();
     };
   }
+  const sel = $("planSel");
+  sel.value = chosenPlan();
+  sel.onchange = () => {
+    try { localStorage.setItem(PLAN_KEY, sel.value); } catch { /* this visit only */ }
+    renderPlan();
+  };
 }
 
 /**
