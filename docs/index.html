@@ -212,7 +212,8 @@ body.simple #aiLedger .aifact{border-bottom:none}
 .aibar.B .track i{background:var(--banker)}
 .aibar.T .track i{background:var(--tie)}
 .stakeform{display:flex; flex-wrap:wrap; gap:10px 16px; margin:12px 0 4px}
-.stakeform label{display:flex; flex-direction:column; gap:4px; font-size:11.5px; color:var(--ink-2)}
+.stakeform label{display:flex; flex-direction:column; gap:4px; font-size:11.5px; color:var(--ink-2);
+  max-width:100%}
 .stakeform input{width:118px; padding:7px 9px; border:1px solid var(--line-2); border-radius:7px;
   background:var(--surface); color:var(--ink); font-family:var(--mono); font-size:13px;
   font-variant-numeric:tabular-nums}
@@ -233,6 +234,8 @@ table.stake td.neg{color:var(--p-ink,#c0392b)}
 .plannext .ps,.plannext .pw{margin-top:4px; font-size:12px; color:var(--ink-2)}
 .plannext.win,.plannext.loss,.plannext.broke{border-color:var(--p-ink,#c0392b)}
 table.plancmp tr.on td{background:var(--surface-2); font-weight:600}
+table.plancmp .pshort{display:none}
+@media (max-width:820px){ table.plancmp .plong{display:none} table.plancmp .pshort{display:inline} }
 .plannow{margin:6px 0 0; font-size:12.5px; color:var(--ink-2)}
 .airule{display:flex; flex-wrap:wrap; align-items:center; gap:4px 8px; margin:6px 0 2px;
   font-size:12px; color:var(--ink-2)}
@@ -1662,6 +1665,12 @@ const S = {
     "zh-Hant": "本靴從第 {from} 局起用此方式：下注 {bets} 次 · 損益 {profit}（{units} 單位）· 最大回落 {fall}",
     "zh-Hans": "本靴从第 {from} 局起用此方式：下注 {bets} 次 · 损益 {profit}（{units} 单位）· 最大回落 {fall}",
   },
+  "plan.missed": {
+    ko: "그 뒤로 화면에 추천이 뜨기 전에 지나간 {n}판(다른 테이블에 가 있던 동안 등)은 걸지 않은 판으로 뺐습니다.",
+    en: "{n} [n|coup|coups] since then went by with no pick on screen (while you were at another table, say) and [n|is|are] left out as not bet.",
+    "zh-Hant": "此後有 {n} 局在畫面上還沒出現推薦就開出（例如您在另一張桌時），不算下注。",
+    "zh-Hans": "此后有 {n} 局在画面上还没出现推荐就开出（例如您在另一张桌时），不算下注。",
+  },
   "plan.capped": {
     ko: "이 방식대로라면 지금 {wanted}유닛을 걸 차례지만, 테이블 최대나 남은 원금을 넘어 처음 배팅({units}유닛)으로 돌아갑니다 — 진행이 이렇게 끊기는 것이 이런 방식이 크게 잃는 길입니다.",
     en: "The plan's turn now is {wanted} [wanted|unit|units], past the table limit or what is left, so it starts over at {units} [units|unit|units] — which is how a plan like this loses big.",
@@ -1703,10 +1712,10 @@ const S = {
   "plan.colWorst": { ko: "나쁜 5% 슈", en: "Worst 5%", "zh-Hant": "最差 5%", "zh-Hans": "最差 5%" },
   "plan.colStaked": { ko: "한 슈 총 배팅", en: "Staked a shoe", "zh-Hant": "每靴總下注", "zh-Hans": "每靴总下注" },
   "plan.note": {
-    ko: "공정한 8덱 슈 {n}개(이 페이지의 규칙 엔진)에서 이 페이지의 AI 추천으로 한 슈씩 걸어 본 결과입니다 — 원금 {bankroll} · 테이블 최대 {max} · 목표 이익 {win} · 손실 한도 {loss}. <b>예상 손실은 총 배팅액에 판당 기대 손실(어느 방식이든 약 {pct})을 곱한 값</b>이고, 나머지 칸은 모의 결과라 몇 %p 흔들릴 수 있습니다. 앞서서 끝나는 슈가 많은 방식일수록 크게 걸고, 원금을 다 잃는 슈가 생깁니다. 고른 방식({plan})의 예상 손실은 한 슈 {cost}입니다.",
-    en: "Every plan played a shoe at a time, on {n} fair 8-deck shoes dealt by this page's rules engine, on this page's AI pick — at a bankroll of {bankroll}, a table limit of {max}, a win to stop at of {win} and a loss to stop at of {loss}. <b>The expected loss is what a plan stakes times the loss on a unit staked, about {pct} whatever the plan</b>; the other columns are simulated and can move by a few points. The plans that end more shoes ahead stake more, and lose the whole bankroll in some. The plan chosen ({plan}) expects {cost} a shoe.",
-    "zh-Hant": "以本頁規則引擎發出的 {n} 靴公平八副牌靴，用本頁的 AI 推薦每次玩一靴的結果 — 本金 {bankroll} · 桌台上限 {max} · 停利 {win} · 停損 {loss}。<b>預期損失是總下注額乘以每單位的期望損失（無論哪種方式約 {pct}）</b>，其餘欄位為模擬結果，可能有幾個百分點的波動。以贏結束的牌靴越多的方式押得越大，並會在部分牌靴輸光本金。所選方式（{plan}）每靴預期損失 {cost}。",
-    "zh-Hans": "以本页规则引擎发出的 {n} 靴公平八副牌靴，用本页的 AI 推荐每次玩一靴的结果 — 本金 {bankroll} · 桌台上限 {max} · 停利 {win} · 停损 {loss}。<b>预期损失是总下注额乘以每单位的期望损失（无论哪种方式约 {pct}）</b>，其余栏位为模拟结果，可能有几个百分点的波动。以赢结束的牌靴越多的方式押得越大，并会在部分牌靴输光本金。所选方式（{plan}）每靴预期损失 {cost}。",
+    ko: "공정한 8덱 슈 {n}개(이 페이지의 규칙 엔진)에서 이 페이지의 AI 추천(추천 방식: {rule})으로 한 슈씩 걸어 본 결과입니다 — 원금 {bankroll} · 테이블 최대 {max} · 목표 이익 {win} · 손실 한도 {loss}. <b>예상 손실은 총 배팅액에 판당 기대 손실(어느 방식이든 약 {pct})을 곱한 값</b>이고, 나머지 칸은 모의 결과라 몇 %p 흔들릴 수 있습니다. 앞서서 끝나는 슈가 많은 방식일수록 크게 걸고, 원금을 다 잃는 슈가 생깁니다. 고른 방식({plan})의 예상 손실은 한 슈 {cost}입니다.",
+    en: "Every plan played a shoe at a time, on {n} fair 8-deck shoes dealt by this page's rules engine, on this page's AI pick (picking by: {rule}) — at a bankroll of {bankroll}, a table limit of {max}, a win to stop at of {win} and a loss to stop at of {loss}. <b>The expected loss is what a plan stakes times the loss on a unit staked, about {pct} whatever the plan</b>; the other columns are simulated and can move by a few points. The plans that end more shoes ahead stake more, and lose the whole bankroll in some. The plan chosen ({plan}) expects {cost} a shoe.",
+    "zh-Hant": "以本頁規則引擎發出的 {n} 靴公平八副牌靴，用本頁的 AI 推薦（推薦方式：{rule}）每次玩一靴的結果 — 本金 {bankroll} · 桌台上限 {max} · 停利 {win} · 停損 {loss}。<b>預期損失是總下注額乘以每單位的期望損失（無論哪種方式約 {pct}）</b>，其餘欄位為模擬結果，可能有幾個百分點的波動。以贏結束的牌靴越多的方式押得越大，並會在部分牌靴輸光本金。所選方式（{plan}）每靴預期損失 {cost}。",
+    "zh-Hans": "以本页规则引擎发出的 {n} 靴公平八副牌靴，用本页的 AI 推荐（推荐方式：{rule}）每次玩一靴的结果 — 本金 {bankroll} · 桌台上限 {max} · 停利 {win} · 停损 {loss}。<b>预期损失是总下注额乘以每单位的期望损失（无论哪种方式约 {pct}）</b>，其余栏位为模拟结果，可能有几个百分点的波动。以赢结束的牌靴越多的方式押得越大，并会在部分牌靴输光本金。所选方式（{plan}）每靴预期损失 {cost}。",
   },
   // The conditional is not decoration. On a fair table the share drifts back to
   // the pack's own rate, so the count is never reached -- it is what *this*
@@ -6548,8 +6557,9 @@ const PLAN_TABLE = 40;
  *
  * The shoes are dealt by the page's own rules engine from a fixed seed, so the
  * table is the same every time it is drawn for the same settings; the picks
- * are the page's own, each made from the coups before it on a table of forty
- * shoes, as the page makes them. A session is a shoe.
+ * are the page's own, by the way of picking chosen (`rule`, see `ruleSides`),
+ * each made from the coups before it on a table of forty shoes, as the page
+ * makes them. A session is a shoe.
  *
  * `cost` is what the plan expects to lose a shoe -- what it stakes, each unit
  * at its side's edge. It is the steady figure: the simulated mean wanders with
@@ -6557,12 +6567,12 @@ const PLAN_TABLE = 40;
  * that luck. `perUnit` is the cost a unit staked, which no plan changes.
  */
 function comparePlans({ bankroll = 100, max = Infinity, stopWin = 0, stopLoss = 0 } = {},
-                             { shoes = PLAN_SHOES, seed = 20261010 } = {}) {
+                             { shoes = PLAN_SHOES, seed = 20261010, rule = "pattern" } = {}) {
   const dealt = simulate(shoes, seed);
   const picks = [];
   for (let t = 0; t < dealt.length; t += PLAN_TABLE) {
     const table = dealt.slice(t, t + PLAN_TABLE);
-    const all = replayPicks(table, { keepFrom: 0 }).picks;
+    const all = replayPicks(table, { keepFrom: 0, rule }).picks;
     let at = 0;
     for (const shoe of table) { picks.push(all.slice(at, at + shoe.length)); at += shoe.length; }
   }
@@ -12349,23 +12359,27 @@ function chosenPlan() {
 }
 
 /**
- * Where a plan's shoe starts: the first coup the page called while the shoe
- * was being dealt -- the earliest of its predictions in the log.
+ * The coups of a shoe a plan plays: the ones the page called while they were
+ * being dealt -- the places of the shoe's predictions in the log -- in order,
+ * below `upTo`. Null for the unsaved sheet, which keeps no log: every coup.
  *
- * A shoe the reader found already dozens of coups in -- a change of table, a
- * reader started mid-shoe -- arrives whole, and nobody bet on what it arrived
- * with. Played from its first coup, a Martingale through a shoe read at once
- * could come out asking for its sixth doubling, or broke, before the owner had
- * staked anything; the plan starts where the owner did. A shoe with no call
- * yet starts at its end, and the unsaved sheet, which keeps no log, at its
- * first coup.
+ * A plan is what the owner stakes, and the owner stakes on a pick the page
+ * has shown. A shoe the reader found already dozens of coups in -- a change
+ * of table, a reader started mid-shoe -- arrives whole, and nobody bet on what
+ * it arrived with: played from its first coup, a Martingale through a shoe
+ * read at once could come out asking for its sixth doubling, or broke, before
+ * the owner had staked anything. And a shoe taken up again (see `resumeShoe`)
+ * was dealt on while the owner was at another table: played through, the
+ * coups they were away for set the next stake -- measured in the page, eight
+ * units where the coups they were there for came to two. A shoe with no call
+ * yet has nothing played, and its plan starts at the next coup.
  */
-function planStart(shoe) {
+function calledCoups(shoe, upTo) {
   const log = state.active ? predictionLog.tables[state.active] : null;
-  if (!log || !shoe.id) return 0;
-  let first = Infinity;
-  for (const e of log.entries) if (e.s === shoe.id && e.i < first) first = e.i;
-  return Number.isFinite(first) ? Math.min(first, shoe.o.length) : shoe.o.length;
+  if (!log || !shoe.id) return null;
+  const at = new Set();
+  for (const e of log.entries) if (e.s === shoe.id && e.i < upTo) at.add(e.i);
+  return [...at].sort((a, b) => a - b);
 }
 
 /** The stake form in base stakes, which is what the plans count in. */
@@ -12391,7 +12405,7 @@ function planUnits(cfg = stakeSettings()) {
 let planCompared = null;
 let planComparing = 0;
 
-const planKey = (u) => [u.bankroll, u.max, u.stopWin, u.stopLoss].join("|");
+const planKey = (u, rule) => [u.bankroll, u.max, u.stopWin, u.stopLoss, rule].join("|");
 
 function renderPlan() {
   const plan = chosenPlan();
@@ -12413,8 +12427,10 @@ function renderPlan() {
   } else {
     const shoe = openShoe();
     const calls = shoeCalls() || "";
-    const from = Math.min(planStart(shoe), calls.length);
-    const run = playSession(calls.slice(from), shoe.o.slice(from, calls.length), { plan, ...u });
+    const played = calledCoups(shoe, calls.length) || [...calls].map((_, i) => i);
+    const from = played.length ? played[0] : calls.length;
+    const run = playSession(played.map((i) => calls[i]).join(""),
+                            played.map((i) => shoe.o[i]).join(""), { plan, ...u });
     const pick = recommended(predict());
     box.className = "plannext" + (run.ended ? " " + run.ended : "");
     const line = run.ended
@@ -12428,6 +12444,10 @@ function renderPlan() {
         fall: signed(run.drawdown),
       })));
     }
+    // The coups since then the page never called -- dealt while the owner was
+    // at another table, or between two looks -- were not bet on, and say so.
+    const missed = calls.length - from - played.length;
+    if (missed > 0) box.appendChild(el("p", "ps", t("plan.missed", { n: missed })));
     if (!run.ended && run.wanted > run.next) {
       box.appendChild(el("p", "pw", t("plan.capped", { wanted: run.wanted, units: run.next })));
     }
@@ -12440,24 +12460,28 @@ function renderPlan() {
   // The comparison is the full view's: the guest's has no table to fill, and
   // is not made to wait for one.
   if (viewNow !== "full") return;
-  const key = planKey(u);
+  // On the picks of the way of picking chosen: always Banker costs less a
+  // unit than a pick that names Player half the time.
+  const key = planKey(u, pickRule());
   if (u.bankroll >= 1 && (!planCompared || planCompared.key !== key)) {
     renderPlanTable(null);
     if (!planComparing) {
       planComparing = setTimeout(() => {
         planComparing = 0;
-        const at = planUnits();
-        if (at.bankroll >= 1) planCompared = { key: planKey(at), value: comparePlans(at) };
+        const at = planUnits(), rule = pickRule();
+        if (at.bankroll >= 1) {
+          planCompared = { key: planKey(at, rule), rule, value: comparePlans(at, { rule }) };
+        }
         renderPlan();
       }, 60);
     }
     return;
   }
-  renderPlanTable(u.bankroll >= 1 ? planCompared.value : null, plan, u);
+  renderPlanTable(u.bankroll >= 1 ? planCompared.value : null, plan, u, planCompared?.rule);
 }
 
 /** Every plan side by side on fair shoes, at these settings. See `comparePlans`. */
-function renderPlanTable(cmp, plan, u) {
+function renderPlanTable(cmp, plan, u, rule) {
   const table = $("planTable"), note = $("planNote");
   const head = table.tHead, body = table.tBodies[0];
   head.innerHTML = "";
@@ -12478,7 +12502,13 @@ function renderPlanTable(cmp, plan, u) {
     const r = cmp[id];
     const tr = el("tr", id === plan ? "on" : null);
     tr.dataset.plan = id;
-    tr.appendChild(el("td", null, t("plan.name." + id)));
+    // The name and what it does; on a narrow screen the name alone, so the
+    // figures beside it fit.
+    const name = el("td", null);
+    name.appendChild(el("span", "plong", t("plan.name." + id)));
+    name.appendChild(el("span", "pshort", t("plan.short." + id)));
+    name.title = t("plan.name." + id);
+    tr.appendChild(name);
     tr.appendChild(el("td", "m neg", signed(r.cost)));
     tr.appendChild(el("td", "m", pct(r.ahead, 1)));
     tr.appendChild(el("td", "m" + (r.broke > 0 ? " neg" : ""), pct(r.broke, 1)));
@@ -12495,6 +12525,7 @@ function renderPlanTable(cmp, plan, u) {
     loss: u.stopLoss ? amount(u.stopLoss) : off,
     pct: pct(-cmp.flat.perUnit, 2),
     cost: signed(cmp[plan].cost), plan: t("plan.short." + plan),
+    rule: t("rule.label." + rule),
   });
 }
 
