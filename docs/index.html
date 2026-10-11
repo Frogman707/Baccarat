@@ -18,11 +18,14 @@
    Cool blue-biased neutrals, the shade of a dealer terminal. The data triad
    is fixed by the domain (player blue / banker red / tie green) and re-stepped
    per surface; the amber accent does exactly one job — "the page found
-   something, look here". */
+   something, look here". The third ink, the small print — every panel's
+   explanation, the figures' labels — reads at 4.5:1 or better on the panels
+   and the insets it is set on, in both themes: it was 3.0 to 3.6, measured
+   across the page at every size, under the line small text needs. */
 :root{
   --bg:#eef1f5; --surface:#ffffff; --surface-2:#f5f7fa; --surface-3:#eaeef3;
   --line:#dce2ea; --line-2:#c6cfda;
-  --ink:#0e1620; --ink-2:#53617a; --ink-3:#8391a6;
+  --ink:#0e1620; --ink-2:#53617a; --ink-3:#637289;
   --player:#1e6fd9; --banker:#cf3b34; --tie:#0a8f70;
   --player-soft:#e9f1fd; --banker-soft:#fcecea; --tie-soft:#e3f5ef;
   --accent:#a8641a; --accent-soft:#f4e7d4;
@@ -38,7 +41,7 @@
   :root:not([data-theme="light"]){
     --bg:#0b1017; --surface:#131b26; --surface-2:#18222f; --surface-3:#1e2937;
     --line:#26323f; --line-2:#37475a;
-    --ink:#e3eaf3; --ink-2:#93a3b8; --ink-3:#64748b;
+    --ink:#e3eaf3; --ink-2:#93a3b8; --ink-3:#79899f;
     --player:#3d93f0; --banker:#ee5a55; --tie:#00ab93;
     --player-soft:#111f31; --banker-soft:#2a1614; --tie-soft:#06231e;
     --accent:#e29a3c; --accent-soft:#33291a;
@@ -50,7 +53,7 @@
 :root[data-theme="dark"]{
   --bg:#0b1017; --surface:#131b26; --surface-2:#18222f; --surface-3:#1e2937;
   --line:#26323f; --line-2:#37475a;
-  --ink:#e3eaf3; --ink-2:#93a3b8; --ink-3:#64748b;
+  --ink:#e3eaf3; --ink-2:#93a3b8; --ink-3:#79899f;
   --player:#3d93f0; --banker:#ee5a55; --tie:#00ab93;
   --player-soft:#111f31; --banker-soft:#2a1614; --tie-soft:#06231e;
   --accent:#e29a3c; --accent-soft:#33291a;
@@ -1202,6 +1205,20 @@ const S = {
     en: "<b>If no prompt appeared</b> — this page is embedded in another one and was not granted camera access. Open it directly in its own tab with the link below.",
     "zh-Hant": "<b>若完全沒有出現提示</b> — 表示本頁被嵌入在其他頁面中，未取得相機權限。請用下方連結在新分頁直接開啟。",
     "zh-Hans": "<b>若完全没有出现提示</b> — 表示本页被嵌入在其他页面中，未取得相机权限。请用下方链接在新标签页直接打开。",
+  },
+  "live.errCameraNoSourceH": { ko: "카메라를 찾지 못했습니다", en: "No camera was found", "zh-Hant": "找不到相機", "zh-Hans": "找不到相机" },
+  "live.errCameraNoSourceBody": {
+    ko: "카메라가 연결돼 있는지 확인한 뒤 다시 시도해 주세요.",
+    en: "Check that a camera is connected, then try again.",
+    "zh-Hant": "請確認相機已連接後再試。",
+    "zh-Hans": "请确认相机已连接后再试。",
+  },
+  "live.errCameraFailedH": { ko: "카메라를 켜지 못했습니다", en: "The camera could not start", "zh-Hant": "無法開啟相機", "zh-Hans": "无法开启相机" },
+  "live.errCameraFailedBody": {
+    ko: "다른 앱이나 탭이 카메라를 쓰고 있다면 닫은 뒤 다시 시도해 주세요.",
+    en: "If another app or tab is using the camera, close it and try again.",
+    "zh-Hant": "若有其他應用程式或分頁正在使用相機，請關閉後再試。",
+    "zh-Hans": "若有其他应用或标签页正在使用相机，请关闭后再试。",
   },
   "ai.lastH": { ko: "직전 판", en: "Last coup", "zh-Hant": "上一局", "zh-Hans": "上一局" },
   "ai.lastPlay": {
@@ -5384,10 +5401,35 @@ const TEXT_TOKENS = [
   ["p", "P"], ["b", "B"], ["t", "T"], ["d", "T"],
 ];
 
+/** The outcomes spelled out in full: the ones that still count inside a longer word. */
+const TEXT_WORDS = TEXT_TOKENS.filter(([token]) => token.length > 1);
+
+const latinLetter = (c) => c >= "a" && c <= "z";
+const hangulSyllable = (c) => c >= "\uac00" && c <= "\ud7a3";
+
+/** A word read as outcomes letter by letter, or null where one letter is not one. */
+function spellOutcomes(word) {
+  const codes = [];
+  for (let j = 0; j < word.length;) {
+    const hit = TEXT_TOKENS.find(([token]) => word.startsWith(token, j));
+    if (!hit) return null;
+    codes.push(hit[1]);
+    j += hit[0].length;
+  }
+  return codes;
+}
+
 /**
  * Parse a pasted sequence in whatever shape it arrives: "PBBTP", "P B B T",
  * "플레이어, 뱅커, 타이", one per line, or 莊閒和. Anything unrecognised is
  * skipped rather than guessed at, and reported so a bad paste is visible.
+ *
+ * A letter is an outcome as a word of its own, or in a word made of nothing
+ * else ("PBBTP", "플플뱅"). Inside any other word it is a letter: taken one
+ * at a time, "Round 1: Banker win" was a tie, a Banker, a tie, a Player, a
+ * tie and a tie -- the d of every "Round" read as a draw -- "(pair)" was a
+ * Player, and 타임 a tie. In those only the outcomes spelled out in full
+ * count: "Banker win" is a Banker, "Ties" a tie.
  */
 function parseSequenceText(text) {
   const src = String(text || "").toLowerCase();
@@ -5397,12 +5439,27 @@ function parseSequenceText(text) {
   while (i < src.length) {
     const ch = src[i];
     if (/[\s,;|/\-_.\[\](){}"'`\n\r\t0-9#]/.test(ch)) { i++; continue; }
-    let matched = null;
-    for (const [token, code] of TEXT_TOKENS) {
-      if (src.startsWith(token, i)) { matched = [token, code]; break; }
+    const letters = latinLetter(ch) ? latinLetter : hangulSyllable(ch) ? hangulSyllable : null;
+    if (!letters) {
+      // 莊閒和 are words of a character each; anything else is skipped.
+      const hit = TEXT_TOKENS.find(([token]) => src.startsWith(token, i));
+      if (hit) { out.push(hit[1]); i += hit[0].length; }
+      else { skipped++; i++; }
+      continue;
     }
-    if (matched) { out.push(matched[1]); i += matched[0].length; }
-    else { skipped++; i++; }
+    let end = i;
+    while (end < src.length && letters(src[end])) end++;
+    const word = src.slice(i, end);
+    const whole = spellOutcomes(word);
+    if (whole) out.push(...whole);
+    else {
+      for (let j = 0; j < word.length;) {
+        const hit = TEXT_WORDS.find(([token]) => word.startsWith(token, j));
+        if (hit) { out.push(hit[1]); j += hit[0].length; }
+        else { skipped++; j++; }
+      }
+    }
+    i = end;
   }
   return { sequence: out.join(""), skipped };
 }
@@ -7335,13 +7392,15 @@ function recordPrediction(log, table, entry) {
   const t = tableLog(log, table);
   const at = entry.index | 0;
   // Backwards: a re-render is about the coup at the end, which is the one
-  // written last.
+  // written last. And all the way back, past other shoes: a shoe taken up
+  // again (see `resumeShoe` in app.js) has its predictions behind the ones
+  // made at the table the owner went to meanwhile -- the one waiting when
+  // they left among them. Stopping at the first other shoe wrote that one a
+  // second time, measured in the page: back at the table before it dealt
+  // again, the record held two predictions for the coup, and it settled both.
   for (let i = t.entries.length - 1; i >= 0; i -= 1) {
     const e = t.entries[i];
     if (e.s === entry.shoe && e.i === at) return false;
-    // The list is in the order the coups arrived, so once it is behind this
-    // shoe there is nothing left to find.
-    if (e.s !== entry.shoe) break;
   }
   t.entries.push({
     s: entry.shoe,
@@ -7358,6 +7417,26 @@ function recordPrediction(log, table, entry) {
     h: typeof entry.basis === "string" ? basisOf(entry.basis) : "",
   });
   trim(t);
+  return true;
+}
+
+/**
+ * Let go of the prediction still waiting for one coup, so the next one
+ * recorded for it is the one on screen. True when there was one to let go.
+ *
+ * For a call that changes before its coup without the shoe changing -- the
+ * way of picking chosen again. Written once per coup, the log kept the call
+ * made under the rule left behind, and scored it when the coup came, while
+ * the screen had been showing the other side: measured in the page, the
+ * streak's Banker filed and the chop's Player on screen for the same coup. A
+ * settled prediction is never let go: it was the call when its coup came.
+ */
+function withdrawPrediction(log, table, shoe, index) {
+  const t = log.tables[table];
+  if (!t || !shoe) return false;
+  const at = t.entries.findIndex((e) => e.s === shoe && e.i === index && !e.r);
+  if (at < 0) return false;
+  t.entries.splice(at, 1);
   return true;
 }
 
@@ -7577,12 +7656,29 @@ function trim(t, cap = LOG_CAP) {
  * the next coup cannot be kept. The coups come first: when the store is full
  * the log gives up its list, never its totals, until they fit. Returns how
  * many entries were rolled.
+ *
+ * At most `cap`, waiting predictions included. Every shoe that ends leaves
+ * one: the call for a coup after its last, which no coup settles unless the
+ * shoe is taken up again. `trim` keeps those, and with only those left the
+ * list stopped getting shorter -- sixty of them on a table and the store
+ * full, the page's room-making went round for ever, and the page froze on
+ * the coup that filled the store: measured in node with the page's code, and
+ * in the page, on the press of a key. So once the settled entries
+ * are in the totals, the oldest of these go too, counted as made and never
+ * scored, as the ceiling counts the ones it gives up.
  */
 function shrinkPredictions(log, cap) {
   let rolled = 0;
   for (const t of Object.values(log.tables)) {
     const before = t.entries.length;
     trim(t, cap);
+    let over = t.entries.length - cap;
+    if (over > 0) {
+      t.entries = t.entries.filter((e) => {
+        if (over > 0 && !e.r) { t.rolled.n += 1; over -= 1; return false; }
+        return true;
+      });
+    }
     rolled += before - t.entries.length;
   }
   return rolled;
@@ -7818,9 +7914,17 @@ function sanitiseLog(raw) {
     const t = tableLog(out, name);
     merge(t.rolled, value.rolled);
     const entries = Array.isArray(value.entries) ? value.entries : [];
+    // One call a coup. A record written before `recordPrediction` looked past
+    // other shoes can hold a coup twice -- a table gone back to before it
+    // dealt again -- and both were scored. The first is the one kept.
+    const seen = new Set();
     for (const e of entries) {
       const clean = sanitiseEntry(e);
-      if (clean) t.entries.push(clean);
+      if (!clean) continue;
+      const key = clean.s + "\u0000" + clean.i;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      t.entries.push(clean);
     }
     trim(t);
   }
@@ -10064,10 +10168,14 @@ store.makeRoom = () => {
   // Halved until it can be written: a log whose earlier writes were refused
   // is bigger in memory than the copy it replaces, and writing it frees
   // nothing until it is smaller than that copy.
+  //
+  // And only "made room" when it did. Said after a halving that halved
+  // nothing, the shoes were tried again, refused again, and room asked for
+  // again, for ever -- the page froze (see `shrinkPredictions`).
   for (;;) {
     const longest = Math.max(0, ...Object.values(predictionLog.tables).map((t) => t.entries.length));
     if (longest <= 40) return false;
-    shrinkPredictions(predictionLog, Math.floor(longest / 2));
+    if (!shrinkPredictions(predictionLog, Math.floor(longest / 2))) return false;
     if (store.saveLog(predictionLog)) return true;
   }
 };
@@ -11097,8 +11205,17 @@ function renderLiveError(code, source) {
       : `<h3>${t("live.errDeniedH")}</h3><p>${t("live.errDeniedIntro")}</p>` +
         `<ol><li>${t("live.errDenied1")}</li><li>${t("live.errDenied2")}</li></ol>` +
         `<p style="margin-top:11px"><a href="${own}" target="_blank" rel="noopener">${t("live.errOpenTop")}</a></p>`,
-    nosource: `<h3>${t("live.errNoSourceH")}</h3><p>${t("live.errNoSourceBody")}</p>`,
-    failed: `<h3>${t("live.errFailedH")}</h3><p>${t("live.errFailedBody")}</p>`,
+    // A camera that is not there, or is busy in another app, is not a screen
+    // that could not be shared. In the screen's words, a page with no camera
+    // said no screen could be found -- measured, pressing the camera button
+    // -- and a camera another app holds, the failure a phone meets most,
+    // was answered with advice to reload the page.
+    nosource: camera
+      ? `<h3>${t("live.errCameraNoSourceH")}</h3><p>${t("live.errCameraNoSourceBody")}</p>`
+      : `<h3>${t("live.errNoSourceH")}</h3><p>${t("live.errNoSourceBody")}</p>`,
+    failed: camera
+      ? `<h3>${t("live.errCameraFailedH")}</h3><p>${t("live.errCameraFailedBody")}</p>`
+      : `<h3>${t("live.errFailedH")}</h3><p>${t("live.errFailedBody")}</p>`,
   };
   box.innerHTML = (bodies[code] || bodies.failed) +
     `<div class="actions"><button class="btn" id="liveRetry">${t("live.retry")}</button></div>`;
@@ -11913,8 +12030,16 @@ function renderVerification() {
   const s = scorePredictions(predictionLog, name);
   const grid = $("verifyKpis"), verdict = $("verifyVerdict"), rows = $("verifyRecent");
 
+  // Waiting is the call for the coup to come in the shoe being dealt. Every
+  // shoe that ends leaves one more call behind -- for a coup after its last,
+  // which no coup settles unless the shoe is taken up again -- and counted as
+  // waiting, the line grew by one a shoe: measured in the page, five shoes
+  // entered by hand and six said to be waiting, with one call on screen.
+  const open = openShoe(name).id;
+  const waiting = open
+    ? (predictionLog.tables[name]?.entries || []).filter((e) => !e.r && e.s === open).length : 0;
   $("verifyCount").textContent = s.n
-    ? t("verify.count", { n: s.settled.toLocaleString(), pending: s.pending.toLocaleString() })
+    ? t("verify.count", { n: s.settled.toLocaleString(), pending: waiting.toLocaleString() })
     : "";
 
   grid.innerHTML = "";
@@ -11976,8 +12101,10 @@ function renderVerification() {
     tr.appendChild(el("td", null, side(e.k)));
     const settled = !!e.r;
     const hit = settled && e.r === e.k;
+    // And a call left behind in a shoe no longer being dealt is not waiting:
+    // its coup has not come, and is not coming here.
     tr.appendChild(el("td", settled ? (e.r === "T" ? "wait" : hit ? "hit" : "miss") : "wait",
-                      settled ? side(e.r) : t("verify.pendingRow")));
+                      settled ? side(e.r) : e.s === open ? t("verify.pendingRow") : "—"));
     // The panel's own words for it, not the stored 0-100: a column of "67"
     // beside a pick reads as a 67% chance of winning, where it means the
     // estimate sat two standard errors from the crossover -- for a side that
@@ -13580,7 +13707,7 @@ function bindControls() {
     const to = cleanTableName(prompt(t("header.renamePrompt", { table: from }), from));
     if (!to || to === from) return;
     if (Object.prototype.hasOwnProperty.call(state.tables, to)) {
-      flashNote(t("header.renameTaken", { name: to }));
+      flashNote(t("header.renameTaken", { name: to }), NOTE_MS);
       return;
     }
     state.tables = Object.fromEntries(Object.entries(state.tables)
@@ -13694,6 +13821,14 @@ function bindControls() {
   rule.onchange = () => {
     pickRuleNow = PICK_RULES.includes(rule.value) ? rule.value : "streak";
     try { localStorage.setItem(PICK_RULE_KEY, pickRuleNow); } catch { /* this visit only */ }
+    // The call for the coup to come changes with the rule, and the log keeps
+    // the one on screen when its coup comes: the one made under the rule left
+    // behind goes, and the render files this rule's (see `withdrawPrediction`).
+    const name = chosenTable();
+    const shoe = name ? openShoe(name) : null;
+    if (shoe && withdrawPrediction(predictionLog, name, shoe.id, shoe.o.length)) {
+      store.saveLog(predictionLog);
+    }
     render();
   };
   // The shoe, or the whole table: which coups the tally on screen counts. It
@@ -13838,8 +13973,19 @@ function flash(key) {
   flashNote("✓ " + flashText(key));
 }
 
+/**
+ * How long the header holds a line. A keystroke's confirmation is a glance --
+ * the next key replaces it. A sentence that says something went differently
+ * has to be read: the name already taken, the other tab's change taken in.
+ * Those were up for the same four tenths of a second -- gone before a
+ * sentence can be read -- and on a loaded machine they came and went between
+ * two looks of the check that waits for one.
+ */
+const FLASH_MS = 400;
+const NOTE_MS = 4000;
+
 /** A line in the header that says itself and then gets out of the way. */
-function flashNote(msg, ms = 400) {
+function flashNote(msg, ms = FLASH_MS) {
   const node = $("shoeMeta");
   node.textContent = msg;
   setTimeout(() => { if (node.textContent === msg) renderHeader(); }, ms);
@@ -13894,7 +14040,7 @@ async function boot() {
     else if (!here) state.active = null;
     invalidate();
     render();
-    flashNote(t("store.elsewhere"));
+    flashNote(t("store.elsewhere"), NOTE_MS);
   }, (raw) => {
     // Not settled here. The other tab settled it against its own corpus, and
     // the corpus event for that write arrives first -- storage events are
