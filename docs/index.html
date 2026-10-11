@@ -3461,6 +3461,10 @@ function nullKey(shoes, nReplicates) {
   return `${nReplicates}|${nullShape(shoes).map((cap) => cap ?? "").join(",")}`;
 }
 
+/** How long the null may hold a browser before it gives the page a turn. */
+const NULL_SLICE_MS = 40;
+const nullClock = () => (typeof performance !== "undefined" ? performance.now() : Date.now());
+
 /**
  * Null distribution of every statistic, from honest simulated shoes.
  *
@@ -3474,20 +3478,31 @@ function nullKey(shoes, nReplicates) {
  *
  * Yields to the caller every `chunk` replicates so a browser can run this
  * without freezing; `onProgress` receives (done, total).
+ *
+ * And sooner, once `sliceMs` has gone by. A replicate is a whole corpus the
+ * size of the table, so five of them on a table of two thousand shoes held
+ * the page for seven tenths of a second at a time, measured -- the preview
+ * stalled, and a coup pressed meanwhile waited its turn -- for the twelve to
+ * forty-five seconds the check runs. The replicates are the same either way;
+ * only when the page gets its turn changes. `clock` is the time it reads,
+ * so a check can say exactly how much has gone by.
  */
 async function simulatedNull(shape, {
   nReplicates = 200, seed = 20240101, onProgress = null, chunk = 5, shouldStop = null,
+  sliceMs = NULL_SLICE_MS, clock = nullClock,
 } = {}) {
   const cuts = typeof shape === "number" ? new Array(shape).fill(null) : shape;
   const samples = {};
+  let since = clock();
   for (let i = 0; i < nReplicates; i++) {
     const corpus = simulate(cuts.length, (seed + 1000 * i + 1) | 0)
       .map((shoe, j) => (cuts[j] == null ? shoe : shoe.slice(0, cuts[j])));
     const stats = computeStatistics(corpus);
     for (const [k, v] of Object.entries(stats)) (samples[k] ||= []).push(v);
-    if ((i + 1) % chunk === 0 || i === nReplicates - 1) {
+    if ((i + 1) % chunk === 0 || i === nReplicates - 1 || clock() - since >= sliceMs) {
       if (onProgress) onProgress(i + 1, nReplicates);
       await new Promise((r) => setTimeout(r, 0));
+      since = clock();
       if (shouldStop && shouldStop()) return null;
     }
   }
