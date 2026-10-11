@@ -642,6 +642,14 @@ footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
   .themebtn{width:40px; height:40px}
   .themebtn svg{width:18px; height:18px}
   textarea{min-height:88px; font-size:16px}      /* 16px stops iOS zooming on focus */
+  /* The staking plan's figures are typed on a phone too: they were 31px tall
+     and 13px type, under a finger and under the size iOS zooms the page for. */
+  .stakeform input{min-height:44px; font-size:16px}
+  /* "More" under each explanation is a line of small type, 22px tall. Its
+     box reaches past the line on every side, so a finger finds it, and the
+     page around it does not move. */
+  .subtoggle{position:relative}
+  .subtoggle::after{content:""; position:absolute; inset:-11px -10px}
 }
 @media (max-width:620px){
   main{padding:12px; gap:12px}
@@ -1017,7 +1025,7 @@ footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
       </div>
       <div>
         <div class="blabel" data-i18n="tools.textH"></div>
-        <textarea id="textIn" data-i18n-ph="tools.textPlaceholder"></textarea>
+        <textarea id="textIn" data-i18n-ph="tools.textPlaceholder" data-i18n-aria="tools.textH"></textarea>
         <div class="actions" style="margin-top:8px">
           <button class="btn" id="textAdd" data-i18n="tools.textAdd"></button>
           <button class="btn ghost" id="textNew" data-i18n="tools.textNew"></button>
@@ -7589,12 +7597,22 @@ function settlePredictions(log, table, sequences) {
     if (typeof seq === "string") done += realign(entries, seq) ? 1 : 0;
   }
 
+  // One call a coup. A coup gone from the middle moves the calls after it back
+  // a place, and the first of them lands where the call before it already is:
+  // the reader mending a shoe's end that held one coup too many in a run left
+  // two calls on one coup, both settled -- measured in the page, the record
+  // counting a coup twice. One of the run's calls was for a coup that never
+  // came; the first, made from the shoe as it was dealt, is the one kept.
+  const placed = new Set();
   for (const e of t.entries) {
+    const place = e.s + "\u0000" + e.i;
+    if (placed.has(place)) { done += 1; continue; }
+
     const seq = sequences[e.s];
     const known = typeof seq === "string";
     // A shoe the record no longer holds at all: an import replaced it, or it
     // was dropped. Nothing can be said about those predictions, either way.
-    if (!known) { keep.push(e); continue; }
+    if (!known) { keep.push(e); placed.add(place); continue; }
 
     // Still waiting, and the shoe up to its coup is not the shoe it was made
     // from: let go, for the prediction made from the shoe as it now stands
@@ -7608,6 +7626,7 @@ function settlePredictions(log, table, sequences) {
     if (seq.length > e.i) {
       if (e.r !== seq[e.i]) { e.r = seq[e.i]; done += 1; }
       keep.push(e);
+      placed.add(place);
       continue;
     }
     // The record no longer reaches this coup. If it never did, the prediction
@@ -7615,6 +7634,7 @@ function settlePredictions(log, table, sequences) {
     // goes with it.
     if (e.r) { done += 1; continue; }
     keep.push(e);
+    placed.add(place);
   }
   t.entries = keep;
   return done;
