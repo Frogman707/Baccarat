@@ -699,8 +699,141 @@ footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
   .qb.ghost{font-weight:500; font-size:12px; color:var(--ink-2)}
   .qb:active{transform:scale(.97)}
 }
+
+/* ── the door ───────────────────────────────────────────────────────────
+   Until somebody is let in, the page is the door and nothing else: the reader
+   behind it is not drawn. Laid out like the sign-in card the owner pointed
+   at -- the name in the accent, the language under it, two fields, one
+   button, the way to ask -- in the reader's own type and colours, so the dark
+   theme is the navy and amber of that card and the light one is the page's
+   daytime self. */
+:root{
+  --gate-edge:rgba(168,100,26,.38); --gate-stripe:rgba(14,22,32,.035);
+  --gate-field:var(--surface-2); --on-accent:#ffffff;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --gate-edge:rgba(226,154,60,.55); --gate-stripe:rgba(255,255,255,.022);
+    --gate-field:#0b1017; --on-accent:#1a1206;
+  }
+}
+:root[data-theme="dark"]{
+  --gate-edge:rgba(226,154,60,.55); --gate-stripe:rgba(255,255,255,.022);
+  --gate-field:#0b1017; --on-accent:#1a1206;
+}
+body:not(.open) > :not(#gate){display:none !important}
+body.open > #gate{display:none}
+#gate{min-height:100vh; min-height:100dvh; display:grid; place-items:center; padding:32px 16px;
+  background:repeating-linear-gradient(135deg, var(--gate-stripe) 0 1px, transparent 1px 14px), var(--bg)}
+.gcard{position:relative; width:min(420px, 100%); padding:34px 28px 28px;
+  background:linear-gradient(165deg, var(--surface-2), var(--surface) 55%);
+  border:1px solid var(--gate-edge); border-radius:20px; box-shadow:var(--shadow)}
+.gtheme{position:absolute; top:16px; right:16px; width:40px; height:40px; display:grid; place-items:center;
+  border:1px solid var(--line); border-radius:11px; background:var(--surface-2); color:var(--ink-2); cursor:pointer}
+.gtheme:hover{color:var(--ink)}
+.gtheme svg{width:19px; height:19px; display:block}
+.gbrand{margin:6px 0 0; text-align:center; font-size:26px; line-height:1.25; font-weight:600;
+  letter-spacing:-.01em; color:var(--accent); text-wrap:balance}
+.gbrand .pips{justify-content:center; margin-bottom:12px}
+.gbrand .pips i{width:10px; height:10px}
+.gsub{margin:6px 0 0; text-align:center; font-family:var(--mono); font-size:12.5px;
+  letter-spacing:.14em; color:var(--ink-3)}
+.glang{display:flex; justify-content:center; margin:16px 0 22px}
+.glang select{font-size:13px; padding:6px 12px; border-radius:20px; min-height:36px}
+.gform{display:flex; flex-direction:column; gap:14px}
+.gfield{display:flex; flex-direction:column; gap:6px}
+.gfield > span{font-size:13px; font-weight:500; color:var(--ink-2)}
+.gfield input{font:inherit; font-size:16px; color:var(--ink); background:var(--gate-field);
+  border:1px solid var(--line-2); border-radius:10px; padding:0 14px; height:48px; width:100%}
+.gfield input::placeholder{color:var(--ink-3)}
+.gfield input:focus{outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft)}
+.gfield small{font-size:12px; color:var(--ink-3)}
+.gmsg{margin:0; min-height:1.4em; font-size:13px; line-height:1.45; color:var(--ink-2)}
+.gmsg.err{color:var(--banker)} .gmsg.ok{color:var(--tie)}
+.gbtn{height:50px; margin-top:4px; border:none; border-radius:10px; background:var(--accent);
+  color:var(--on-accent); font:inherit; font-size:16px; font-weight:600; cursor:pointer}
+.gbtn:hover{filter:brightness(1.06)}
+.gbtn:disabled{opacity:.6; cursor:progress}
+.gswitch{margin:6px 0 0; text-align:center; font-size:14px; color:var(--ink-2)}
+.glink{border:none; background:none; padding:2px 4px; font:inherit; font-weight:600; color:var(--accent); cursor:pointer}
+.glink:hover{text-decoration:underline}
+.gnote{margin:4px 0 0; text-align:center; font-size:12.5px; line-height:1.55; color:var(--ink-3); text-wrap:balance}
+
+/* ── the account: who is in, and the master's desk ─────────────────────── */
+.acct{display:inline-flex; align-items:center; gap:4px}
+.acctbtn{display:inline-flex; align-items:center; gap:6px; font-weight:500; padding:3px 10px; line-height:1.3; font-size:13px}
+.acctbtn svg{width:15px; height:15px; display:block}
+.acctbadge{min-width:18px; height:18px; padding:0 5px; border-radius:9px; background:var(--banker);
+  color:#fff; font-size:11px; line-height:18px; text-align:center; font-weight:600}
+.acctnote{font-size:11.5px; color:var(--accent)}
+#acctSheet{position:fixed; inset:0; z-index:60; display:grid; place-items:start center;
+  padding:6vh 14px 20px; background:rgba(8,12,18,.55); overflow-y:auto}
+.sheetbox{width:min(760px, 100%); background:var(--surface); border:1px solid var(--line);
+  border-radius:14px; box-shadow:var(--shadow); padding:18px 18px 20px}
+.sheethead{display:flex; align-items:center; gap:10px; margin-bottom:12px}
+.sheethead h2{margin:0; flex:1; font-size:16px}
+.tabs{display:inline-flex; gap:2px; padding:3px; border-radius:9px; background:var(--surface-3); margin-bottom:14px; flex-wrap:wrap}
+.tabs button{border:none; background:none; padding:6px 12px; border-radius:7px; color:var(--ink-2); cursor:pointer; font:inherit}
+.tabs button.on{background:var(--surface); color:var(--ink); box-shadow:var(--shadow)}
+.sheetsec{margin:0 0 18px}
+.sheetsec h3{font-size:13.5px; margin:0 0 8px; font-weight:600}
+.sheetsec .sub{margin:-4px 0 10px}
+#loginsFor{margin:0 0 10px} #loginsFor + .sub{margin-top:0}
+.tablewrap{overflow-x:auto; border:1px solid var(--line); border-radius:10px}
+.acctable{width:100%; border-collapse:collapse; font-size:13px; font-variant-numeric:tabular-nums}
+.acctable th{text-align:left; font-weight:500; font-size:12px; color:var(--ink-3); background:var(--surface-2);
+  padding:7px 10px; white-space:nowrap}
+.acctable td{padding:8px 10px; border-top:1px solid var(--line); white-space:nowrap}
+.acctable td.when{font-family:var(--mono); font-size:12.5px}
+.acctable td.act{text-align:right}
+.acctable td.act .btn{padding:4px 10px; font-size:12.5px}
+.chip{display:inline-block; padding:1px 8px; border-radius:10px; font-size:11.5px; font-weight:500;
+  border:1px solid currentColor}
+.chip.pending{color:var(--accent)} .chip.approved{color:var(--tie)}
+.chip.rejected,.chip.suspended{color:var(--banker)}
+.sheetform{display:grid; grid-template-columns:1fr 1fr auto; gap:10px; align-items:end}
+.sheetform .gfield input{height:42px; font-size:15px}
+.sheetform .btn{height:42px}
+@media (max-width:560px){ .sheetform{grid-template-columns:1fr} }
+.sheetmsg{margin:10px 0 0; font-size:13px; min-height:1.2em}
+.sheetmsg.err{color:var(--banker)} .sheetmsg.ok{color:var(--tie)}
+.empty{margin:0; font-size:13px; color:var(--ink-3)}
 </style>
 </head><body>
+
+<div id="gate">
+  <div class="gcard">
+    <button type="button" class="gtheme" id="gateTheme" data-i18n-aria="gate.themeAria" data-i18n-title="gate.themeAria"></button>
+    <h1 class="gbrand"><span class="pips"><i></i><i></i><i></i></span><span data-i18n="app.title"></span></h1>
+    <p class="gsub" id="gateSub" data-i18n="gate.sub"></p>
+    <div class="glang"><select id="gateLang" data-i18n-aria="header.langAria"></select></div>
+
+    <form class="gform" id="loginForm" novalidate>
+      <label class="gfield"><span data-i18n="gate.id"></span>
+        <input id="loginId" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="ID"></label>
+      <label class="gfield"><span data-i18n="gate.pw"></span>
+        <input id="loginPw" name="password" type="password" autocomplete="current-password" placeholder="••••••"></label>
+      <p class="gmsg" id="loginMsg" role="status" aria-live="polite"></p>
+      <button type="submit" class="gbtn" id="loginBtn" data-i18n="gate.login"></button>
+      <p class="gswitch"><span data-i18n="gate.noAccount"></span> <button type="button" class="glink" id="toSignup" data-i18n="gate.toSignup"></button></p>
+      <p class="gnote" data-i18n="gate.note"></p>
+    </form>
+
+    <form class="gform" id="signupForm" novalidate hidden>
+      <label class="gfield"><span data-i18n="gate.id"></span>
+        <input id="signupId" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="ID">
+        <small data-i18n="gate.idHint"></small></label>
+      <label class="gfield"><span data-i18n="gate.pw"></span>
+        <input id="signupPw" name="new-password" type="password" autocomplete="new-password">
+        <small data-i18n="gate.pwHint"></small></label>
+      <label class="gfield"><span data-i18n="gate.pw2"></span>
+        <input id="signupPw2" name="new-password-2" type="password" autocomplete="new-password"></label>
+      <p class="gmsg" id="signupMsg" role="status" aria-live="polite"></p>
+      <button type="submit" class="gbtn" id="signupBtn" data-i18n="gate.request"></button>
+      <p class="gswitch"><span data-i18n="gate.haveAccount"></span> <button type="button" class="glink" id="toLogin" data-i18n="gate.login"></button></p>
+    </form>
+  </div>
+</div>
 
 <header>
   <div class="hin">
@@ -722,6 +855,13 @@ footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
       </button>
       <button class="themebtn" id="themeDark" data-i18n-title="theme.dark" data-i18n-aria="theme.dark">
         <svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M13.4 9.6A5.9 5.9 0 0 1 6.4 2.6a5.9 5.9 0 1 0 7 7z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
+      </button>
+    </span>
+    <span class="acct" id="acctBar" hidden>
+      <span class="acctnote" id="acctNote" hidden data-i18n="gate.offline"></span>
+      <button class="btn ghost acctbtn" id="acctBtn">
+        <svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="5.4" r="2.7" stroke="currentColor" stroke-width="1.5"/><path d="M2.8 14c.6-2.7 2.7-4.3 5.2-4.3s4.6 1.6 5.2 4.3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        <span id="acctName"></span><b class="acctbadge" id="acctBadge" hidden></b>
       </button>
     </span>
     <span class="store" data-full-only><i class="sdot" id="storeDot"></i><span id="storeLabel"></span></span>
@@ -1057,6 +1197,21 @@ footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
   <button class="qb T" id="qbT"><span data-i18n="side.T"></span></button>
   <button class="qb ghost" id="qbUndo" data-i18n="tools.undo"></button>
   <button class="qb ghost" id="qbNew" data-i18n="tools.newShoe"></button>
+</div>
+
+<div id="acctSheet" role="dialog" aria-modal="true" aria-labelledby="acctTitle" hidden>
+  <div class="sheetbox">
+    <div class="sheethead"><h2 id="acctTitle"></h2>
+      <button class="btn ghost" id="acctRefresh" data-i18n="admin.refresh"></button>
+      <button class="btn" id="logoutBtn" data-i18n="acct.logout"></button>
+      <button class="btn ghost" id="acctClose" data-i18n="admin.close"></button></div>
+    <div class="tabs" id="acctTabs" role="tablist" hidden>
+      <button role="tab" data-tab="members" data-i18n="admin.tabMembers"></button>
+      <button role="tab" data-tab="create" data-i18n="admin.tabCreate"></button>
+      <button role="tab" data-tab="logins" data-i18n="admin.tabLogins"></button>
+    </div>
+    <div id="acctBody"></div>
+  </div>
 </div>
 
 <footer><span data-i18n="footer"></span> <span data-full-only data-i18n="footer.port"></span></footer>
@@ -2566,6 +2721,153 @@ const S = {
     en: "The probability, road and integrity calculations are a port of the desktop package's own code, checked to produce the same numbers as the Python original.",
     "zh-Hant": "機率、路圖與完整性計算皆移植自桌面套件的相同程式碼，並經驗證與 Python 原始版本輸出相同數值。",
     "zh-Hans": "概率、路图与完整性计算皆移植自桌面包的相同代码，并经验证与 Python 原始版本输出相同数值。",
+  },
+
+  /* ------------------------------------------------- the door, and accounts */
+  "gate.sub": { ko: "회원 로그인", en: "Members sign in", "zh-Hant": "會員登入", "zh-Hans": "会员登录" },
+  "gate.signupSub": { ko: "회원가입 신청", en: "Ask to join", "zh-Hant": "申請加入", "zh-Hans": "申请加入" },
+  "gate.id": { ko: "아이디", en: "ID", "zh-Hant": "帳號", "zh-Hans": "账号" },
+  "gate.pw": { ko: "비밀번호", en: "Password", "zh-Hant": "密碼", "zh-Hans": "密码" },
+  "gate.pw2": { ko: "비밀번호 확인", en: "Password again", "zh-Hant": "再次輸入密碼", "zh-Hans": "再次输入密码" },
+  "gate.idHint": {
+    ko: "영문·숫자 3~20자 (대소문자 구분 없음)", en: "3 to 20 letters or numbers (any case)",
+    "zh-Hant": "3 到 20 個英文字母或數字（不分大小寫）", "zh-Hans": "3 到 20 个英文字母或数字（不分大小写）",
+  },
+  "gate.pwHint": { ko: "6자 이상", en: "At least 6 characters", "zh-Hant": "至少 6 個字元", "zh-Hans": "至少 6 个字符" },
+  "gate.login": { ko: "로그인", en: "Sign in", "zh-Hant": "登入", "zh-Hans": "登录" },
+  "gate.request": { ko: "가입 신청", en: "Ask to join", "zh-Hant": "送出申請", "zh-Hans": "提交申请" },
+  "gate.busy": { ko: "확인하는 중…", en: "Checking…", "zh-Hant": "確認中…", "zh-Hans": "确认中…" },
+  "gate.noAccount": { ko: "계정이 없으신가요?", en: "No account?", "zh-Hant": "還沒有帳號？", "zh-Hans": "还没有账号？" },
+  "gate.toSignup": { ko: "회원가입", en: "Ask to join", "zh-Hant": "申請加入", "zh-Hans": "申请加入" },
+  "gate.haveAccount": { ko: "이미 계정이 있으신가요?", en: "Have an account?", "zh-Hant": "已經有帳號？", "zh-Hans": "已经有账号？" },
+  "gate.note": {
+    ko: "가입 신청 후 마스터가 승인하면 로그인할 수 있습니다.",
+    en: "After you ask to join, you can sign in once the master lets you in.",
+    "zh-Hant": "送出申請後，經管理員核准即可登入。", "zh-Hans": "提交申请后，经管理员批准即可登录。",
+  },
+  "gate.themeAria": { ko: "밝게 / 어둡게", en: "Light or dark", "zh-Hant": "淺色／深色", "zh-Hans": "浅色／深色" },
+  "gate.restoring": {
+    ko: "로그인 상태를 확인하는 중…", en: "Checking whether you are signed in…",
+    "zh-Hant": "正在確認登入狀態…", "zh-Hans": "正在确认登录状态…",
+  },
+  "gate.err.badId": {
+    ko: "아이디는 영문·숫자(그리고 . _ -) 3~20자입니다.", en: "An ID is 3 to 20 letters or numbers (and . _ -).",
+    "zh-Hant": "帳號為 3 到 20 個英文字母或數字（可含 . _ -）。", "zh-Hans": "账号为 3 到 20 个英文字母或数字（可含 . _ -）。",
+  },
+  "gate.err.badPw": {
+    ko: "비밀번호는 6자 이상이어야 합니다.", en: "A password needs at least 6 characters.",
+    "zh-Hant": "密碼至少需要 6 個字元。", "zh-Hans": "密码至少需要 6 个字符。",
+  },
+  "gate.err.noPw": { ko: "비밀번호를 입력해 주세요.", en: "Enter the password.", "zh-Hant": "請輸入密碼。", "zh-Hans": "请输入密码。" },
+  "gate.err.mismatch": {
+    ko: "두 비밀번호가 서로 다릅니다.", en: "The two passwords are not the same.",
+    "zh-Hant": "兩次輸入的密碼不一致。", "zh-Hans": "两次输入的密码不一致。",
+  },
+  "gate.err.wrong": {
+    ko: "아이디 또는 비밀번호가 맞지 않습니다.", en: "The ID or the password is not right.",
+    "zh-Hant": "帳號或密碼不正確。", "zh-Hans": "账号或密码不正确。",
+  },
+  "gate.err.taken": { ko: "이미 있는 아이디입니다.", en: "That ID is taken.", "zh-Hant": "這個帳號已有人使用。", "zh-Hans": "这个账号已有人使用。" },
+  "gate.err.reserved": { ko: "이 아이디는 쓸 수 없습니다.", en: "That ID cannot be used.", "zh-Hant": "這個帳號不能使用。", "zh-Hans": "这个账号不能使用。" },
+  "gate.err.pending": {
+    ko: "가입 승인을 기다리는 중입니다. 마스터가 승인하면 로그인할 수 있습니다.",
+    en: "Your request is waiting for the master. You can sign in once you are let in.",
+    "zh-Hant": "您的申請正在等待管理員核准，核准後即可登入。", "zh-Hans": "您的申请正在等待管理员批准，批准后即可登录。",
+  },
+  "gate.err.rejected": { ko: "가입이 거절된 아이디입니다.", en: "This request was declined.", "zh-Hant": "此申請已被拒絕。", "zh-Hans": "此申请已被拒绝。" },
+  "gate.err.suspended": { ko: "이용이 정지된 아이디입니다.", en: "This account is suspended.", "zh-Hant": "此帳號已停用。", "zh-Hans": "此账号已停用。" },
+  "gate.err.network": {
+    ko: "로그인 서버에 연결할 수 없습니다. 인터넷 연결을 확인해 주세요.", en: "The sign-in server cannot be reached. Check the internet connection.",
+    "zh-Hant": "無法連線到登入伺服器，請檢查網路連線。", "zh-Hans": "无法连接到登录服务器，请检查网络连接。",
+  },
+  "gate.err.reload": {
+    ko: "로그인 서버에 연결할 수 없습니다. 인터넷 연결을 확인한 뒤 페이지를 새로고침해 주세요.",
+    en: "The sign-in server cannot be reached. Check the internet connection, then reload the page.",
+    "zh-Hant": "無法連線到登入伺服器。請檢查網路連線後重新整理頁面。",
+    "zh-Hans": "无法连接到登录服务器。请检查网络连接后刷新页面。",
+  },
+  "gate.err.tooMany": {
+    ko: "시도가 너무 많습니다. 잠시 후 다시 해 주세요.", en: "Too many tries. Wait a moment and try again.",
+    "zh-Hant": "嘗試次數過多，請稍後再試。", "zh-Hans": "尝试次数过多，请稍后再试。",
+  },
+  "gate.err.setup": {
+    ko: "로그인 서버 설정이 끝나지 않았습니다. Firebase에서 '이메일/비밀번호' 로그인을 켜야 합니다.",
+    en: "The sign-in server is not set up yet: email/password sign-in has to be turned on in Firebase.",
+    "zh-Hant": "登入伺服器尚未設定完成：需在 Firebase 開啟「電子郵件／密碼」登入。",
+    "zh-Hans": "登录服务器尚未设置完成：需在 Firebase 开启“电子邮件／密码”登录。",
+  },
+  "gate.err.rules": {
+    ko: "서버 권한 규칙이 아직 적용되지 않았습니다.", en: "The server's access rules are not in place yet.",
+    "zh-Hant": "伺服器的存取規則尚未生效。", "zh-Hans": "服务器的访问规则尚未生效。",
+  },
+  "gate.err.unknown": {
+    ko: "로그인하지 못했습니다. 다시 해 주세요.", en: "That did not work. Please try again.",
+    "zh-Hant": "未能完成，請再試一次。", "zh-Hans": "未能完成，请再试一次。",
+  },
+  "gate.ok.requested": {
+    ko: "가입 신청이 접수되었습니다. 마스터가 승인하면 로그인할 수 있습니다.",
+    en: "Request sent. You can sign in once the master lets you in.",
+    "zh-Hant": "已送出申請，經管理員核准後即可登入。", "zh-Hans": "已提交申请，经管理员批准后即可登录。",
+  },
+  "gate.offline": {
+    ko: "오프라인: 마지막 로그인으로 열었습니다", en: "Offline: opened on your last sign-in",
+    "zh-Hant": "離線：依上次登入開啟", "zh-Hans": "离线：按上次登录打开",
+  },
+  "acct.logout": { ko: "로그아웃", en: "Sign out", "zh-Hant": "登出", "zh-Hans": "退出登录" },
+  "acct.manage": { ko: "회원 관리", en: "Members", "zh-Hant": "會員管理", "zh-Hans": "会员管理" },
+  "acct.mine": { ko: "내 로그인 기록", en: "My sign-ins", "zh-Hant": "我的登入紀錄", "zh-Hans": "我的登录记录" },
+  "acct.waiting": {
+    ko: "승인 대기 {n}건", en: "{n} waiting", "zh-Hant": "待核准 {n} 件", "zh-Hans": "待批准 {n} 件",
+  },
+  "admin.close": { ko: "닫기", en: "Close", "zh-Hant": "關閉", "zh-Hans": "关闭" },
+  "admin.tabMembers": { ko: "회원", en: "Members", "zh-Hant": "會員", "zh-Hans": "会员" },
+  "admin.tabCreate": { ko: "회원 만들기", en: "Add a member", "zh-Hant": "新增會員", "zh-Hans": "新增会员" },
+  "admin.tabLogins": { ko: "로그인 기록", en: "Sign-ins", "zh-Hant": "登入紀錄", "zh-Hans": "登录记录" },
+  "admin.pendingH": { ko: "승인 대기 ({n})", en: "Waiting ({n})", "zh-Hant": "待核准（{n}）", "zh-Hans": "待批准（{n}）" },
+  "admin.pendingNone": {
+    ko: "승인을 기다리는 신청이 없습니다.", en: "Nobody is waiting.", "zh-Hant": "沒有待核准的申請。", "zh-Hans": "没有待批准的申请。",
+  },
+  "admin.allH": { ko: "전체 회원 ({n})", en: "All members ({n})", "zh-Hant": "全部會員（{n}）", "zh-Hans": "全部会员（{n}）" },
+  "admin.membersNone": { ko: "아직 회원이 없습니다.", en: "No members yet.", "zh-Hant": "還沒有會員。", "zh-Hans": "还没有会员。" },
+  "admin.colStatus": { ko: "상태", en: "Status", "zh-Hant": "狀態", "zh-Hans": "状态" },
+  "admin.colJoined": { ko: "가입 일시", en: "Joined", "zh-Hant": "加入時間", "zh-Hans": "加入时间" },
+  "admin.colLast": { ko: "마지막 로그인", en: "Last sign-in", "zh-Hant": "最後登入", "zh-Hans": "最后登录" },
+  "admin.colAt": { ko: "일시", en: "When", "zh-Hant": "時間", "zh-Hans": "时间" },
+  "admin.colDevice": { ko: "기기", en: "Device", "zh-Hant": "裝置", "zh-Hans": "设备" },
+  "admin.approve": { ko: "승인", en: "Let in", "zh-Hant": "核准", "zh-Hans": "批准" },
+  "admin.reject": { ko: "거절", en: "Decline", "zh-Hant": "拒絕", "zh-Hans": "拒绝" },
+  "admin.suspend": { ko: "정지", en: "Suspend", "zh-Hant": "停用", "zh-Hans": "停用" },
+  "admin.resume": { ko: "다시 허용", en: "Let in again", "zh-Hant": "恢復", "zh-Hans": "恢复" },
+  "admin.status.pending": { ko: "승인 대기", en: "Waiting", "zh-Hant": "待核准", "zh-Hans": "待批准" },
+  "admin.status.approved": { ko: "승인됨", en: "Let in", "zh-Hant": "已核准", "zh-Hans": "已批准" },
+  "admin.status.rejected": { ko: "거절됨", en: "Declined", "zh-Hant": "已拒絕", "zh-Hans": "已拒绝" },
+  "admin.status.suspended": { ko: "정지됨", en: "Suspended", "zh-Hant": "已停用", "zh-Hans": "已停用" },
+  "admin.byMaster": { ko: "마스터가 만듦", en: "made by the master", "zh-Hant": "由管理員建立", "zh-Hans": "由管理员创建" },
+  "admin.createSub": {
+    ko: "마스터가 만든 계정은 승인 없이 바로 로그인할 수 있습니다.",
+    en: "An account the master makes can sign in at once, without waiting.",
+    "zh-Hant": "管理員建立的帳號不需核准即可登入。", "zh-Hans": "管理员创建的账号无需批准即可登录。",
+  },
+  "admin.create": { ko: "만들기", en: "Make it", "zh-Hant": "建立", "zh-Hans": "创建" },
+  "admin.created": {
+    ko: "{id} 계정을 만들었습니다. 바로 로그인할 수 있습니다.", en: "{id} is made, and can sign in now.",
+    "zh-Hant": "已建立帳號 {id}，現在即可登入。", "zh-Hans": "已创建账号 {id}，现在即可登录。",
+  },
+  "admin.loginsAll": { ko: "전체 회원", en: "Everyone", "zh-Hant": "全部會員", "zh-Hans": "全部会员" },
+  "admin.loginsSub": {
+    ko: "최근 {n}건 · 이 기기의 시간으로 표시", en: "The latest {n}, in this device's time",
+    "zh-Hant": "最近 {n} 筆 · 以本裝置的時間顯示", "zh-Hans": "最近 {n} 条 · 以本设备的时间显示",
+  },
+  "admin.loginsNone": { ko: "로그인 기록이 없습니다.", en: "No sign-ins yet.", "zh-Hant": "尚無登入紀錄。", "zh-Hans": "暂无登录记录。" },
+  "admin.refresh": { ko: "새로고침", en: "Refresh", "zh-Hant": "重新整理", "zh-Hans": "刷新" },
+  "admin.loading": { ko: "불러오는 중…", en: "Loading…", "zh-Hant": "載入中…", "zh-Hans": "加载中…" },
+  "admin.confirmReject": {
+    ko: "{id} 의 가입 신청을 거절할까요?", en: "Decline {id}?", "zh-Hant": "要拒絕 {id} 的申請嗎？", "zh-Hans": "要拒绝 {id} 的申请吗？",
+  },
+  "admin.confirmSuspend": {
+    ko: "{id} 의 이용을 정지할까요? 그 회원은 바로 로그아웃됩니다.",
+    en: "Suspend {id}? They are signed out at once.",
+    "zh-Hant": "要停用 {id} 嗎？該會員會立即被登出。", "zh-Hans": "要停用 {id} 吗？该会员会立即被退出登录。",
   },
 };
 
@@ -10506,6 +10808,892 @@ function readVersion(value) {
   return n > 0 && n <= TOP_VERSION ? n : 0;
 }
 
+/* ═══ members.js ═══ */
+/* Who may open the reader: members, the master who lets them in, and the
+ * record of every sign-in.
+ *
+ * The accounts live in Firebase -- Authentication keeps the passwords,
+ * Firestore keeps who is let in and when each of them signed in -- because a
+ * page served as a file from GitHub has nowhere of its own to keep them, and a
+ * member asks to join from their own phone while the master answers from
+ * theirs. What makes "only the master lets anybody in" true is the project's
+ * security rules, `firebase/firestore.rules`, checked against the real rules
+ * engine; everything here only asks.
+ *
+ * And what they guard is the accounts, not the page: the reader is a public
+ * page whose code anyone can read, so the door in front of it keeps out people
+ * who are not members, not somebody who takes the page apart.
+ *
+ * An ID is not an address, and Firebase signs in by address, so each ID is
+ * filed under one of its own (`emailFor`) -- lowercased first, which is what
+ * makes Master, MASTER and master one account.
+ */
+
+/**
+ * The Firebase project the accounts live in.
+ *
+ * Every value is public by design and none of it is a credential: the web API
+ * key names the project and authenticates nobody, and Firebase ships it in the
+ * page on purpose. What must NEVER appear here, or anywhere under `webapp/`, is
+ * an Admin SDK service account key -- a private key that acts as the project
+ * and ignores every rule.
+ */
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyDFx-n1nlf8LPcbLv1ARi9Sl1g5vpJ9ro8",
+  authDomain: "avatar-ai-system.firebaseapp.com",
+  projectId: "avatar-ai-system",
+  storageBucket: "avatar-ai-system.firebasestorage.app",
+  messagingSenderId: "900253859441",
+  appId: "1:900253859441:web:af476ad89b3cad0ae425d0",
+};
+
+/** The SDK build the page loads, pinned, from Firebase's own CDN. */
+const FIREBASE_SDK = "https://www.gstatic.com/firebasejs/11.10.0";
+
+/** The one account that lets the others in. */
+const MASTER_ID = "master";
+
+/** Where the IDs are filed as addresses. Nothing is ever sent there. */
+const ID_DOMAIN = "avatar-ai-system.firebaseapp.com";
+
+/** Firebase's own floor for a password. */
+const PASSWORD_MIN = 6;
+
+/** Sign-ins listed at most, newest first. */
+const LOGINS_SHOWN = 200;
+
+const ID_RULE = /^[a-z0-9._-]{3,20}$/;
+
+/** An ID as it is kept: what was typed, trimmed and lowercased. */
+function normaliseId(raw) {
+  return String(raw ?? "").trim().toLowerCase();
+}
+
+/** Why an ID cannot be one, or null: 3 to 20 letters, numbers, `. _ -`. */
+function idProblem(raw) {
+  return ID_RULE.test(normaliseId(raw)) ? null : "badId";
+}
+
+/** Why a new password cannot be one, or null. */
+function passwordProblem(password) {
+  return typeof password === "string" && password.length >= PASSWORD_MIN ? null : "badPw";
+}
+
+/** The address an ID signs in under. */
+function emailFor(raw) {
+  return `${normaliseId(raw)}@${ID_DOMAIN}`;
+}
+
+/** The ID an address was made from, or null for an address that is not one. */
+function idOfEmail(email) {
+  const text = String(email ?? "").toLowerCase();
+  const at = text.lastIndexOf("@");
+  if (at < 0 || text.slice(at + 1) !== ID_DOMAIN) return null;
+  const id = text.slice(0, at);
+  return ID_RULE.test(id) ? id : null;
+}
+
+const isMasterId = (raw) => normaliseId(raw) === MASTER_ID;
+
+/**
+ * The device a sign-in came from, in a few words: "Android · Samsung Internet".
+ *
+ * For the master reading the record -- the same ID from three phones in an
+ * evening says something a list of times does not. Read from the browser's own
+ * description of itself, and only ever shown, never trusted.
+ */
+function deviceLabel(ua) {
+  const s = String(ua ?? "");
+  const os = /iPhone/.test(s) ? "iPhone"
+    : /iPad/.test(s) ? "iPad"
+      : /Android/.test(s) ? "Android"
+        : /Windows/.test(s) ? "Windows"
+          : /Mac OS X|Macintosh/.test(s) ? "Mac"
+            : /CrOS/.test(s) ? "ChromeOS"
+              : /Linux/.test(s) ? "Linux" : "";
+  // Most specific first: every one of these also calls itself Chrome or Safari.
+  const browser = /SamsungBrowser/.test(s) ? "Samsung Internet"
+    : /Whale\//.test(s) ? "Whale"
+      : /NAVER\(inapp|NAVER/.test(s) ? "Naver"
+        : /KAKAOTALK/i.test(s) ? "KakaoTalk"
+          : /Edg(e|A|iOS)?\//.test(s) ? "Edge"
+            : /OPR\/|Opera/.test(s) ? "Opera"
+              : /Firefox\/|FxiOS/.test(s) ? "Firefox"
+                : /Chrome\/|CriOS/.test(s) ? "Chrome"
+                  : /Safari\//.test(s) ? "Safari" : "";
+  return [os, browser].filter(Boolean).join(" · ") || "?";
+}
+
+/** A moment as this device's clock shows it: "2026-10-12 14:03:22". */
+function stamp(ms) {
+  if (!Number.isFinite(ms)) return "";
+  const d = new Date(ms);
+  const two = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${two(d.getMonth() + 1)}-${two(d.getDate())} `
+    + `${two(d.getHours())}:${two(d.getMinutes())}:${two(d.getSeconds())}`;
+}
+
+/**
+ * What went wrong, as one of the page's own words for it.
+ *
+ * Firebase answers a wrong password and an unknown ID alike, on purpose -- so
+ * nobody can learn which IDs exist by trying them -- and the page says the
+ * same to both.
+ */
+function problemOf(error) {
+  const code = String(error?.code ?? "");
+  if (/^(badId|badPw|wrong|taken|network|reload|tooMany|setup|rules|reserved|suspended)$/.test(code)) return code;
+  // An account turned off in the Firebase console is as good as suspended.
+  if (/user-disabled/.test(code)) return "suspended";
+  if (/invalid-credential|wrong-password|user-not-found|invalid-login-credentials/.test(code)) return "wrong";
+  if (/email-already-in-use/.test(code)) return "taken";
+  if (/weak-password/.test(code)) return "badPw";
+  if (/invalid-email/.test(code)) return "badId";
+  if (/too-many-requests/.test(code)) return "tooMany";
+  if (/network-request-failed|unavailable|deadline-exceeded|failed-to-fetch|internal-error/.test(code)) return "network";
+  if (/operation-not-allowed|configuration-not-found|admin-restricted-operation/.test(code)) return "setup";
+  if (/permission-denied/.test(code)) return "rules";
+  return "unknown";
+}
+
+const fail = (code) => Object.assign(new Error(code), { code });
+
+/**
+ * Load the Firebase SDK, when the page first needs it.
+ *
+ * A dynamic import: the page is one concatenated script with no package
+ * manager behind it, so the modules come from Firebase's CDN, pinned.
+ *
+ * A module that did not arrive stays failed for the life of the page: the
+ * browser keeps the failure, and importing it again does not fetch it again
+ * (measured in Chromium 141 -- and the other files import `firebase-app.js`
+ * themselves, so none of them can be had under another address either). With
+ * the connection back, what works is a reload, and that is what is said.
+ */
+async function loadFirebaseSdk(load = (url) => import(url)) {
+  try {
+    const [app, auth, store] = await Promise.all([
+      load(`${FIREBASE_SDK}/firebase-app.js`),
+      load(`${FIREBASE_SDK}/firebase-auth.js`),
+      load(`${FIREBASE_SDK}/firebase-firestore.js`),
+    ]);
+    return { app, auth, store };
+  } catch {
+    throw fail("reload");
+  }
+}
+
+/**
+ * The accounts, over the Firebase SDK -- every Firebase call the page makes.
+ *
+ * Handed the SDK rather than loading it, so the emulator tests in
+ * `firebase/tests/` run this same code against the real rules with the SDK from
+ * node_modules. `emulators` points it at those: `{ auth: url, host, port }`.
+ *
+ * A member's record is `members/{uid}`: their ID, the ID as they typed it
+ * (`label`), and whether the master let them in (`status`: pending, approved,
+ * rejected or suspended). A sign-in is `logins/{auto}`: who, when by the
+ * server's clock, and from what device. The master has no record of its own:
+ * it is the master by its address.
+ */
+function firebaseAccounts(sdk, config = FIREBASE_CONFIG, emulators = null) {
+  const { app: A, auth: Au, store: S } = sdk;
+  const named = (name) => A.getApps().find((a) => a.name === name);
+  const app = named("[DEFAULT]") || A.initializeApp(config);
+  const auth = Au.getAuth(app);
+  const db = S.getFirestore(app);
+  // Accounts the master makes are made here, signed in on an app of their own
+  // that forgets them at once -- making one on the page's own would sign the
+  // master out and the new member in.
+  const makerApp = named("maker") || A.initializeApp(config, "maker");
+  let maker = null;
+  const makerAuth = () => {
+    if (maker) return maker;
+    maker = Au.initializeAuth(makerApp, { persistence: Au.inMemoryPersistence });
+    if (emulators) Au.connectAuthEmulator(maker, emulators.auth, { disableWarnings: true });
+    return maker;
+  };
+  if (emulators) {
+    Au.connectAuthEmulator(auth, emulators.auth, { disableWarnings: true });
+    S.connectFirestoreEmulator(db, emulators.host, emulators.port);
+  }
+
+  const userOf = (u) => {
+    if (!u) return null;
+    const id = idOfEmail(u.email);
+    return id ? { uid: u.uid, id, master: id === MASTER_ID } : null;
+  };
+  const ms = (v) => (v && typeof v.toMillis === "function" ? v.toMillis() : null);
+  const memberOf = (snap) => {
+    if (!snap.exists()) return null;
+    const d = snap.data();
+    return {
+      uid: snap.id, id: d.id, label: d.label || d.id, status: d.status,
+      createdBy: d.createdBy, createdAt: ms(d.createdAt), decidedAt: ms(d.decidedAt),
+      lastLoginAt: ms(d.lastLoginAt),
+    };
+  };
+  const call = async (work) => {
+    try { return await work(); } catch (e) { throw fail(problemOf(e)); }
+  };
+
+  let ready = null;
+  return {
+    /** The session Firebase kept from the last visit, once it has looked. */
+    ready() {
+      ready ||= new Promise((resolve) => {
+        const stop = Au.onAuthStateChanged(auth, (u) => { stop(); resolve(userOf(u)); });
+      });
+      return ready;
+    },
+    current: () => userOf(auth.currentUser),
+    onUser: (fn) => Au.onAuthStateChanged(auth, (u) => fn(userOf(u))),
+
+    signIn: (id, password) => call(async () =>
+      userOf((await Au.signInWithEmailAndPassword(auth, emailFor(id), password)).user)),
+
+    /** The master's account, made the first time the master signs in. */
+    createMaster: (password) => call(async () =>
+      userOf((await Au.createUserWithEmailAndPassword(auth, emailFor(MASTER_ID), password)).user)),
+
+    /** Ask to join: the account, and a record saying it waits for the master. */
+    signUp: (label, password) => call(async () => {
+      const { user } = await Au.createUserWithEmailAndPassword(auth, emailFor(label), password);
+      try {
+        await S.setDoc(S.doc(db, "members", user.uid), {
+          id: normaliseId(label), label: String(label).trim(), status: "pending",
+          createdAt: S.serverTimestamp(), createdBy: "self",
+        });
+      } finally {
+        await Au.signOut(auth);
+      }
+    }),
+
+    signOut: () => call(() => Au.signOut(auth)),
+
+    member: (uid) => call(async () => memberOf(await S.getDoc(S.doc(db, "members", uid)))),
+
+    /** Follow one member's record: the master's answer reaches them at once. */
+    watchMember(uid, fn, onError = () => {}) {
+      return S.onSnapshot(S.doc(db, "members", uid), (snap) => fn(memberOf(snap)),
+        (e) => onError(fail(problemOf(e))));
+    },
+
+    /**
+     * File a request for an account that has none -- the account was made and
+     * its record was not, the connection dropping in between. Without this the
+     * master would never see it, and the member could never be let in.
+     */
+    fileRequest: (uid, label) => call(() => S.setDoc(S.doc(db, "members", uid), {
+      id: normaliseId(label), label: String(label).trim(), status: "pending",
+      createdAt: S.serverTimestamp(), createdBy: "self",
+    })),
+
+    /** A sign-in, by the server's clock: on the record, and on the member's. */
+    recordLogin: (user, device) => call(async () => {
+      const batch = S.writeBatch(db);
+      batch.set(S.doc(S.collection(db, "logins")), {
+        uid: user.uid, id: user.id, at: S.serverTimestamp(),
+        device: String(device || "?").slice(0, 60),
+      });
+      if (!user.master) {
+        batch.update(S.doc(db, "members", user.uid), { lastLoginAt: S.serverTimestamp() });
+      }
+      await batch.commit();
+    }),
+
+    /* ---------------------------------------------------- the master's */
+
+    members: () => call(async () => {
+      const snap = await S.getDocs(S.collection(db, "members"));
+      return snap.docs.map(memberOf).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    }),
+
+    /** How many wait for an answer, as it changes. */
+    watchPending(fn, onError = () => {}) {
+      const q = S.query(S.collection(db, "members"), S.where("status", "==", "pending"));
+      return S.onSnapshot(q, (snap) => fn(snap.size), (e) => onError(fail(problemOf(e))));
+    },
+
+    decide: (uid, status) => call(() => S.updateDoc(S.doc(db, "members", uid), {
+      status, decidedAt: S.serverTimestamp(),
+    })),
+
+    /** An account the master makes: let in from the start. */
+    createMember: (label, password) => call(async () => {
+      const made = makerAuth();
+      const { user } = await Au.createUserWithEmailAndPassword(made, emailFor(label), password);
+      await Au.signOut(made);
+      await S.setDoc(S.doc(db, "members", user.uid), {
+        id: normaliseId(label), label: String(label).trim(), status: "approved",
+        createdAt: S.serverTimestamp(), createdBy: "master",
+      });
+      return user.uid;
+    }),
+
+    /** Sign-ins, newest first: everyone's for the master, or one member's. */
+    logins: ({ uid = null, limit = LOGINS_SHOWN } = {}) => call(async () => {
+      const where = uid ? [S.where("uid", "==", uid)] : [];
+      const q = S.query(S.collection(db, "logins"), ...where, S.orderBy("at", "desc"), S.limit(limit));
+      const snap = await S.getDocs(q);
+      return snap.docs.map((d) => {
+        const v = d.data();
+        return { uid: v.uid, id: v.id, at: ms(v.at), device: v.device || "" };
+      });
+    }),
+  };
+}
+
+/* ═══ gate.js ═══ */
+/* The door in front of the reader, and the master's desk behind it.
+ *
+ * The page opens on a sign-in card. A member signs in with their ID and
+ * password and the reader opens; somebody without an account asks to join,
+ * and waits until the master lets them in. The master signs in like anybody
+ * else -- the first time, signing in as Master makes the account -- and has a
+ * desk: who is waiting, every member, a member made on the spot, and the
+ * record of every sign-in with its date and time.
+ *
+ * The accounts themselves are `members.js`; this is only what a person sees
+ * and presses. In the page's own checks the accounts are a stand-in the check
+ * installs as `__accountsBackend`, so that every check of the reader can open
+ * it signed in, and the door can be checked without a network.
+ */
+
+
+
+/** Who was let in last, on this device: a reload opens at once on it. */
+const SESSION_KEY = "baccarat.session.v1";
+
+/**
+ * How long a remembered sign-in opens the page with no answer from the
+ * sign-in server -- a connection gone at the table should not lock a member
+ * out of a tool that works without one. Any answer from the server wins.
+ */
+const OFFLINE_DAYS = 7;
+
+/** Problems a person is told about as news rather than as a mistake. */
+const NEWS = new Set(["pending", "requested"]);
+
+/**
+ * Put the door up, and open it for whoever is signed in.
+ *
+ * `onOpen` and `onLock` are the page's: what it does when the reader comes
+ * into view (it was laid out while hidden) and when it goes (the live reader
+ * stops reading for somebody who signed out).
+ */
+function startGate({ onOpen = () => {}, onLock = () => {} } = {}) {
+  const $g = (id) => document.getElementById(id);
+  const body = document.body;
+  let backendPromise = null;
+  let session = null;                 // { uid, id, label, master }
+  let busy = false;                   // a sign-in or request under way owns the auth events it causes
+  const stops = [];                   // what to stop following on the way out
+  let said = { login: null, signup: null };
+  let tab = "members";
+  let knownMembers = [];
+
+  /* ------------------------------------------------------------ backend */
+
+  function backend() {
+    backendPromise ||= (async () => {
+      const injected = globalThis.__accountsBackend;
+      if (injected) return injected;
+      const sdk = await loadFirebaseSdk();
+      return firebaseAccounts(sdk, FIREBASE_CONFIG, globalThis.__firebaseEmulators || null);
+    })();
+    return backendPromise;
+  }
+
+  /* ------------------------------------------------------- remembering */
+
+  function remembered() {
+    try {
+      const v = JSON.parse(localStorage.getItem(SESSION_KEY) || "null");
+      if (!v || typeof v.uid !== "string" || typeof v.id !== "string") return null;
+      if (!(Date.now() - Number(v.at) < OFFLINE_DAYS * 86400e3)) return null;
+      return { uid: v.uid, id: v.id, label: String(v.label || v.id).slice(0, 20), master: v.master === true };
+    } catch { return null; }
+  }
+  function remember(s) {
+    try { localStorage.setItem(SESSION_KEY, JSON.stringify({ ...s, at: Date.now() })); } catch { /* this visit only */ }
+  }
+  function forget() {
+    try { localStorage.removeItem(SESSION_KEY); } catch { /* nothing kept */ }
+  }
+
+  /* ----------------------------------------------------------- the card */
+
+  function show(which) {
+    $g("loginForm").hidden = which !== "login";
+    $g("signupForm").hidden = which !== "signup";
+    $g("gateSub").textContent = t(which === "signup" ? "gate.signupSub" : "gate.sub");
+    $g("gateSub").dataset.i18n = which === "signup" ? "gate.signupSub" : "gate.sub";
+    ($g(which === "signup" ? "signupId" : "loginId")).focus({ preventScroll: true });
+  }
+
+  /** A problem in the page's own words: one it knows, or that it did not work. */
+  function words(problem) {
+    const key = problem === "requested" ? "gate.ok.requested"
+      : problem === "restoring" ? "gate.restoring" : "gate.err." + problem;
+    return t(key) === key ? t("gate.err.unknown") : t(key);
+  }
+
+  /** Say something on a form: a problem, or news. */
+  function say(form, problem) {
+    said[form] = problem;
+    const box = $g(form === "signup" ? "signupMsg" : "loginMsg");
+    box.textContent = problem ? words(problem) : "";
+    box.className = "gmsg " + (!problem || problem === "restoring" ? "" : NEWS.has(problem) ? "ok" : "err");
+  }
+
+  function working(form, on) {
+    const button = $g(form === "signup" ? "signupBtn" : "loginBtn");
+    button.disabled = on;
+    button.textContent = t(on ? "gate.busy" : form === "signup" ? "gate.request" : "gate.login");
+  }
+
+  const moonIcon = '<svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M16.6 12A7.2 7.2 0 0 1 8 3.4a7.2 7.2 0 1 0 8.6 8.6z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>';
+  const sunIcon = '<svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><circle cx="10" cy="10" r="3.6" stroke="currentColor" stroke-width="1.6"/><path d="M10 1.5v2.2M10 16.3v2.2M18.5 10h-2.2M3.7 10H1.5M16 4l-1.6 1.6M5.6 14.4 4 16M16 16l-1.6-1.6M5.6 5.6 4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>';
+  const dark = () => currentTheme() === "dark"
+    || (currentTheme() === "auto" && !!window.matchMedia?.("(prefers-color-scheme: dark)").matches);
+  function drawThemeButton() { $g("gateTheme").innerHTML = dark() ? sunIcon : moonIcon; }
+
+  /* ---------------------------------------------------- in and out */
+
+  function open(user, { label = null, offline = false } = {}) {
+    session = { uid: user.uid, id: user.id, master: !!user.master,
+                label: label || (user.master ? "Master" : user.id) };
+    $g("acctName").textContent = session.label;
+    $g("acctBtn").title = t(session.master ? "acct.manage" : "acct.mine");
+    $g("acctNote").hidden = !offline;
+    $g("acctBar").hidden = false;
+    const was = body.classList.contains("open");
+    body.classList.add("open");
+    if (!was) onOpen();
+  }
+
+  function lock(problem = null) {
+    while (stops.length) { try { stops.pop()(); } catch { /* already stopped */ } }
+    const was = body.classList.contains("open");
+    session = null;
+    forget();
+    closeSheet();
+    $g("acctBar").hidden = true;
+    $g("acctBadge").hidden = true;
+    body.classList.remove("open");
+    show("login");
+    say("login", problem);
+    if (was) onLock();
+  }
+
+  /**
+   * Let somebody in who has signed in: the master at once, a member only if
+   * the master has let them in. `record` for a sign-in made here, which goes
+   * on the record; a reload is not one.
+   */
+  async function admit(acc, user, { record = false, label = null } = {}) {
+    // The master is Master however it was typed; a member is as they asked to be.
+    if (user.master) label = "Master";
+    if (!user.master) {
+      const m = await acc.member(user.uid);
+      if (!m) {
+        // The account was made and its request never filed: file it now.
+        await acc.fileRequest(user.uid, label || user.id);
+        await acc.signOut();
+        lock("pending");
+        return;
+      }
+      if (m.status !== "approved") {
+        await acc.signOut();
+        lock(m.status === "rejected" || m.status === "suspended" ? m.status : "pending");
+        return;
+      }
+      label = m.label;
+    }
+    if (record) await acc.recordLogin(user, deviceLabel(navigator.userAgent));
+    open(user, { label });
+    // Here and only here, where the server has answered: an open on the last
+    // sign-in that stamped it again would keep an offline member in for ever.
+    remember(session);
+    follow(acc, user);
+  }
+
+  /** What changes while somebody is in: a member let out, the master's queue. */
+  function follow(acc, user) {
+    if (user.master) {
+      stops.push(acc.watchPending((n) => {
+        const badge = $g("acctBadge");
+        badge.hidden = !n;
+        badge.textContent = String(n);
+        badge.setAttribute("aria-label", t("acct.waiting", { n }));
+      }, () => {}));
+      return;
+    }
+    stops.push(acc.watchMember(user.uid, (m) => {
+      if (m && m.status === "approved") return;
+      acc.signOut().catch(() => {});
+      lock(m && (m.status === "rejected" || m.status === "suspended") ? m.status : "suspended");
+    }, () => {}));
+  }
+
+  async function restore() {
+    const kept = remembered();
+    if (kept) open(kept, { label: kept.label });
+    else say("login", "restoring");
+    let acc;
+    try {
+      acc = await backend();
+    } catch (e) {
+      // No sign-in server at all: open on the last sign-in, or say why not.
+      if (kept) { $g("acctNote").hidden = false; return; }
+      say("login", problemOf(e));
+      return;
+    }
+    let user;
+    try { user = await acc.ready(); } catch { user = null; }
+    if (said.login === "restoring") say("login", null);
+    // Signed out in another tab of this browser: out here too.
+    acc.onUser((u) => { if (!busy && !u && session) lock(); });
+    if (!user) {
+      if (kept) lock();
+      return;
+    }
+    try {
+      await admit(acc, user, { label: kept && kept.uid === user.uid ? kept.label : null });
+    } catch (e) {
+      const problem = problemOf(e);
+      if (problem === "network" && kept && kept.uid === user.uid) { $g("acctNote").hidden = false; return; }
+      lock(problem);
+    }
+  }
+
+  /* ---------------------------------------------------------- the forms */
+
+  async function signIn(event) {
+    event.preventDefault();
+    if (busy) return;
+    const raw = $g("loginId").value;
+    const password = $g("loginPw").value;
+    if (idProblem(raw)) { say("login", "badId"); return; }
+    if (!password) { say("login", "noPw"); return; }
+    busy = true;
+    working("login", true);
+    say("login", null);
+    try {
+      const acc = await backend();
+      let user;
+      try {
+        user = await acc.signIn(raw, password);
+      } catch (e) {
+        // The master's account is made by the master's first sign-in.
+        if (problemOf(e) !== "wrong" || !isMasterId(raw)) throw e;
+        try { user = await acc.createMaster(password); } catch (again) {
+          throw problemOf(again) === "taken" ? e : again;
+        }
+      }
+      $g("loginPw").value = "";
+      try {
+        await admit(acc, user, { record: true, label: raw.trim() });
+      } catch (e) {
+        // Signed in, and not let in: the account is not left signed in.
+        await acc.signOut().catch(() => {});
+        throw e;
+      }
+    } catch (e) {
+      say("login", problemOf(e));
+    } finally {
+      busy = false;
+      working("login", false);
+    }
+  }
+
+  async function signUp(event) {
+    event.preventDefault();
+    if (busy) return;
+    const raw = $g("signupId").value.trim();
+    const password = $g("signupPw").value;
+    if (idProblem(raw)) { say("signup", "badId"); return; }
+    if (isMasterId(raw)) { say("signup", "reserved"); return; }
+    if (passwordProblem(password)) { say("signup", "badPw"); return; }
+    if (password !== $g("signupPw2").value) { say("signup", "mismatch"); return; }
+    busy = true;
+    working("signup", true);
+    say("signup", null);
+    try {
+      const acc = await backend();
+      await acc.signUp(raw, password);
+      $g("signupPw").value = $g("signupPw2").value = "";
+      $g("loginId").value = raw;
+      show("login");
+      say("login", "requested");
+    } catch (e) {
+      say("signup", problemOf(e));
+    } finally {
+      busy = false;
+      working("signup", false);
+    }
+  }
+
+  async function signOut() {
+    try { await (await backend()).signOut(); } catch { /* signed out here either way */ }
+    lock();
+  }
+
+  /* --------------------------------------------- the account sheet */
+
+  const sheet = $g("acctSheet");
+  const node = (tag, cls, text) => {
+    const n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text != null) n.textContent = text;
+    return n;
+  };
+  const when = (ms) => (Number.isFinite(ms) ? stamp(ms) : "—");
+
+  function table(heads, rows) {
+    const wrap = node("div", "tablewrap");
+    const tab = node("table", "acctable");
+    const head = node("tr");
+    for (const h of heads) head.appendChild(node("th", null, h));
+    tab.appendChild(node("thead")).appendChild(head);
+    const tb = node("tbody");
+    for (const cells of rows) {
+      const tr = node("tr");
+      for (const cell of cells) {
+        const td = node("td", cell.cls || null);
+        if (cell.node) td.appendChild(cell.node); else td.textContent = cell.text ?? "";
+        tr.appendChild(td);
+      }
+      tb.appendChild(tr);
+    }
+    tab.appendChild(tb);
+    wrap.appendChild(tab);
+    return wrap;
+  }
+
+  function actionButtons(m, acc) {
+    const span = node("span");
+    const button = (key, status, ask) => {
+      const b = node("button", "btn", t(key));
+      b.dataset.uid = m.uid;
+      b.dataset.act = status;
+      b.onclick = async () => {
+        if (ask && !confirm(t(ask, { id: m.label }))) return;
+        b.disabled = true;
+        try {
+          await acc.decide(m.uid, status);
+          renderSheet();
+        } catch (e) {
+          b.disabled = false;
+          sheetMessage(problemOf(e));
+        }
+      };
+      span.appendChild(b);
+    };
+    if (m.status === "pending") {
+      button("admin.approve", "approved");
+      span.appendChild(document.createTextNode(" "));
+      button("admin.reject", "rejected", "admin.confirmReject");
+    } else if (m.status === "approved") {
+      button("admin.suspend", "suspended", "admin.confirmSuspend");
+    } else {
+      button("admin.resume", "approved");
+    }
+    return span;
+  }
+
+  function sheetMessage(problem) {
+    const box = $g("acctBody").querySelector(".sheetmsg");
+    if (!box) return;
+    box.className = "sheetmsg err";
+    box.textContent = words(problem);
+  }
+
+  async function renderSheet() {
+    if (sheet.hidden || !session) return;
+    const acc = await backend();
+    const out = $g("acctBody");
+    const master = session.master;
+    $g("acctTitle").textContent = t(master ? "acct.manage" : "acct.mine");
+    $g("acctTabs").hidden = !master;
+    for (const b of $g("acctTabs").querySelectorAll("button")) {
+      b.classList.toggle("on", b.dataset.tab === tab);
+      b.setAttribute("aria-selected", String(b.dataset.tab === tab));
+    }
+    const view = master ? tab : "mine";
+    out.replaceChildren(node("p", "empty", t("admin.loading")));
+    try {
+      if (view === "members") out.replaceChildren(...(await membersView(acc)));
+      else if (view === "create") out.replaceChildren(...createView(acc));
+      else if (view === "logins") out.replaceChildren(...(await loginsView(acc, master)));
+      else out.replaceChildren(...(await loginsView(acc, false)));
+    } catch (e) {
+      out.replaceChildren(node("p", "sheetmsg err", words(problemOf(e))));
+    }
+  }
+
+  async function membersView(acc) {
+    const list = await acc.members();
+    knownMembers = list;
+    const waiting = list.filter((m) => m.status === "pending");
+    const rest = list.filter((m) => m.status !== "pending");
+    const a = node("section", "sheetsec");
+    a.id = "acctPending";
+    a.appendChild(node("h3", null, t("admin.pendingH", { n: waiting.length })));
+    a.appendChild(waiting.length
+      ? table([t("gate.id"), t("admin.colJoined"), ""], waiting.map((m) => [
+        { text: m.label }, { text: when(m.createdAt), cls: "when" },
+        { node: actionButtons(m, acc), cls: "act" }]))
+      : node("p", "empty", t("admin.pendingNone")));
+    const b = node("section", "sheetsec");
+    b.id = "acctMembers";
+    b.appendChild(node("h3", null, t("admin.allH", { n: rest.length })));
+    b.appendChild(rest.length
+      ? table([t("gate.id"), t("admin.colStatus"), t("admin.colJoined"), t("admin.colLast"), ""],
+        rest.map((m) => {
+          const chip = node("span", `chip ${m.status}`, t("admin.status." + m.status));
+          return [{ text: m.label + (m.createdBy === "master" ? ` · ${t("admin.byMaster")}` : "") },
+            { node: chip }, { text: when(m.createdAt), cls: "when" },
+            { text: when(m.lastLoginAt), cls: "when" }, { node: actionButtons(m, acc), cls: "act" }];
+        }))
+      : node("p", "empty", t("admin.membersNone")));
+    return [a, b, node("p", "sheetmsg")];
+  }
+
+  function createView(acc) {
+    const sec = node("section", "sheetsec");
+    sec.appendChild(node("p", "sub", t("admin.createSub")));
+    const form = node("form", "sheetform");
+    form.noValidate = true;
+    const field = (labelKey, id, type, hintKey) => {
+      const label = node("label", "gfield");
+      label.appendChild(node("span", null, t(labelKey)));
+      const input = node("input");
+      input.id = id;
+      input.type = type;
+      input.autocomplete = type === "password" ? "new-password" : "off";
+      input.autocapitalize = "none";
+      input.spellcheck = false;
+      label.appendChild(input);
+      if (hintKey) label.appendChild(node("small", null, t(hintKey)));
+      return label;
+    };
+    form.appendChild(field("gate.id", "makeId", "text", "gate.idHint"));
+    form.appendChild(field("gate.pw", "makePw", "password", "gate.pwHint"));
+    const go = node("button", "btn primary", t("admin.create"));
+    go.type = "submit";
+    go.id = "makeBtn";
+    form.appendChild(go);
+    const msg = node("p", "sheetmsg");
+    form.onsubmit = async (e) => {
+      e.preventDefault();
+      const raw = form.querySelector("#makeId").value.trim();
+      const password = form.querySelector("#makePw").value;
+      const problem = idProblem(raw) || (isMasterId(raw) ? "reserved" : null) || passwordProblem(password);
+      const tell = (text, ok) => { msg.className = "sheetmsg " + (ok ? "ok" : "err"); msg.textContent = text; };
+      if (problem) { tell(words(problem)); return; }
+      go.disabled = true;
+      try {
+        await acc.createMember(raw, password);
+        form.reset();
+        tell(t("admin.created", { id: raw }), true);
+      } catch (err) {
+        tell(words(problemOf(err)));
+      } finally {
+        go.disabled = false;
+      }
+    };
+    sec.appendChild(form);
+    sec.appendChild(msg);
+    return [sec];
+  }
+
+  let loginsFor = "";
+  async function loginsView(acc, master) {
+    const sec = node("section", "sheetsec");
+    sec.id = "acctLogins";
+    if (master) {
+      const pick = node("select");
+      pick.id = "loginsFor";
+      pick.setAttribute("aria-label", t("admin.tabLogins"));
+      const all = node("option", null, t("admin.loginsAll"));
+      all.value = "";
+      pick.appendChild(all);
+      if (!knownMembers.length) { try { knownMembers = await acc.members(); } catch { /* everyone's still */ } }
+      for (const m of knownMembers) {
+        const o = node("option", null, m.label);
+        o.value = m.uid;
+        pick.appendChild(o);
+      }
+      pick.value = loginsFor;
+      pick.onchange = () => { loginsFor = pick.value; renderSheet(); };
+      sec.appendChild(pick);
+    }
+    const rows = await acc.logins(master ? { uid: loginsFor || null, limit: LOGINS_SHOWN }
+      : { uid: session.uid, limit: LOGINS_SHOWN });
+    sec.appendChild(node("p", "sub", t("admin.loginsSub", { n: LOGINS_SHOWN })));
+    sec.appendChild(rows.length
+      ? table(master ? [t("admin.colAt"), t("gate.id"), t("admin.colDevice")] : [t("admin.colAt"), t("admin.colDevice")],
+        rows.map((r) => (master
+          ? [{ text: when(r.at), cls: "when" }, { text: r.id }, { text: r.device }]
+          : [{ text: when(r.at), cls: "when" }, { text: r.device }])))
+      : node("p", "empty", t("admin.loginsNone")));
+    return [sec];
+  }
+
+  function openSheet() {
+    if (!session) return;
+    sheet.hidden = false;
+    $g("acctClose").focus({ preventScroll: true });
+    renderSheet();
+  }
+  function closeSheet() {
+    if (sheet.hidden) return;
+    sheet.hidden = true;
+    if (session) $g("acctBtn").focus({ preventScroll: true });
+  }
+
+  /* ------------------------------------------------------------ wiring */
+
+  const langSel = $g("gateLang");
+  for (const { code, label } of LANGS) {
+    const option = document.createElement("option");
+    option.value = code;
+    option.textContent = label;
+    langSel.appendChild(option);
+  }
+  langSel.value = currentLang();
+  langSel.onchange = () => setLang(langSel.value);
+  $g("gateTheme").onclick = () => setTheme(dark() ? "light" : "dark");
+  drawThemeButton();
+  window.matchMedia?.("(prefers-color-scheme: dark)")?.addEventListener?.("change", drawThemeButton);
+  onChange(() => {
+    langSel.value = currentLang();
+    drawThemeButton();
+    say("login", said.login);
+    say("signup", said.signup);
+    if (session) $g("acctBtn").title = t(session.master ? "acct.manage" : "acct.mine");
+    renderSheet();
+  });
+
+  $g("loginForm").onsubmit = signIn;
+  $g("signupForm").onsubmit = signUp;
+  $g("toSignup").onclick = () => { say("signup", null); show("signup"); };
+  $g("toLogin").onclick = () => { say("login", null); show("login"); };
+  $g("logoutBtn").onclick = signOut;
+  $g("acctBtn").onclick = openSheet;
+  $g("acctClose").onclick = closeSheet;
+  $g("acctRefresh").onclick = renderSheet;
+  sheet.addEventListener("click", (e) => { if (e.target === sheet) closeSheet(); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !sheet.hidden) closeSheet(); });
+  for (const b of $g("acctTabs").querySelectorAll("button")) {
+    b.onclick = () => { tab = b.dataset.tab; renderSheet(); };
+  }
+
+  restore();
+}
+
 /* ═══ app.js ═══ */
 /* The install-free console.
  *
@@ -10528,6 +11716,7 @@ function readVersion(value) {
 
 // Named, and spelled out: the page is served as one concatenated scope, where
 // a namespace import has nothing to be a namespace of.
+
 
 
 const $ = (id) => document.getElementById(id);
@@ -14487,6 +15676,17 @@ async function boot() {
   invalidate();
   render();
   applyView();
+  // The door in front of all of it (see gate.js). The reader is drawn behind
+  // it, and laid out again when it opens: drawn hidden, nothing on it had a
+  // size to measure.
+  startGate({
+    onOpen: () => { invalidate(); render(); foldExplanations(); },
+    onLock: () => {
+      if (liveTable === null) return;
+      live.stop();
+      liveLog(t("live.logStopped"));
+    },
+  });
   // A paragraph that fitted in two lines at one width may not at another.
   let refold = null;
   window.addEventListener("resize", () => {
