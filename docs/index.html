@@ -14681,22 +14681,27 @@ function renderAll() {
   applyView();
 }
 
+/**
+ * Every panel, drawn each on its own. A fault in one leaves that panel as it
+ * was and the rest drawn: the AI's panels above all, the most computed and
+ * the newest, must not take the board, the record or the reader's status
+ * down with them -- the owner's rule, that nothing the AI does may break the
+ * reader. Drawn in one run, a throw in the AI panel left the board at the
+ * coups it had while the reader went on filing new ones. The fault is not
+ * swallowed: it is thrown again on its own, where the console and every
+ * browser check still see it.
+ */
 function render() {
-  renderHeader();
-  renderLiveBinding();
-  renderPrediction();
-  renderKpis();
-  renderScale();
-  renderStake();
-  renderPlan();
-  renderLastResult();
-  renderBoard();
-  renderShoes();
-  renderMilestones();
-  renderIntegrityAvailability();
-  // Some of the folded paragraphs are written by the renders above, and a
-  // paragraph that fitted before this coup may not after it.
-  foldExplanations();
+  for (const draw of [
+    renderHeader, renderLiveBinding, renderPrediction, renderKpis, renderScale,
+    renderStake, renderPlan, renderLastResult, renderBoard, renderShoes,
+    renderMilestones, renderIntegrityAvailability,
+    // Some of the folded paragraphs are written by the renders above, and a
+    // paragraph that fitted before this coup may not after it.
+    foldExplanations,
+  ]) {
+    try { draw(); } catch (e) { setTimeout(() => { throw e; }); }
+  }
 }
 
 function renderHeader() {
