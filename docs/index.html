@@ -4156,13 +4156,33 @@ const WORK_MAX = 1400;
 const BANKER_FLOOR = 64;
 
 /**
+ * How bright a red leaning to orange has to be to be read as a Banker mark:
+ * past 15 degrees, one darker than this is brown -- the wood and leather some
+ * casinos frame their panels in -- and not a Banker's red. On an owner's
+ * table (Hoca Games, RC038) the bead plate's frame is (70, 32, 11) to
+ * (81, 48, 29), 15 to 22 degrees: read as Banker, at the size they share it
+ * with the colour at half resolution it ran into every Banker in the plate's
+ * first column, which went unread, or was read as Bankers of its own. Of the
+ * Banker marks on every screen on file, only an antialiased edge pixel here
+ * and there is this dark and this orange.
+ *
+ * Only where the marks are read (see `classifyPixel`). The panel is grown,
+ * and followed into its filled columns, by what is a mark's colour at all,
+ * skipped as marks are; taken for ground there, a brown that is not the
+ * panel's own stopped the panel two columns into the plate, shared at 1.55
+ * times the size, and the plate was not read at all.
+ */
+const BROWN_BELOW = 100;
+
+/**
  * Classify one pixel by hue, after rejecting anything too dark or too grey to
  * be a board mark. The three hue windows are wide because operators differ --
  * banker red runs #c62828 to #ff4444, player blue #0d47a1 to #4a9eff -- but
  * they leave orange, purple and yellow unclassified, which keeps chrome,
- * badges and dealer photos out of the grid.
+ * badges and dealer photos out of the grid. `asMark` is for the marks
+ * themselves, which a dark red leaning to orange is not (see `BROWN_BELOW`).
  */
-function classifyPixel(r, g, b) {
+function classifyPixel(r, g, b, asMark = false) {
   const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
   if (max < 55 || d < 38 || d / max < 0.32) return NONE;
 
@@ -4172,7 +4192,7 @@ function classifyPixel(r, g, b) {
   else h = (r - g) / d + 4;
   h = (h * 60 + 360) % 360;
 
-  if (h < 22 || h >= 336) return max < BANKER_FLOOR ? NONE : BANKER;
+  if (h < 22 || h >= 336) return max < BANKER_FLOOR || (asMark && h >= 15 && h < 22 && max < BROWN_BELOW) ? NONE : BANKER;
   if (h >= 80 && h < 186) return TIE;
   if (h >= 186 && h < 266) return PLAYER;
   return NONE;
@@ -4319,19 +4339,40 @@ const RULED_SHARE = 0.35;
  * (Hoca Games), drawn at the size they share it, five Players down a column
  * made a bar of 36 pixels in cells of 7.96: four and a half cells by its
  * length alone, and five with the gap.
+ *
+ * Filling its box no more than a band does not (see `looksMerged`) -- but a
+ * single file of marks this tight comes close: the corners it leaves are
+ * only its marks' own, and where two meet, the ruling's line between them
+ * takes their colour on a shared screen. On an owner's table (Hoca Games,
+ * RC038), the Banker discs, letters and all their colour, made a column of
+ * three that filled 0.89 to 0.96 of its box, from the size they share it to
+ * three times it, and the shoe's first column was read only as far as them.
  */
 function ruledCells(b, pitch) {
   if (!(pitch >= 6)) return null;
   const narrow = Math.min(b.w, b.h);
+  // Narrower than a mark that fills a cell this tight: another lattice's.
+  if (narrow < pitch / REREAD_TIGHT) return null;
   const gap = narrow < 1.5 * pitch ? Math.max(0, pitch - narrow) : 0.2 * pitch;
   const cols = Math.round((b.w + gap) / pitch), rows = Math.round((b.h + gap) / pitch);
   if (cols < 1 || rows < 1 || cols * rows < 2 || cols > 30 || rows > 12) return null;
   if (Math.abs(b.w + gap - cols * pitch) > pitch * 0.45) return null;
   if (Math.abs(b.h + gap - rows * pitch) > pitch * 0.45) return null;
   const fill = b.n / (b.w * b.h);
-  return fill >= 0.2 && fill <= 0.9 ? { cols, rows } : null;
+  return fill >= 0.2 && fill <= (cols === 1 || rows === 1 ? FILE_FILL : 0.9) ? { cols, rows } : null;
 }
 
+/** How much of its box a single file of marks run together may fill (see `ruledCells`). */
+const FILE_FILL = 0.97;
+
+/**
+ * How much of its own box one round mark fills, at the least, with the
+ * letter some tables print across it: a disc fills 0.79 of its square, and
+ * the plate's marks on an owner's table (Hoca Games) 0.61 to 0.88 of theirs.
+ * A blob bigger than a ruling's cell that fills less is marks run together
+ * (see `ruledCells`), not one big mark.
+ */
+const SOLID_MARK = 0.6;
 
 /** Connected components over the classified mask, 4-connectivity. */
 function labelBlobs(codes, w, h) {
@@ -5278,8 +5319,8 @@ function detectBoards(imageData, { region = null, minCells = 8, whole = null, pi
       for (let x = 0; x < w; x++) {
         const p = ((y + y0) * W + (x + x0)) * 4;
         codes[y * w + x] = data[p + 3] < 128 ? NONE
-          : lut ? classifyPixel(lut[data[p]], lut[data[p + 1]], lut[data[p + 2]])
-                : classifyPixel(data[p], data[p + 1], data[p + 2]);
+          : lut ? classifyPixel(lut[data[p]], lut[data[p + 1]], lut[data[p + 2]], true)
+                : classifyPixel(data[p], data[p + 1], data[p + 2], true);
       }
     }
   };
@@ -5397,10 +5438,19 @@ function detectBoards(imageData, { region = null, minCells = 8, whole = null, pi
           const cells = cellsOf(blob, at);
           if (cells.cols * cells.rows <= 36 || pinched(codes, w, blob, cells.cols, cells.rows)) cut = cells;
         }
-      } else if (ruled && size(blob) >= pitch * 1.4 && pinched(codes, w, blob, ruled.cols, ruled.rows)) {
-        // Bigger than a cell, and narrowing where its marks meet. A staircase
-        // of one side runs together along every step and narrows nowhere: it
-        // is read cell by cell on its lattice instead (see `rereadOnLattice`).
+      } else if (ruled && size(blob) >= pitch * 1.4 && (whole && whole.d <= pitch * 1.25
+                                                         || blob.n / (blob.w * blob.h) < SOLID_MARK
+                                                         || pinched(codes, w, blob, ruled.cols, ruled.rows))) {
+        // Bigger than a cell, where the board being read has marks a cell
+        // big, which a mark half as big again is not one of: on an owner's
+        // table (Hoca Games, RC038), shared at 1.75 times the size, four
+        // Players two by two passed for one mark, filling their box as a
+        // disc does and joined too broadly to pass a pinch test, and the
+        // plate was read as one coup and a hole. Or, with nothing yet to
+        // say how big a mark is, either too hollow to be one disc -- a
+        // staircase of one side, three marks wide, fills under half its box
+        // and runs together along every step, which no pinch test passes --
+        // or one that narrows where its marks meet.
         cut = ruled;
       } else {
         const near = around(blob);
@@ -6336,7 +6386,17 @@ function detectGrid(imageData, { region = null } = {}) {
  * into the small roads under it, at half its size and the strip's whole
  * width, is still the plate.
  *
- * Inside it across and below, to a cell of the coarse one; above, to two.
+ * Across, half of it over the coarse one at least; below, within a cell of
+ * it; above, two. Across loosely, because a plate's ruling shows only where
+ * its cells are empty, so it reaches as far as the coups have got, and no
+ * further: on an owner's table with its plate under its betting bar (Hoca
+ * Games, RC038), shared at 1.2 times the size, the plate's ruling ran a
+ * column and a half further left than the lattice of two of its cells laid
+ * over it, and shared at 2.3 times, three columns further right; held to
+ * within a cell, the plate was read on cells two of its own wide both times,
+ * wrong. Half keeps out the derived roads, whose finer ruling runs the
+ * strip's whole width.
+ *
  * A finer ruling is found running on through the rule-like edges above a
  * plate as readily as a coarse one: drawn as an owner's table draws its
  * roads beside its video (Hoca Games), shared at 1.75 times the size, a
@@ -6351,7 +6411,8 @@ function underneath(fine, coarse) {
   const k = Math.round(coarse.pitch / fine.pitch);
   if (k < 2 || k > 3 || Math.abs(coarse.pitch / (k * fine.pitch) - 1) > 0.1) return false;
   const a = coarse.box, b = fine.box, m = coarse.pitch;
-  return b.x >= a.x - m && b.x2 <= a.x2 + m && b.y >= a.y - 2 * m && b.y2 <= a.y2 + m;
+  const across = Math.min(a.x2, b.x2) - Math.max(a.x, b.x);
+  return across >= (b.x2 - b.x) / 2 && b.y >= a.y - 2 * m && b.y2 <= a.y2 + m;
 }
 
 /**
@@ -9195,7 +9256,9 @@ const PICK_TOLERANCE = 0.5;
  * board that has shown itself to be a road takes a single column only once
  * it has watched that column gain a mark -- or where it is the only thing on
  * the strip and no longer than a shoe's first hand or two, which is what
- * reading a shoe from its first coup asks for, and what no legend is.
+ * reading a shoe from its first coup asks for, and what no legend is. Where
+ * the strip's ruling has been found, that is asked of where it stands
+ * instead: a shoe opens at the ruling's first cell (see `_roadsAmong`).
  */
 const OPENING_MARKS = 2;
 /**
@@ -10101,10 +10164,21 @@ class LiveWatcher {
         // pin has proved itself, and an empty strip is a shoe change rather
         // than a mistake -- which is the whole thing this was built to stop
         // being confused about.
+        //
+        // And only a bead plate past doubt (see `looksLikePlate`), reading as
+        // a shoe of a few coups at least, is a real board out there. A reader
+        // started between two shoes is pinned to an empty plate, and the
+        // screen around it is the rest of the table: on an owner's (Hoca
+        // Games, RC038), at every size it is shared at, the betting buttons
+        // and the felt read as a big road of twenty-odd Players, or the ask
+        // buttons beside the roads, a letter and three dots each, as a plate
+        // of two coups or none, and the first look past a dozen took the pin
+        // off the plate for it.
         if (!this.reads) {
           const elsewhere = detectBoards(frame, { minCells: COLD_CELLS });
           const best = elsewhere.boards[0];
-          if (best && !boards.length && !within(best.box, this.region)) {
+          if (best && looksLikePlate(best) && best.sequence.length >= COLD_CELLS
+              && !boards.length && !within(best.box, this.region)) {
             boards = elsewhere.boards;
             bounds = elsewhere.bounds;
             this.pinned = null;
@@ -10304,7 +10378,23 @@ class LiveWatcher {
     }
     this.sightings = now;
     if (shown.length) return shown;
+    // A mark or two on their own are a shoe's opening only where a shoe
+    // opens. With a ruling to go by, that is its first cell, which is asked
+    // above; anything else in the panel is not a shoe. On an owner's table
+    // (Hoca Games, RC038) the panel runs on under the bead plate into a box
+    // of the player's balance, near enough its colour, and shared at 1.9 to
+    // 2.8 times the size a stroke of the letters there was a Banker's size
+    // and colour: with the plate empty, started between shoes or watched
+    // through a shoe change, that Banker was read as the new shoe's first
+    // coup, look after look.
+    if (this._ruling()) return [];
     return boards.length === 1 && boards[0].cells.length <= OPENING_MARKS ? boards : [];
+  }
+
+  /** The ruled panel the reader is pinned to, if it is pinned to one. */
+  _ruling() {
+    const grid = (this.pinned === "grid" || this.pinned === "manual") && this.grid;
+    return grid && grid.panel ? grid : null;
   }
 
   /**
@@ -10336,8 +10426,8 @@ class LiveWatcher {
    * be seen growing.
    */
   _opensThePanel(board, boards = []) {
-    const grid = (this.pinned === "grid" || this.pinned === "manual") && this.grid;
-    if (!grid || !grid.panel) return false;
+    const grid = this._ruling();
+    if (!grid) return false;
     const reach = 1.5 * (board.diameter || grid.pitch);
     const near = (a, b) => Math.abs(a - b) <= reach;
     const at = (corner) => !!corner && near(board.box.x, corner.x) && near(board.box.y, corner.y);
