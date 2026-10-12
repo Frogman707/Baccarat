@@ -5566,11 +5566,21 @@ function corpusRows(tables) {
  * half-finished sync, or the shared db, which everyone looking at the same
  * tables writes to. Five names in eight went out of the exporter as live
  * formulas by that route.
+ *
+ * And a name every object already answers to is no name: `toString`,
+ * `constructor`, `__proto__` and the rest of what every object carries, and
+ * `prototype`. Everything a table owns is filed under its name -- its shoes,
+ * its calls, its learner -- and under one of those a table was never made:
+ * every key pressed after it was an error, and a table renamed to one stopped
+ * the page from coming up at all. `prototype` was made, and the next reload
+ * dropped it with its coups. Arriving in a stored corpus, such a name is
+ * taken for none (see `sanitiseState`), so the coups are kept under a name of
+ * their own.
  */
 function cleanTableName(raw) {
   const text = String(raw ?? "").replace(/[\u0000-\u001f\u007f]/g, " ").trim();
-  const stripped = text.replace(/^[=+\-@]+/, "").trim();
-  return stripped.slice(0, 60);
+  const name = text.replace(/^[=+\-@]+/, "").trim().slice(0, 60);
+  return name in Object.prototype || name === "prototype" ? "" : name;
 }
 
 /**
@@ -7946,6 +7956,11 @@ function sanitiseLog(raw) {
   const tables = raw.tables && typeof raw.tables === "object" ? raw.tables : {};
   for (const [name, value] of Object.entries(tables)) {
     if (!name || !value || typeof value !== "object") continue;
+    // A name every object answers to is no table's (see `cleanTableName`):
+    // filed under `toString`, a table's calls stopped the page coming up. The
+    // corpus keeps such a table's coups under a name of its own; its calls,
+    // made against a name it no longer has, go.
+    if (name in Object.prototype || name === "prototype") continue;
     const t = tableLog(out, name);
     merge(t.rolled, value.rolled);
     const entries = Array.isArray(value.entries) ? value.entries : [];
@@ -9657,6 +9672,7 @@ function drawStrip(ctx, source, bounds, board) {
  */
 
 
+
 const LS_KEY = "baccarat.corpus.v2";
 /**
  * The prediction log, kept under a key of its own.
@@ -9677,6 +9693,24 @@ const UNNAMED_TABLE = "?";
 /** Debounce window for writes. Live entry produces a coup every few seconds;
  *  one write per coup would burn the call budget for nothing. */
 const FLUSH_MS = 1800;
+
+/**
+ * How many deleted tables a record remembers (see `TabCopy`). A deletion is
+ * kept so that a copy of the table still on its way from another tab -- one
+ * written before that tab heard of the deletion -- cannot bring it back. Such
+ * a copy is on its way for a moment, so the newest few dozen are plenty.
+ */
+const GONE_KEPT = 64;
+
+/**
+ * The highest version, short of the last integer a double holds exactly.
+ * Nothing this page makes comes near it before the year 2250. Past it, read
+ * from a damaged record, a version is no version (older than any change);
+ * made, it stops there. So every version reads back as itself in every tab --
+ * one that did not would leave two tabs telling each other, write after
+ * write, that each was behind.
+ */
+const TOP_VERSION = 9e15;
 
 /** A storage write that failed for want of room, however the browser says it.
  *  Firefox and old WebKit each have their own name and number for it. */
@@ -9710,52 +9744,91 @@ class Store {
     this._metaDirty = false;
     this._timer = null;
     this._retried = false;
+    // What this tab knows of the two records every tab writes whole -- see
+    // `TabCopy`. The three digits it ends its versions with are its own.
+    const mark = Math.floor(Math.random() * 1000);
+    this._corpus = new TabCopy(LS_KEY, mark);
+    this._log = new TabCopy(LOG_KEY, mark);
   }
 
   /**
-   * Adopt a corpus another tab of this browser wrote.
+   * Take in what another tab of this browser wrote: the corpus, or the
+   * prediction log.
    *
-   * Every commit writes the whole state, so two tabs open on the same table
-   * overwrite each other: the one holding the older copy in memory saves it
-   * over the newer one, and a coup entered in the other tab is gone without a
-   * word. The `storage` event fires in every *other* document the moment a
-   * write lands, and what it carries is by definition newer than what this
-   * tab holds -- so taking it is always right, and it is what stops the next
-   * commit here from writing the stale copy back.
+   * Every commit writes the whole record, so two tabs overwrite each other:
+   * the one holding the older copy saves it over the newer one, and a coup
+   * entered in the other tab is gone without a word. The `storage` event
+   * fires in every *other* document once a write lands. It used to be taken
+   * whole, on the grounds that what it carries is newer than what this tab
+   * holds -- true while one tab wrote at a time, and not when two did: each
+   * wrote before the other's event arrived, so the event carried a copy
+   * without this tab's newest coups. Measured in the page, two tabs entering
+   * a coup every 40 to 140 ms on tables of their own: 91 of 293 gone from
+   * one, 64 of 241 from the other. Now the copy is merged into this
+   * tab's, table by table, the newer version of each (see `TabCopy`) -- and
+   * where this tab holds a version storage lacks, it is written back.
+   *
+   * The log the same way, for the same reason, and it lost more: with a
+   * coup every one to three seconds in each tab, a call went missing from
+   * each table within ninety seconds. It is the record of what was predicted
+   * before the coups were known, the one thing that makes it worth keeping.
    *
    * True of the record. Not of `active`, which travels in the same object and
    * is not a fact about the corpus but a choice this document made; the caller
    * decides what to keep of its own view. This only hands over what arrived.
+   * `current` and `currentLog` give this tab's own; without them what arrives
+   * is taken whole.
    */
-  watchOtherTabs(adopt, adoptLog = null) {
+  watchOtherTabs(adopt, adoptLog = null, current = null, currentLog = null) {
     if (typeof window === "undefined" || !window.addEventListener) return;
-    window.addEventListener("storage", (e) => {
-      if (!e.newValue) return;
-      if (e.key === LS_KEY) {
-        const state = sanitiseState(safeParse(e.newValue));
-        if (state) adopt(state);
+    const take = (key, newValue) => {
+      if (key === LS_KEY) {
+        const ours = current ? current() : null;
+        const got = this._corpus.receive(newValue, ours && ours.tables ? ours : null, sieveCorpus);
+        if (!got) return;
+        if (got.ahead) this._writeBack(this._corpus, { active: ours.active, isExample: ours.isExample });
+        if (!got.took) return;
+        // Their choice of table, where it is still a table: the caller keeps
+        // its own unless that is the one that went.
+        const theirs = got.theirs.state.active;
+        const active = theirs === null || ownKey(got.tables, theirs)
+          ? theirs : Object.keys(got.tables)[0] ?? null;
+        adopt({ tables: got.tables, active, isExample: false });
         return;
       }
-      // The prediction log, for exactly the same reason as the corpus -- and it
-      // was the half that got left out. Each tab read the log once at startup
-      // and wrote its own copy back whole on every prediction, so a second tab
-      // erased everything the first had predicted since it opened. Measured:
-      // ten predictions on one table in one tab, one prediction on another
-      // table in the second, and the stored log held the one. Those are the
-      // predictions written before their coups were known, which is the only
-      // thing that makes the log worth keeping.
-      //
-      // Taken whole, like the corpus, rather than merged. A merge would have to
-      // know what the other tab deliberately removed -- an undone coup's
-      // prediction, a cleared table -- and a union would bring those back.
-      // Adopting is right for the same reason it is right above: each tab
-      // writes synchronously and adopts before it next writes, so whatever
-      // arrives here already holds everything this tab had.
-      if (e.key === LOG_KEY && adoptLog) {
-        const raw = safeParse(e.newValue);
-        if (raw) adoptLog(raw);
+      if (key === LOG_KEY && adoptLog) {
+        const ours = currentLog ? currentLog() : null;
+        const got = this._log.receive(newValue, ours && ours.tables ? ours : null, sieveLog);
+        if (!got) return;
+        if (got.ahead) this._writeBack(this._log, { v: ours.v });
+        if (got.took) adoptLog({ ...(ours || got.theirs.log), tables: got.tables });
       }
+    };
+    window.addEventListener("storage", (e) => {
+      if (e.newValue) take(e.key, e.newValue);
     });
+    // A page put back from the back/forward cache heard nothing while it was
+    // away -- the events of those writes are not kept for it -- and shows what
+    // it held when it left until it next saves. What storage holds now is
+    // taken in as if another tab had just written it.
+    window.addEventListener("pageshow", (e) => {
+      if (!e.persisted) return;
+      take(LS_KEY, null);
+      take(LOG_KEY, null);
+    });
+  }
+
+  /**
+   * Put back in storage what this tab holds newer than storage does, the
+   * moment it hears of a write that left it out. A refusal is let go: the
+   * next save here tries again, and makes room if it has to.
+   */
+  _writeBack(copy, head) {
+    const raw = copy.record(head);
+    try {
+      localStorage.setItem(copy.key, raw);
+      copy.wrote(raw);
+    } catch { /* see above */ }
   }
 
   /** Resolve the db capability if this view has it. Never throws. */
@@ -9782,12 +9855,11 @@ class Store {
   /* (sanitiseState is defined below the class, beside the shape it enforces.) */
 
   readLocal() {
-    try {
-      const raw = localStorage.getItem(LS_KEY);
-      return raw ? sanitiseState(JSON.parse(raw)) : null;
-    } catch {
-      return null;
-    }
+    let raw;
+    try { raw = localStorage.getItem(LS_KEY); } catch { return null; }
+    const copy = raw ? sieveCorpus(safeParse(raw)) : null;
+    this._corpus.start(raw, copy);
+    return copy ? copy.state : null;
   }
 
   /**
@@ -9838,16 +9910,15 @@ class Store {
   /**
    * The prediction log as it was left, or null when there is none.
    *
-   * Returned raw. `sanitiseLog` in `verify.js` is what decides which of it is
-   * readable, and it lives there because that is where the shape is defined.
+   * Through `sanitiseLog` in `verify.js`, which decides which of it is
+   * readable, and lives there because that is where the shape is defined.
    */
   readLog() {
-    try {
-      const raw = localStorage.getItem(LOG_KEY);
-      return raw ? JSON.parse(raw) : null;
-    } catch {
-      return null;
-    }
+    let raw;
+    try { raw = localStorage.getItem(LOG_KEY); } catch { return null; }
+    const copy = raw ? sieveLog(safeParse(raw)) : null;
+    this._log.start(raw, copy);
+    return copy ? copy.log : null;
   }
 
   /**
@@ -9857,10 +9928,21 @@ class Store {
    * rather than the coups, and the header already reports the corpus's own
    * health. Losing a record of what was predicted is a loss; losing what was
    * dealt is the loss this app exists to prevent.
+   *
+   * `settled` for a write that only settles predictions against the coups.
+   * Every tab settles every table's predictions alike from the same coups,
+   * so that is no news to the others, and it keeps its tables' versions: as
+   * news, a tab settling another tab's table would have put that table back
+   * to the copy it settled, without the calls the other tab had made since.
    */
-  saveLog(log) {
+  saveLog(log, settled = false) {
+    const copy = this._log;
+    copy.restamp(bodiesOf(log.tables), !settled);
+    copy.catchUp(log, sieveLog);
+    const raw = copy.record({ v: log.v });
     try {
-      localStorage.setItem(LOG_KEY, JSON.stringify(log));
+      localStorage.setItem(LOG_KEY, raw);
+      copy.wrote(raw);
       return true;
     } catch {
       return false;
@@ -9869,9 +9951,18 @@ class Store {
 
   /* ------------------------------------------------------------- writing */
 
-  /** Mirror the whole state locally and queue the changed shoes for the db. */
+  /**
+   * Mirror the whole state locally and queue the changed shoes for the db.
+   *
+   * What another tab wrote since this one last looked is taken in first,
+   * into `state` itself, so that what is drawn next is what is kept: a write
+   * from here would otherwise put that tab's tables back as they were.
+   */
   save(state, changedShoeIds = []) {
-    const raw = JSON.stringify(state);
+    const copy = this._corpus;
+    copy.restamp(bodiesOf(state.tables));
+    copy.catchUp(state, sieveCorpus);
+    const raw = copy.record({ active: state.active, isExample: state.isExample });
     let kept = false, failure = null;
     try {
       localStorage.setItem(LS_KEY, raw);
@@ -9885,6 +9976,7 @@ class Store {
         try { localStorage.setItem(LS_KEY, raw); kept = true; break; } catch (again) { failure = again; }
       }
     }
+    if (kept) copy.wrote(raw);
     // Back to normal after a failure: the header is the only place a person
     // can see whether their evening is being kept.
     if (kept && !this.db && this.status !== "local") this._setStatus("local");
@@ -10037,8 +10129,11 @@ function sanitiseState(raw) {
     ? raw.tables : {};
   for (const name of Object.keys(source)) {
     // Own keys only: a table called `__proto__` must not reach into anything.
+    // Read, its shoes are kept like any other's, under a name of their own:
+    // the rule below takes it, and `toString` and the rest of what every
+    // object answers to, for no name (see `cleanTableName`). Dropped, they
+    // were a table renamed to one of them, and its coups, gone on a reload.
     if (!Object.prototype.hasOwnProperty.call(source, name)) continue;
-    if (name === "__proto__" || name === "constructor" || name === "prototype") continue;
     const table = source[name];
     const list = table && Array.isArray(table.shoes) ? table.shoes : [];
     const shoes = [];
@@ -10132,6 +10227,283 @@ function newId(taken) {
     if (!taken || !taken.has(id)) return id;
     if (attempt > 20) return id + attempt;        // never spin
   }
+}
+
+/* ---------------------------------------------------- two tabs, one record */
+
+const ownKey = (obj, key) => Object.prototype.hasOwnProperty.call(obj, key);
+
+/**
+ * One record that every tab of this browser holds whole and writes whole --
+ * the corpus, or the prediction log -- and what this tab knows of it.
+ *
+ * Whichever tab saved last used to be the record, and a tab hears of another
+ * tab's write only after it has landed. Taking in what storage held before
+ * each write was not enough either: Chrome gives each page a copy of storage
+ * of its own and brings it up to date a moment after another page writes, so
+ * a tab could read, miss a write made a moment before, and write a record
+ * without it over it. Measured in the page with that in place, two tabs
+ * entering a coup every 40 to 140 ms on tables of their own: 113 of 295 gone
+ * from one of them.
+ *
+ * So each table carries a version, a new one whenever a tab changes it, and a
+ * table deleted leaves behind the version it was deleted at. Two copies are
+ * merged table by table (`mergeCopies`), and a copy that missed a change can
+ * only lose to it, however late it arrives; the tab holding the newer version
+ * writes it back the moment it hears of a write that left it out. Two tabs
+ * changing one table in the same instant keep the later change.
+ *
+ * A version is the time in milliseconds times a thousand, plus three digits
+ * each tab draws for itself so that no two tabs make the same one -- and it is
+ * always past every version this tab has seen for that table, whatever the
+ * clock says.
+ */
+class TabCopy {
+  constructor(key, mark) {
+    this.key = key;
+    this.mark = mark;
+    this.raw = null;              // the record as this tab last read or wrote it
+    this.held = new Map();        // the version of each table in it
+    this.seen = new Map();        // each table's JSON here, when last looked at
+    this.versions = new Map();    // each table's version here
+    this.gone = new Map();        // the version each deleted table went at
+  }
+
+  /** What this tab found at startup: `copy` as a sieve made it, or null. */
+  start(raw, copy) {
+    this.raw = raw;
+    this.held = new Map(copy ? copy.versions : []);
+    this.versions = new Map(this.held);
+    this.gone = copy ? copy.gone : new Map();
+    this.seen = copy ? bodiesOf(copy.tables) : new Map();
+  }
+
+  /** A version past every one this tab knows of for `name` (short of the top). */
+  next(name) {
+    const last = Math.max(this.versions.get(name) || 0, this.gone.get(name) || 0);
+    const at = Math.max(Date.now(), Math.floor(last / 1000) + 1) * 1000 + this.mark;
+    return Math.min(at, TOP_VERSION);
+  }
+
+  /**
+   * A new version for each table that changed since this tab last looked, and
+   * for each one no longer there, the version it went at. With `news` false a
+   * table that changed keeps its version (see `Store.saveLog`); a table that
+   * comes or goes is news whatever.
+   */
+  restamp(bodies, news = true) {
+    for (const [name, body] of bodies) {
+      const before = this.seen.get(name);
+      if (before === undefined || !this.versions.has(name) || (news && before !== body)) {
+        this.versions.set(name, this.next(name));
+      }
+    }
+    for (const name of this.seen.keys()) {
+      if (bodies.has(name)) continue;
+      this.gone.set(name, this.next(name));
+      this.versions.delete(name);
+    }
+    this.gone = capGone(this.gone);
+    this.seen = bodies;
+  }
+
+  /** Another tab's copy, as a sieve made it, merged into `tables` (this tab's). */
+  absorb(tables, theirs) {
+    const merged = mergeCopies({ tables, versions: this.versions, gone: this.gone }, theirs);
+    this.versions = merged.versions;
+    this.gone = merged.gone;
+    if (merged.took) {
+      const seen = new Map();
+      for (const name of Object.keys(merged.tables)) {
+        const mine = ownKey(tables, name) && tables[name] === merged.tables[name] && this.seen.has(name);
+        seen.set(name, mine ? this.seen.get(name) : JSON.stringify(merged.tables[name]));
+      }
+      this.seen = seen;
+    }
+    return merged;
+  }
+
+  /**
+   * Before this tab writes the record whole: what another tab wrote since this
+   * one last looked, taken into `holder.tables`, so the write does not put it
+   * back as it was.
+   */
+  catchUp(holder, sieve) {
+    let now;
+    try { now = localStorage.getItem(this.key); } catch { return; }
+    if (now === null || now === this.raw) return;
+    this.raw = now;
+    const theirs = sieve(safeParse(now));
+    if (!theirs) return;
+    this.held = new Map(theirs.versions);
+    const merged = this.absorb(holder.tables, theirs);
+    if (merged.took) holder.tables = merged.tables;
+  }
+
+  /**
+   * Another tab wrote the record: what it wrote, and what storage holds now --
+   * not always the same, since this tab's own write can be the one that lands
+   * last -- merged into `holder`, this tab's own, or taken whole without one.
+   * Null when there was nothing to take in; otherwise the merged tables, the
+   * copy read, and whether the merge differs from this tab's (`took`) and from
+   * what storage holds (`ahead`).
+   */
+  receive(newValue, holder, sieve) {
+    let now = null;
+    try { now = localStorage.getItem(this.key); } catch { /* the event's copy will do */ }
+    let tables = holder ? holder.tables : null, took = false, theirs = null;
+    for (const raw of new Set([newValue, now])) {
+      if (!raw || raw === this.raw) continue;
+      const copy = sieve(safeParse(raw));
+      if (!copy) continue;
+      theirs = copy;
+      if (raw === now) {
+        this.raw = now;
+        this.held = new Map(copy.versions);
+      }
+      if (!tables) {
+        // Nothing of this tab's to keep: what arrived is this tab's now.
+        this.versions = new Map(copy.versions);
+        this.gone = copy.gone;
+        this.seen = bodiesOf(copy.tables);
+        tables = copy.tables;
+        took = true;
+        continue;
+      }
+      const merged = this.absorb(tables, copy);
+      if (merged.took) { tables = merged.tables; took = true; }
+    }
+    if (!theirs) return null;
+    return { tables, theirs, took, ahead: !!holder && !sameVersions(this.versions, this.held) };
+  }
+
+  /** The record as this tab holds it, with `head` beside the tables. */
+  record(head) {
+    return writeRecord(head, this.seen, this.versions, this.gone);
+  }
+
+  /** `raw` is in storage now, written from here. */
+  wrote(raw) {
+    this.raw = raw;
+    this.held = new Map(this.versions);
+  }
+}
+
+/**
+ * Two copies of a record merged table by table (see `TabCopy`). Each side is
+ * `{tables, versions, gone}`, the versions and deletions as Maps by name.
+ *
+ * Each table is the newer version of the two, and none where it was deleted
+ * at a version past its newest: a copy that missed a change, or a deletion,
+ * loses to it. One version on both sides is one table. Returns the merge as a
+ * side of its own, with `took` -- it differs from `ours`, which has to take it
+ * in -- and `ahead` -- it differs from `theirs`, which has to be told. Tables
+ * keep the order `ours` has them in, the ones it lacks after.
+ */
+function mergeCopies(ours, theirs) {
+  const gone = new Map(ours.gone);
+  for (const [name, at] of theirs.gone) if (!(gone.get(name) >= at)) gone.set(name, at);
+  const tables = {}, versions = new Map();
+  let took = false, ahead = false;
+  for (const name of new Set([...Object.keys(ours.tables), ...Object.keys(theirs.tables)])) {
+    if (name === "__proto__") continue;
+    const o = ownKey(ours.tables, name), t = ownKey(theirs.tables, name);
+    const vo = o ? ours.versions.get(name) || 0 : 0, vt = t ? theirs.versions.get(name) || 0 : 0;
+    const end = gone.has(name) ? gone.get(name) : -1;
+    const mine = o && vo > end, their = t && vt > end;
+    if (mine && (!their || vo >= vt)) {
+      tables[name] = ours.tables[name];
+      versions.set(name, vo);
+      if (!t || vt !== vo) ahead = true;
+    } else if (their) {
+      tables[name] = theirs.tables[name];
+      versions.set(name, vt);
+      took = true;
+    } else {
+      if (o) took = true;
+      if (t) ahead = true;
+    }
+  }
+  return { tables, versions, gone: capGone(gone), took, ahead };
+}
+
+/** The newest `GONE_KEPT` deletions. */
+function capGone(gone) {
+  if (gone.size <= GONE_KEPT) return gone;
+  return new Map([...gone].sort((a, b) => b[1] - a[1]).slice(0, GONE_KEPT));
+}
+
+function sameVersions(a, b) {
+  if (a.size !== b.size) return false;
+  for (const [name, v] of a) if (!b.has(name) || b.get(name) !== v) return false;
+  return true;
+}
+
+/** Each table's JSON, by name, in the record's order. */
+function bodiesOf(tables) {
+  const out = new Map();
+  for (const name of Object.keys(tables)) {
+    const body = JSON.stringify(tables[name]);
+    if (body !== undefined) out.set(name, body);
+  }
+  return out;
+}
+
+/**
+ * The record as JSON, put together from each table's own (`bodiesOf`): those
+ * are what a save compares to see what changed, so they are not written out a
+ * second time.
+ */
+function writeRecord(head, bodies, versions, gone) {
+  const tables = [];
+  for (const [name, body] of bodies) tables.push(JSON.stringify(name) + ":" + body);
+  let out = '{"tables":{' + tables.join(",") + "}";
+  for (const [key, value] of Object.entries(head)) {
+    if (value !== undefined) out += "," + JSON.stringify(key) + ":" + JSON.stringify(value);
+  }
+  return out + ',"versions":' + JSON.stringify(Object.fromEntries(versions))
+    + ',"gone":' + JSON.stringify(Object.fromEntries(gone)) + "}";
+}
+
+/** A stored corpus through `sanitiseState`, with the versions it carries. */
+function sieveCorpus(raw) {
+  const state = sanitiseState(raw);
+  return state ? { state, tables: state.tables, ...versionsOf(raw, state.tables) } : null;
+}
+
+/** A stored log through `sanitiseLog`, with the versions it carries. */
+function sieveLog(raw) {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const log = sanitiseLog(raw);
+  return { log, tables: log.tables, ...versionsOf(raw, log.tables) };
+}
+
+/**
+ * The versions a stored record carries for the tables that came through the
+ * sieve. A table without one -- written before there were versions, or under
+ * a name the sieve had to change -- is version 0, older than any change.
+ */
+function versionsOf(raw, tables) {
+  const field = (key) => {
+    const value = raw[key];
+    return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  };
+  const versions = new Map(), stated = field("versions");
+  for (const name of Object.keys(stated)) {
+    if (ownKey(tables, name)) versions.set(name, readVersion(stated[name]));
+  }
+  for (const name of Object.keys(tables)) if (!versions.has(name)) versions.set(name, 0);
+  const gone = new Map(), deleted = field("gone");
+  for (const name of Object.keys(deleted)) {
+    const at = readVersion(deleted[name]);
+    if (at > 0) gone.set(name, at);
+  }
+  return { versions, gone: capGone(gone) };
+}
+
+function readVersion(value) {
+  const n = Math.floor(Number(value));
+  return n > 0 && n <= TOP_VERSION ? n : 0;
 }
 
 /* ═══ app.js ═══ */
@@ -11462,7 +11834,7 @@ function settleLog() {
     for (const s of shoes(name)) sequences[s.id] = s.o;
     done += settlePredictions(predictionLog, name, sequences);
   }
-  if (done) store.saveLog(predictionLog);
+  if (done) store.saveLog(predictionLog, true);
   return done;
 }
 
@@ -14056,8 +14428,9 @@ async function boot() {
   };
   // A second tab of the same browser used to be a way to lose coups: both
   // hold the whole corpus and both write all of it, so whichever saved last
-  // erased the other's. Taking the newer copy the moment it lands keeps this
-  // tab from writing a stale one back over it.
+  // erased the other's. Taking in the other's copy the moment it lands -- the
+  // newer of each table, see `Store.watchOtherTabs` -- keeps this tab from
+  // writing a stale one back over it.
   //
   // The shoes, yes. Not which table this document is looking at -- `active`
   // rides along in the same object, and adopting it meant a tab showing HANN
@@ -14076,20 +14449,20 @@ async function boot() {
     invalidate();
     render();
     flashNote(t("store.elsewhere"), NOTE_MS);
-  }, (raw) => {
+  }, (log) => {
     // Not settled here. The other tab settled it against its own corpus, and
     // the corpus event for that write arrives first -- storage events are
     // delivered in the order the writes were made -- but settling against a
     // corpus that is somehow still behind would read every coup it lacks as
     // undone and delete those predictions. The next coup here settles it.
-    predictionLog = sanitiseLog(raw);
+    predictionLog = log;
     // Only what the log is drawn into. A whole `render()` here lands a few
     // milliseconds after the corpus adoption above, whose note -- this view
     // just changed under you -- is the one thing the person needs to see, and
     // redrawing the header erased it before it could be read. Caught by
     // `tests/browser/test_storage.py`, in a real browser with two real tabs.
     renderVerification();
-  });
+  }, () => state, () => predictionLog);
   initPreferences();
   bindTextPaste();
   bindControls();
@@ -14109,7 +14482,7 @@ async function boot() {
   }
 
   state = startingState(store.readLocal());
-  predictionLog = sanitiseLog(store.readLog());
+  predictionLog = store.readLog() || emptyLog();
   settleLog();
   invalidate();
   render();
