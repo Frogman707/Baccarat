@@ -9455,10 +9455,25 @@ function gridLock(grid, frameW, frameH) {
  * the window wide does not stand out against everything else across it. On
  * an owner's screen, shared at twice the size, the whole frame had none to
  * show and the box around its bead plate had the plate's.
+ *
+ * And across the whole of `lock`, where the strip is locked. A plate's
+ * filled columns hide its ruling, so the ruling found while a shoe filled
+ * the plate stops short of them, and the lock the ruling gives is their
+ * width narrower than the panel (see `gridLock`). At the shoe change they
+ * are wiped and the ruling runs across them again -- outside a search of a
+ * few cells around where it was last found. Watched through a shuffle long
+ * enough for the ruling to be looked for again during it, the lock was
+ * taken again that much narrower, and the next shoe was dealt into the
+ * columns it left out: on an owner's table (Hoca Games, RC038) after a shoe
+ * of seventy-two, at the size they share it, none of the next shoe's first
+ * eight coups was read; with its roads beside the video (RC002), shared at
+ * 1.5 times the size, none, and a Player that was not the shoe's.
  */
-function rulingAround(frame, box, cell, frameW, frameH) {
+function rulingAround(frame, box, cell, frameW, frameH, lock = null) {
   const reach = Math.max(12, Math.round(3 * cell));
-  const x = Math.max(0, Math.round(box.x - reach)), y = Math.max(0, Math.round(box.y - reach));
+  let x = Math.max(0, Math.round(box.x - reach));
+  if (lock) x = Math.min(x, Math.max(0, Math.round(lock.x)));
+  const y = Math.max(0, Math.round(box.y - reach));
   const x2 = frameW, y2 = Math.min(frameH, Math.round(box.y2 + reach));
   const grid = rulingIn(frame, { x, y, w: x2 - x, h: y2 - y });
   if (!grid) return null;
@@ -10121,7 +10136,7 @@ class LiveWatcher {
       // Where it was first: a ruling has not usually moved, and one beside
       // the video may not stand out against the whole frame at all.
       const near = this.grid && this.grid.box;
-      const grid = (near && rulingAround(frame, near, this.grid.pitch, w, h))
+      const grid = (near && rulingAround(frame, near, this.grid.pitch, w, h, this.gridBox))
                    || findStrip(frame, w, h);
       if (grid) {
         const before = this.grid;
@@ -10199,7 +10214,20 @@ class LiveWatcher {
     }
 
     // A region the viewer drew is theirs, and neither re-check touches it.
-    if (this.region && !this.pinned && this.samples % RECHECK_EVERY === 0) {
+    //
+    // A strip locked by its marks is pinned to its ruling as soon as the
+    // ruling shows. The lock is taken by the marks where no ruling was found
+    // around them, and a plate with a column or two left empty shows too
+    // little of its ruling to find (see `detectGrid`): started on an owner's
+    // table (Hoca Games, RC038) sixty-six coups into the shoe, the reader
+    // locked by the marks, across the frame and the betting bar, and the
+    // frame of the plate, a Banker's colour at its corner, was read as a coup
+    // ahead of every reading of the next shoe at 1.25 and 1.75 times the
+    // size; at 1.75 the shoe on the plate was not read at all. The ruling
+    // shows whole once the plate is wiped, and pinned to it the reader reads
+    // the cells, where the frame is not one.
+    const recheck = this.region && !this.pinned && this.samples % RECHECK_EVERY === 0;
+    if (recheck && !this._pinToRulingIn(frame, w, h)) {
       const full = detectBoards(frame, { minCells: COLD_CELLS });
       const here = boards.length ? boards[0].score : 0;
       // The lock only moves off a strip that has been silent long enough to
@@ -10395,6 +10423,22 @@ class LiveWatcher {
   _ruling() {
     const grid = (this.pinned === "grid" || this.pinned === "manual") && this.grid;
     return grid && grid.panel ? grid : null;
+  }
+
+  /**
+   * Pin the lock to the ruling inside it, if there is one now, and say so.
+   * The region is the lock the ruling gives (see `gridLock`), as it is for a
+   * ruling found at the start.
+   */
+  _pinToRulingIn(frame, w, h) {
+    const ruled = rulingIn(frame, this.region);
+    if (!ruled) return false;
+    this.grid = ruled;
+    this.gridMisses = 0;
+    this.pinned = "grid";
+    this.region = this.gridBox = gridLock(ruled, w, h);
+    if (this.memory) this.memory = this.region;
+    return true;
   }
 
   /**
