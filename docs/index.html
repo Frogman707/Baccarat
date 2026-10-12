@@ -946,8 +946,8 @@ body.open > #gate{display:none}
     </div>
     <label class="airule"><span data-i18n="ai.ruleLabel"></span>
       <select id="pickRule">
-        <option value="streak" data-i18n="rule.option.streak"></option>
         <option value="pattern" data-i18n="rule.option.pattern"></option>
+        <option value="streak" data-i18n="rule.option.streak"></option>
         <option value="chop" data-i18n="rule.option.chop"></option>
         <option value="banker" data-i18n="rule.option.banker"></option>
       </select></label>
@@ -6188,12 +6188,16 @@ const BASE_MODEL_VERSION = "base-4";
  * On 2026-10-10 the owner, seeing the pattern pick bet against a run of
  * three -- it does on 28% of them, where the chop has called the shoe best
  * -- chose the streak: the side of the last decided coup (줄타기), the
- * estimate's side where the shoe has none yet. The pattern, the chop and
- * always Banker stay a choice away. Measured on 10,000 fair shoes, the four
- * are right on 49.96%, about 50.0%, 50.04% and 50.67% of decided coups: a
- * choice of what to follow, not of how often to be right.
+ * estimate's side where the shoe has none yet. On 2026-10-12 the owner made
+ * the shoe's pattern the pick again (`DEFAULT_PICK_RULE`), and the streak,
+ * the chop and always Banker are a choice away. Measured on 10,000 fair
+ * shoes, the four are right on 49.96%, about 50.0%, 50.04% and 50.67% of
+ * decided coups: a choice of what to follow, not of how often to be right.
  */
 const PICK_RULES = ["streak", "pattern", "chop", "banker"];
+
+/** The way of picking on a device that has not chosen one: the owner's, 2026-10-12. */
+const DEFAULT_PICK_RULE = "pattern";
 const RULE_MODEL_VERSION = {
   streak: "streak-1", pattern: BASE_MODEL_VERSION, chop: "chop-1", banker: "banker-1",
 };
@@ -10158,7 +10162,9 @@ class Store {
 
   readLocal() {
     let raw;
-    try { raw = localStorage.getItem(LS_KEY); } catch { return null; }
+    // Not even readable -- site data blocked: nothing will be kept either, and
+    // the header said "saved in this browser" until a coup found that out.
+    try { raw = localStorage.getItem(LS_KEY); } catch { this._setStatus("error"); return null; }
     const copy = raw ? sieveCorpus(safeParse(raw)) : null;
     this._corpus.start(raw, copy);
     return copy ? copy.state : null;
@@ -12858,7 +12864,8 @@ function recommended(p) {
 
 /**
  * How the pick is made: the owner's choice among `PICK_RULES`, kept on this
- * device. The streak unless chosen otherwise -- the owner's, 2026-10-10.
+ * device. The shoe's pattern unless chosen otherwise (`DEFAULT_PICK_RULE`);
+ * a device that chose a way keeps it, whatever the default becomes.
  *
  * Read from the device once and held here, like the view: a choice the device
  * will not keep -- its store full, or site data blocked -- is still the choice
@@ -12869,9 +12876,9 @@ const PICK_RULE_KEY = "baccarat.pickRule.v1";
 let pickRuleNow = (() => {
   try {
     const v = localStorage.getItem(PICK_RULE_KEY);
-    return PICK_RULES.includes(v) ? v : "streak";
+    return PICK_RULES.includes(v) ? v : DEFAULT_PICK_RULE;
   } catch {
-    return "streak";
+    return DEFAULT_PICK_RULE;
   }
 })();
 
@@ -15415,7 +15422,7 @@ function bindControls() {
   const rule = $("pickRule");
   rule.value = pickRule();
   rule.onchange = () => {
-    pickRuleNow = PICK_RULES.includes(rule.value) ? rule.value : "streak";
+    pickRuleNow = PICK_RULES.includes(rule.value) ? rule.value : DEFAULT_PICK_RULE;
     try { localStorage.setItem(PICK_RULE_KEY, pickRuleNow); } catch { /* this visit only */ }
     // The call for the coup to come changes with the rule, and the log keeps
     // the one on screen when its coup comes: the one made under the rule left
