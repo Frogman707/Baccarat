@@ -992,6 +992,7 @@ body.open > #gate{display:none}
         <div id="liveBinding" class="warn" hidden></div>
         <div id="liveSurface" class="warn" hidden></div>
         <div id="liveWarn" class="warn" hidden></div>
+        <div id="liveManual" class="warn" hidden></div>
         <div id="liveLog" class="livelog" data-full-only></div>
       </div>
 
@@ -1643,6 +1644,15 @@ const S = {
   "live.pick": { ko: "영역 직접 지정", en: "Draw the region", "zh-Hant": "自行框選區域", "zh-Hans": "自行框选区域" },
   "live.picking": { ko: "지정 취소", en: "Cancel", "zh-Hant": "取消框選", "zh-Hans": "取消框选" },
   "live.unpin": { ko: "자동으로 되돌리기", en: "Back to automatic", "zh-Hant": "恢復自動", "zh-Hans": "恢复自动" },
+  // A box the viewer drew that has held no board for a while: on an owner's
+  // table the box stood at the frame's right edge, past the roads, and the
+  // only sign was the word "your region" in the status line.
+  "live.manualEmpty": {
+    ko: "직접 지정한 영역에서 아직 결과판을 찾지 못했습니다. 영역이 결과판을 벗어났다면 다시 그리거나, 자동으로 되돌려 주세요.",
+    en: "No board has been found yet in the region you drew. If it misses the board, draw it again or go back to automatic.",
+    "zh-Hant": "在您框選的區域中尚未找到路單。若框選位置偏離路單，請重新框選或恢復自動。",
+    "zh-Hans": "在您框选的区域中尚未找到路单。若框选位置偏离路单，请重新框选或恢复自动。",
+  },
   "live.pickHint": {
     ko: "아래 화면에서 육매·본매가 있는 부분을 드래그해서 감싸세요. 비어 있어도 괜찮습니다 — 지정한 곳만 계속 읽습니다.",
     en: "Drag a box around the roads in the picture below. Empty is fine — from then on only that box is read.",
@@ -4535,7 +4545,7 @@ const size = (m) => Math.max(m.w, m.h);
  * Reach scales with the SMALLER of the pair, so a small mark can never reach
  * out and capture a large one.
  */
-function groupBlobs(marks, whole = null) {
+function groupBlobs(marks, whole = null, pitch = 0) {
   // Sorted left to right, so the scan below can stop instead of finishing.
   //
   // Every pair used to be compared, which is a frame's mark count squared, and
@@ -4557,7 +4567,22 @@ function groupBlobs(marks, whole = null) {
   // real screen: one big blob -- a lit panel, a banner -- would otherwise
   // widen the window for every small mark in the picture and give most of the
   // saving back.
+  //
+  // Down the frame, no further than a row and a half of cells where the
+  // ruling is known -- a cell being the ruling's or the marks' own size,
+  // whichever is bigger, since the ruling found can be a finer road's than
+  // the marks' (the derived roads' under a plate of marks twice their cells,
+  // on the first look at an owner's strip). A plate's rows are a cell apart;
+  // the big road under it, on an owner's table with its roads beside the
+  // video (Hoca Games, DH004), is two cells and a third below the plate's
+  // last row, its rings the size of the plate's marks -- and once the plate's
+  // block of Players was cut by the ruling into marks, those reached the
+  // rings, the group was ten rows deep, and the plate was not read on its
+  // lattice nor as a board: nothing, look after look, pinned to its own
+  // ruling. A mark hidden in a column leaves a gap of two cells, which the
+  // board being read is held together across by `whole` below.
   const by = marks.map((_, i) => i).sort((p, q) => marks[p].cx - marks[q].cx);
+  const down = (a, b) => (pitch > 0 ? 1.6 * Math.max(pitch, a, b) : Infinity);
 
   const parent = marks.map((_, i) => i);
   const find = (x) => { while (parent[x] !== x) { parent[x] = parent[parent[x]]; x = parent[x]; } return x; };
@@ -4573,7 +4598,7 @@ function groupBlobs(marks, whole = null) {
       if (Math.max(a, b) / Math.min(a, b) > 1.8) continue;      // a different board
       const reach = Math.min(a, b) * 2.2;
       const dy = Math.abs(mi.cy - mj.cy);
-      if (dx <= reach && dy <= reach) union(i, j);
+      if (dx <= reach && dy <= Math.min(reach, down(a, b))) union(i, j);
     }
   }
   // A board already being read is one board, whatever has come between its
@@ -4970,6 +4995,21 @@ const LETTER_WHITE = 170;
 const REREAD_MIN = 3;
 /** Most corners filled, on average over its cells, for a board read cell by cell. */
 const REREAD_CORNERS = 0.6;
+/**
+ * And for a plate's worth of cells with both sides among them. A run of one
+ * side fills the corners between its marks as a band does: on an owner's
+ * table with its roads beside the video (Hoca Games, DH005), shared at the
+ * size they share it, seventeen Bankers among twenty-six coups ran together
+ * into one block, and read on their lattice the plate's cells had 0.73 of
+ * their corners filled -- and the plate was thrown out for a band, and the
+ * big road's rings under it read as the shoe, seven Bankers. Measured over
+ * every real screen and drawn screen on file: a plate read right has at
+ * most 0.73, and a lattice laid over a felt, a betting box or the wrong
+ * road, where it reads twenty cells or more, 1.30 at least. A plate is
+ * twenty cells or more of both sides; anything less keeps the stricter line.
+ */
+const REREAD_CORNERS_PLATE = 1.0;
+const REREAD_PLATE_CELLS = 20;
 
 /**
  * The lattice a group of marks sits on: its pitch, and where one cell's
@@ -5368,7 +5408,9 @@ function rereadOnLattice(codes, w, h, x0, y0, group, d, merged, pitch = 0, lette
   // screen at three sizes: the plate's cells had 0 to 0.12 of their four
   // corners filled on average; the felt in the video, the betting boxes and
   // the page around them, 1.7 to 2.9.
-  if (solid > cells.length * REREAD_CORNERS) return null;
+  const sides = [BANKER, PLAYER].map((code) => cells.filter((c) => c.code === code).length);
+  const plateful = cells.length >= REREAD_PLATE_CELLS && Math.min(...sides) >= 3;
+  if (solid > cells.length * (plateful ? REREAD_CORNERS_PLATE : REREAD_CORNERS)) return null;
   cells.strays = strays;
   return cells;
 }
@@ -5596,7 +5638,7 @@ function detectBoards(imageData, { region = null, minCells = 8, whole = null, pi
   // which is both the largest board and the one worth reading.
   //
   // Each group is read again on its lattice where its marks ran together.
-  const groups = groupBlobs(marks, whole).map((group) => {
+  const groups = groupBlobs(marks, whole, pitch).map((group) => {
     const d = median(group.map(size));
     const own = group.filter((m) => size(m) >= d * 0.55 && size(m) <= d * 1.85);
     const again = rereadOnLattice(codes, w, h, x0, y0, own, d,
@@ -13813,6 +13855,49 @@ function renderLiveSources() {
 
 /** The last pin reported, so the log says it once rather than every sample. */
 let livePinned = null;
+/**
+ * When the box the viewer drew was taken, and whether it has held a board
+ * since: a box that has held nothing is said so (see `renderManualNotice`).
+ */
+let liveManualSince = null;
+/** The box itself, in the frame's pixels: a board lying inside it counts as held. */
+let liveManualBox = null;
+const MANUAL_EMPTY_MS = 12_000;
+
+/**
+ * Say so when a box the viewer drew has read nothing in twelve seconds, with
+ * the way back beside it. On an owner's table (Hoca Games, RC002) the box
+ * stood at the frame's right edge, past the roads, and five coups were read
+ * in a shoe of thirty-eight; the only sign of it was "your region" in the
+ * status. A box that read a board and then went empty is between shoes, not
+ * misplaced -- but the reader calls that cleared, and three empty looks in
+ * it calls a box that never held anything cleared too, so what tells them
+ * apart is whether a board has been held here since the box was drawn. The
+ * board being read as the box is drawn is reported with it, at once, and
+ * counts when it lies inside the box: drawn around the board just as the
+ * table wipes it, the box held it.
+ */
+function renderManualNotice(st) {
+  const box = $("liveManual");
+  if (!st.active || st.pinned !== "manual") { liveManualSince = null; box.hidden = true; box.innerHTML = ""; return; }
+  if (!liveManualSince) liveManualSince = { at: Date.now(), held: false };
+  const inside = (b, area) => {
+    if (!b || !b.box || !area) return !!b;
+    const cx = (b.box.x + b.box.x2) / 2, cy = (b.box.y + b.box.y2) / 2;
+    return cx >= area.x && cx <= area.x + area.w && cy >= area.y && cy <= area.y + area.h;
+  };
+  if (inside(st.board, liveManualBox)) liveManualSince.held = true;
+  const empty = !st.board && !liveManualSince.held && Date.now() - liveManualSince.at >= MANUAL_EMPTY_MS;
+  if (!empty) { box.hidden = true; box.innerHTML = ""; return; }
+  if (!box.hidden) return;
+  box.hidden = false;
+  box.innerHTML = "";
+  box.appendChild(el("span", null, t("live.manualEmpty")));
+  const back = el("button", "btn", t("live.unpin"));
+  back.dataset.act = "unpin";
+  back.onclick = () => { live.unpin(); livePinned = null; };
+  box.appendChild(back);
+}
 /** Whether the reader was running at the last report, so a change is seen once. */
 let liveWasActive = false;
 /** Whether the preview is waiting for a box to be dragged on it. */
@@ -13892,6 +13977,7 @@ function onLiveState(st) {
   }
   $("livePick").textContent = t(st.pinned === "manual" ? "live.unpin"
     : livePicking ? "live.picking" : "live.pick");
+  renderManualNotice(st);
 
   // The gap between a shoe ending and the next one being readable can run to
   // minutes, so the moment itself goes in the log rather than only the status.
@@ -15391,6 +15477,10 @@ function bindRegionPicker() {
       x: Math.round(Math.min(start.x, to.x)), y: Math.round(Math.min(start.y, to.y)),
       w: Math.round(Math.abs(to.x - start.x)), h: Math.round(Math.abs(to.y - start.y)),
     };
+    // A box drawn again starts its own twelve seconds (see `renderManualNotice`)
+    // -- set first, since taking the box reports the state at once.
+    liveManualSince = null;
+    liveManualBox = box;
     if (live.pinRegion(box)) setPicking(false);
   });
 }
