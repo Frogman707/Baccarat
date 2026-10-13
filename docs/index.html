@@ -826,12 +826,20 @@ body.open > #gate{display:none}
 .acctbadge{min-width:18px; height:18px; padding:0 5px; border-radius:9px; background:var(--banker);
   color:#fff; font-size:11px; line-height:18px; text-align:center; font-weight:600}
 .acctnote{font-size:11.5px; color:var(--accent)}
+/* One column no wider than the screen: sized to its content, the sheet took
+   the width of its widest table on a phone, and its own buttons -- log out,
+   close -- were off the right-hand edge where nothing scrolls to. */
 #acctSheet{position:fixed; inset:0; z-index:60; display:grid; place-items:start center;
+  grid-template-columns:minmax(0, 1fr);
   padding:6vh 14px 20px; background:rgba(8,12,18,.55); overflow-y:auto}
-.sheetbox{width:min(760px, 100%); background:var(--surface); border:1px solid var(--line);
+.sheetbox{width:min(760px, 100%); min-width:0; background:var(--surface); border:1px solid var(--line);
   border-radius:14px; box-shadow:var(--shadow); padding:18px 18px 20px}
-.sheethead{display:flex; align-items:center; gap:10px; margin-bottom:12px}
+.sheethead{display:flex; align-items:center; flex-wrap:wrap; gap:8px 10px; margin-bottom:12px}
 .sheethead h2{margin:0; flex:1; font-size:16px}
+@media (max-width:560px){
+  .sheetbox{padding:14px 14px 16px}
+  .sheethead h2{flex-basis:100%}
+}
 .tabs{display:inline-flex; gap:2px; padding:3px; border-radius:9px; background:var(--surface-3); margin-bottom:14px; flex-wrap:wrap}
 .tabs button{border:none; background:none; padding:6px 12px; border-radius:7px; color:var(--ink-2); cursor:pointer; font:inherit}
 .tabs button.on{background:var(--surface); color:var(--ink); box-shadow:var(--shadow)}
