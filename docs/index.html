@@ -5217,12 +5217,30 @@ function rereadOnLattice(codes, w, h, x0, y0, group, d, merged, pitch = 0, lette
   if (!lat || Math.min(lat.px, lat.py) > REREAD_TIGHT * d) return null;
   const { px, py, ox, oy } = lat;
   const col = (m) => Math.round((m.cx - ox) / px), row = (m) => Math.round((m.cy - oy) / py);
-  let c0 = Infinity, c1 = -Infinity, r0 = Infinity, r1 = -Infinity;
+  let r0 = Infinity, r1 = -Infinity;
+  const perRow = new Map();
   for (const m of group) {
-    c0 = Math.min(c0, col(m)); c1 = Math.max(c1, col(m));
     r0 = Math.min(r0, row(m)); r1 = Math.max(r1, row(m));
+    perRow.set(row(m), (perRow.get(row(m)) || 0) + 1);
   }
+  // Six rows at most. A lone mark on a seventh row above or below them is
+  // not the board's: on an owner's table (Hoca Games, RC038), shared at
+  // 1.75 times the size, the corner of the plate's frame is a Banker's
+  // colour and a mark's size, one row above the plate's first, and with it
+  // the plate of seventy-two was not read on its lattice at all, and came
+  // out a big road of sixty-eight. Such a mark is left out, and the caller
+  // is told which (see `strays`); a seventh row with more on it than one
+  // is a lattice that does not fit, as before.
+  const strays = new Set();
+  const stray = (r) => perRow.get(r) === 1;
+  while (r1 - r0 + 1 > 6 && stray(r0)) r0 += 1;
+  while (r1 - r0 + 1 > 6 && stray(r1)) r1 -= 1;
   if (r1 - r0 + 1 > 6) return null;
+  let c0 = Infinity, c1 = -Infinity;
+  for (const m of group) {
+    if (row(m) < r0 || row(m) > r1) { strays.add(m); continue; }
+    c0 = Math.min(c0, col(m)); c1 = Math.max(c1, col(m));
+  }
 
   // The frame is classified in the region's own pixels; the marks are not.
   const memo = new Map();
@@ -5285,6 +5303,7 @@ function rereadOnLattice(codes, w, h, x0, y0, group, d, merged, pitch = 0, lette
   // corners filled on average; the felt in the video, the betting boxes and
   // the page around them, 1.7 to 2.9.
   if (solid > cells.length * REREAD_CORNERS) return null;
+  cells.strays = strays;
   return cells;
 }
 
@@ -5530,7 +5549,7 @@ function detectBoards(imageData, { region = null, minCells = 8, whole = null, pi
     // by a mark they had lost.
     const keeps = (m) => again.some((c) => c.code === m.code
       && Math.abs(c.cx - m.cx) <= c.w / 2 && Math.abs(c.cy - m.cy) <= c.h / 2);
-    return again && own.every((m) => m.split || keeps(m))
+    return again && own.every((m) => m.split || keeps(m) || again.strays.has(m))
       ? { cells: again, d, reread: true } : { cells: own, d };
   });
   const boards = [];
@@ -5606,9 +5625,16 @@ function detectBoards(imageData, { region = null, minCells = 8, whole = null, pi
  * column; and in discs, which fill two thirds of their box, a letter in them
  * and all, where a ring fills a third -- a big road of runs fills its columns
  * the way a plate does.
+ *
+ * A column is rows deep: a row of dots two deep -- the ask buttons beside an
+ * owner's roads (Hoca Games, RC038), a letter and three dots each, shared
+ * at twice the size -- has "filled a column and started the next" six times
+ * over, and with it and a scrap of two coups beside it for company that
+ * band outranked the plate of seventy-two alone in its own.
  */
 function looksLikePlate(board) {
-  return board.kind === "bead" && board.nCols >= 2 && (board.hasTie || mixesSides(board.cells))
+  return board.kind === "bead" && board.nCols >= 2 && board.nRows >= 3
+    && (board.hasTie || mixesSides(board.cells))
     && median(board.cells.map((c) => c.fill)) >= 0.5;
 }
 
@@ -10429,9 +10455,18 @@ class LiveWatcher {
    * Pin the lock to the ruling inside it, if there is one now, and say so.
    * The region is the lock the ruling gives (see `gridLock`), as it is for a
    * ruling found at the start.
+   *
+   * Looked for around the board last read, across the lock, where there is
+   * one: a lock taken by the marks spans the frame, and a ruling a third of
+   * it wide does not stand out against everything else across it (see
+   * `rulingAround`) -- on an owner's table (Hoca Games, RC038), shared at
+   * 1.75 times the size, the lock found none across itself through a whole
+   * shuffle, and the plate's ruling around the plate at the first look.
    */
   _pinToRulingIn(frame, w, h) {
-    const ruled = rulingIn(frame, this.region);
+    const ruled = this.lastBox
+      ? rulingAround(frame, this.lastBox, this.lastSize || this.lastBox.y2 - this.lastBox.y, w, h, this.region)
+      : rulingIn(frame, this.region);
     if (!ruled) return false;
     this.grid = ruled;
     this.gridMisses = 0;
