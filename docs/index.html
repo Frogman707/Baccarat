@@ -92,6 +92,15 @@ header{display:contents}
 .hrow{max-width:1220px; margin:0 auto; padding:10px 20px;
       display:flex; align-items:center; gap:10px 14px; flex-wrap:wrap}
 .htools .hrow{padding:6px 20px; gap:6px 10px}
+/* The top row is one row in every language: signed in on a phone in English
+   the name, the table and the account wrapped to two, and the bar that stays
+   at the top of the screen was twice as tall. The name gives way -- it is the
+   one thing on the row that is decoration -- and the table and the account
+   keep their width. */
+.hin .hrow{flex-wrap:nowrap}
+.brand{min-width:0; flex:0 1 auto}
+.brand > span:last-child{overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+#tableSel,.acct{flex:0 0 auto}
 .hgroup{display:inline-flex; align-items:center; gap:2px; flex-wrap:wrap}
 .htools .btn.ghost{padding:5px 10px; font-size:12.5px}
 #tableSel{max-width:40vw; font-weight:500}
@@ -13889,8 +13898,11 @@ function renderManualNotice(st) {
   if (inside(st.board, liveManualBox)) liveManualSince.held = true;
   const empty = !st.board && !liveManualSince.held && Date.now() - liveManualSince.at >= MANUAL_EMPTY_MS;
   if (!empty) { box.hidden = true; box.innerHTML = ""; return; }
-  if (!box.hidden) return;
+  // Built once while it stands, so a click on its button is never on a node
+  // just replaced -- and again in the new language when that changes.
+  if (!box.hidden && box.dataset.lang === currentLang()) return;
   box.hidden = false;
+  box.dataset.lang = currentLang();
   box.innerHTML = "";
   box.appendChild(el("span", null, t("live.manualEmpty")));
   const back = el("button", "btn", t("live.unpin"));
@@ -15478,10 +15490,13 @@ function bindRegionPicker() {
       w: Math.round(Math.abs(to.x - start.x)), h: Math.round(Math.abs(to.y - start.y)),
     };
     // A box drawn again starts its own twelve seconds (see `renderManualNotice`)
-    // -- set first, since taking the box reports the state at once.
+    // -- set first, since taking the box reports the state at once; a stray
+    // click the reader says no to leaves the box that stands, and its clock.
+    const stood = [liveManualSince, liveManualBox];
     liveManualSince = null;
     liveManualBox = box;
     if (live.pinRegion(box)) setPicking(false);
+    else [liveManualSince, liveManualBox] = stood;
   });
 }
 
