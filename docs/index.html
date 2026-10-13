@@ -4335,6 +4335,12 @@ function looksMerged(b, unit) {
  */
 function unmerge(codes, w, h, blob, cols, rows, least = 0.5) {
   const cw = blob.w / cols, ch = blob.h / rows;
+  // Cells smaller than any mark can be (see `keepMarks`) are not marks run
+  // together but one mark over a finer ruling's cells: the legend's discs,
+  // ten pixels, over a derived road's ruling of six, were quartered, and
+  // two quarters of a Tie, one over the other, passed for a column that
+  // had grown and were read as the shoe.
+  if (cw < 6 || ch < 6) return [];
   const out = [];
   for (let c = 0; c < cols; c += 1) {
     for (let r = 0; r < rows; r += 1) {
@@ -4425,15 +4431,19 @@ const RULED_SHARE = 0.35;
  * made a bar of 36 pixels in cells of 7.96: four and a half cells by its
  * length alone, and five with the gap.
  *
- * Filling its box no more than a band does not (see `looksMerged`) -- but a
- * single file of marks this tight comes close: the corners it leaves are
- * only its marks' own, and where two meet, the ruling's line between them
- * takes their colour on a shared screen. On an owner's table (Hoca Games,
- * RC038), the Banker discs, letters and all their colour, made a column of
- * three that filled 0.89 to 0.96 of its box, from the size they share it to
- * three times it, and the shoe's first column was read only as far as them.
+ * A block fills its box no more than a band does (see `looksMerged`) -- but
+ * a single file of marks this tight fills it as a band does: the corners it
+ * leaves are only its marks' own, and where two meet, the ruling's line
+ * between them takes their colour on a shared screen. On an owner's table
+ * (Hoca Games, RC038), the Banker discs, letters and all their colour, made
+ * a column of three that filled 0.89 to 0.96 of its box, from the size they
+ * share it to three times it; marks drawn as tiles (see `TILE_FILL`), and
+ * marks of any shape small enough for the blur to round them off, fill it
+ * whole. So a single file is told from a band by its shape alone: one cell
+ * wide, and whole cells long, of the ruling it is asked about. A block is
+ * held to a band's fill unless the marks beside it are tiles (`tiled`).
  */
-function ruledCells(b, pitch) {
+function ruledCells(b, pitch, tiled = false) {
   if (!(pitch >= 6)) return null;
   const narrow = Math.min(b.w, b.h);
   // Narrower than a mark that fills a cell this tight: another lattice's.
@@ -4444,11 +4454,26 @@ function ruledCells(b, pitch) {
   if (Math.abs(b.w + gap - cols * pitch) > pitch * 0.45) return null;
   if (Math.abs(b.h + gap - rows * pitch) > pitch * 0.45) return null;
   const fill = b.n / (b.w * b.h);
-  return fill >= 0.2 && fill <= (cols === 1 || rows === 1 ? FILE_FILL : 0.9) ? { cols, rows } : null;
+  const most = tiled || cols === 1 || rows === 1 ? 1 : 0.9;
+  return fill >= 0.2 && fill <= most ? { cols, rows } : null;
 }
 
-/** How much of its box a single file of marks run together may fill (see `ruledCells`). */
-const FILE_FILL = 0.97;
+/**
+ * Marks that fill their boxes past this are tiles: squares drawn to their
+ * cells, as the bead plate of many a table is. A run of tiles is as solid as
+ * a band, and on a ruling is told from one by its shape alone (see
+ * `ruledCells`). A disc fills 0.79 of its box; a tile 0.94 and up, the blur
+ * of a shared screen taking an edge of it.
+ */
+const TILE_FILL = 0.9;
+
+/**
+ * A board being followed whose marks fill their boxes past this, taken
+ * together, is drawn in tiles, or in discs small enough for the blur of a
+ * shared screen to round into them (see `tiled` in `detectBoards`): discs of
+ * eight pixels filled 0.75, of nine 0.88, tiles of twelve 0.96 and up.
+ */
+const FOLLOWED_TILE_FILL = 0.85;
 
 /**
  * How much of its own box one round mark fills, at the least, with the
@@ -4458,6 +4483,21 @@ const FILE_FILL = 0.97;
  * (see `ruledCells`), not one big mark.
  */
 const SOLID_MARK = 0.6;
+
+/**
+ * A mark hollow past this share of its box (see `labelBlobs`) is a ring --
+ * a big road's, or a tie's stroke across one. Rings measured half to four
+ * fifths at every size a table draws them; a disc with a letter on it a fifth
+ * at most, the letter's strokes.
+ */
+const HOLLOW_MARK = 0.35;
+
+/**
+ * A ruling's cell below this many pixels is small: a mark in it, shared,
+ * is blurred into a rounded square that fills the cell to its corners (see
+ * `markedCells`).
+ */
+const SMALL_CELL = 14;
 
 /** Connected components over the classified mask, 4-connectivity. */
 function labelBlobs(codes, w, h) {
@@ -4490,9 +4530,24 @@ function labelBlobs(codes, w, h) {
       if (y < h - 1 && !seen[p + w] && codes[p + w] === code) { seen[p + w] = 1; stack[sp++] = p + w; }
     }
 
+    // How hollow the mark is: the longest run of other pixels across the
+    // middle of its box, as a share of the box, the wider of the two ways. A
+    // ring's hole is most of it (half and more, see `HOLLOW_MARK`); a disc
+    // has none, and the white letter a table prints on one is strokes, a
+    // fifth of the mark at most. Measured here because it tells a big road's
+    // first ring from a plate's first coup (see `LiveWatcher._roadsAmong`).
+    const mx = (minX + maxX) >> 1, my = (minY + maxY) >> 1;
+    let run = 0, across = 0, vrun = 0, down = 0;
+    for (let x = minX; x <= maxX; x++) {
+      if (codes[my * w + x] !== code) { run++; if (run > across) across = run; } else run = 0;
+    }
+    for (let y = minY; y <= maxY; y++) {
+      if (codes[y * w + mx] !== code) { vrun++; if (vrun > down) down = vrun; } else vrun = 0;
+    }
     blobs.push({
       code, n, cx: sx / n, cy: sy / n,
       w: maxX - minX + 1, h: maxY - minY + 1, minX, minY, maxX, maxY,
+      hollow: Math.max(across / (maxX - minX + 1), down / (maxY - minY + 1)),
     });
   }
   return blobs;
@@ -4577,9 +4632,9 @@ function groupBlobs(marks, whole = null, pitch = 0) {
   // widen the window for every small mark in the picture and give most of the
   // saving back.
   //
-  // Down the frame, no further than a row and a half of cells where the
-  // ruling is known -- a cell being the ruling's or the marks' own size,
-  // whichever is bigger, since the ruling found can be a finer road's than
+  // Down the frame, no further than a row and a half of cells -- a cell
+  // being the ruling's or the marks' own size, whichever is bigger, where a
+  // ruling is known, since the ruling found can be a finer road's than
   // the marks' (the derived roads' under a plate of marks twice their cells,
   // on the first look at an owner's strip). A plate's rows are a cell apart;
   // the big road under it, on an owner's table with its roads beside the
@@ -4591,7 +4646,49 @@ function groupBlobs(marks, whole = null, pitch = 0) {
   // ruling. A mark hidden in a column leaves a gap of two cells, which the
   // board being read is held together across by `whole` below.
   const by = marks.map((_, i) => i).sort((p, q) => marks[p].cx - marks[q].cx);
-  const down = (a, b) => (pitch > 0 ? 1.6 * Math.max(pitch, a, b) : Infinity);
+  // With no ruling known, a cell is the marks' own size: on a table that
+  // stacks its roads, the plate over the big road a cell apart with rings
+  // the size of the plate's discs (drawn as any table draws them, at
+  // twelve pixels a cell), the plate's last row and the road's first were
+  // one group, and a plate of twenty-six read as two. A plate's rows are
+  // a cell apart, and a mark hidden in a column leaves a gap of two, past
+  // which the plate is not read anyway (see `beadPlaces`).
+  //
+  // Unless the ruling is coarser than the marks by well over half again:
+  // no mark is bigger than its cell, and none loses more than a third of
+  // it to the letter printed across it and the blur (on an owner's table,
+  // Hoca Games RC038, a Tie of six pixels in a cell of 8.6), so that ruling
+  // is not theirs -- a lattice over the whole band of roads, as a dark table
+  // stacking its roads at twenty to the cell gave, forty-five pixels to its
+  // cell -- and a cell is the marks' own size again. Held to the ruling's,
+  // the plate's last row reached the big road's first ring under it, and six
+  // coups read as eleven.
+  const down = (a, b) => 1.6 * (pitch > 1.6 * Math.max(a, b) ? Math.max(a, b) : Math.max(pitch, a, b));
+  // And on a ruling, two marks of a cell's size are whole cells apart, or
+  // not of one board: on a table that stacks its roads a cell and a half
+  // apart, ruled alike -- the plate's tiles twenty to the cell, the big
+  // road's rings under them, one lattice of twenty-one rows -- the plate's
+  // last row reached the road's first, and a shoe of six was a board of
+  // eleven rows, read as nothing. Only marks of a cell's size, six tenths
+  // of one to a little over: a bar of marks run together is centred between
+  // cells, and marks of another size are not this ruling's at all -- on an
+  // owner's table (Hoca Games, RC002) the ruling found over the plate was
+  // twice its cells, and held to it the plate's rows were not whole cells
+  // apart. Measured between the middles of the marks' boxes, not their
+  // centroids: a tie's slash across a big road's ring pulls the ring's
+  // centroid four pixels toward it, which on a table stacking its roads
+  // brought the ring within a third of a cell of the plate's last row.
+  const cells = pitch >= 6
+    ? (d, a, b) => {
+        const m = Math.max(a, b);
+        return m < 0.6 * pitch || m > 1.15 * pitch || Math.abs(d - Math.round(d / pitch) * pitch) <= 0.35 * pitch;
+      }
+    : () => true;
+  const middle = (m, lo, hi) => (m[lo] !== undefined && m[hi] !== undefined ? (m[lo] + m[hi]) / 2 : null);
+  const apart = (m, n, lo, hi, dc) => {
+    const p = middle(m, lo, hi), q = middle(n, lo, hi);
+    return p === null || q === null ? dc : Math.abs(p - q);
+  };
 
   const parent = marks.map((_, i) => i);
   const find = (x) => { while (parent[x] !== x) { parent[x] = parent[parent[x]]; x = parent[x]; } return x; };
@@ -4607,7 +4704,8 @@ function groupBlobs(marks, whole = null, pitch = 0) {
       if (Math.max(a, b) / Math.min(a, b) > 1.8) continue;      // a different board
       const reach = Math.min(a, b) * 2.2;
       const dy = Math.abs(mi.cy - mj.cy);
-      if (dx <= reach && dy <= Math.min(reach, down(a, b))) union(i, j);
+      if (dx <= reach && dy <= Math.min(reach, down(a, b))
+          && cells(apart(mi, mj, "minX", "maxX", dx), a, b) && cells(apart(mi, mj, "minY", "maxY", dy), a, b)) union(i, j);
     }
   }
   // A board already being read is one board, whatever has come between its
@@ -4831,6 +4929,46 @@ function beadPlaces(cells) {
   return { hole: -1, rows };
 }
 
+/**
+ * The shoe a big road shows, read the way the road was drawn: a run goes
+ * down its column, and on past the foot of the board, or into a cell an
+ * earlier run took, it turns right along the row it reached -- the dragon's
+ * tail (see `placeColumns` in core.js). Read column by column from the
+ * top, as a plate is, a run of nine came out in three pieces with the next
+ * run's coups between them. Here each run is followed as it was laid: down
+ * while the cell under it holds its side, right where it cannot go down,
+ * and the next run opens on the top row at the first cell no run has taken.
+ * A tie opens no cell on a big road: it is written across the mark of the
+ * coup before it, and read after that coup (see `buildBoard`).
+ */
+function roadSequence(cells, nRows) {
+  const at = new Map();
+  for (const c of cells) at.set(`${c.col},${c.row}`, c);
+  const taken = new Set();
+  const cell = (col, row) => at.get(`${col},${row}`);
+  const free = (col, row) => cell(col, row) && !taken.has(`${col},${row}`);
+  const maxCol = Math.max(-1, ...cells.map((c) => c.col));
+  let out = "";
+  for (let start = 0; start <= maxCol; start += 1) {
+    if (!free(start, 0)) continue;
+    let col = start, row = 0;
+    const side = cell(col, row).outcome;
+    for (;;) {
+      taken.add(`${col},${row}`);
+      out += side + "T".repeat(cell(col, row).ties || 0);
+      if (row + 1 < nRows && free(col, row + 1) && cell(col, row + 1).outcome === side) { row += 1; continue; }
+      if (free(col + 1, row) && cell(col + 1, row).outcome === side
+          && (row + 1 >= nRows || !free(col, row + 1))) { col += 1; continue; }
+      break;
+    }
+  }
+  // What no run reached -- a mark off the lattice, a ring under a tail, a
+  // tie dealt before any coup, which a table writes in the first cell on
+  // its own -- is read where it stands, so nothing on the board goes unread.
+  for (const c of cells) if (!taken.has(`${c.col},${c.row}`)) out += c.outcome + "T".repeat(c.ties || 0);
+  return out;
+}
+
 function buildBoard(marks, diameter) {
   const gap = diameter * 0.55;
   const cols = binAxis(marks.map((m) => m.cx), gap);
@@ -4840,18 +4978,59 @@ function buildBoard(marks, diameter) {
     col: cols.bin[i], row: rows.bin[i],
     outcome: CODE_TO_OUTCOME[m.code],
     cx: m.cx, cy: m.cy, r: Math.max(m.w, m.h) / 2, fill: m.n / (m.w * m.h),
+    hollow: m.hollow || 0,
+    minX: m.minX, minY: m.minY, maxX: m.maxX, maxY: m.maxY,
   }));
 
-  // One mark per grid slot: if two landed in the same slot, keep the larger.
+  // One mark per grid slot: if two landed in the same slot, keep the larger
+  // -- unless one is a stroke of a tie's green across the other, which is
+  // how a big road writes a tie: on the mark of the coup before it, as a
+  // slash or a figure, hollow where a plate's tie is a disc (see
+  // `SOLID_TIE`). That is the mark's tie, counted on it, not a cell of its
+  // own: taken for one, the ring under it went unread and the run it was
+  // part of broke in two.
   const slots = new Map();
+  const stroke = (m) => m.outcome === "T" && m.fill < SOLID_TIE;
   for (const c of cells) {
     const key = `${c.col},${c.row}`;
     const prev = slots.get(key);
-    if (!prev || c.r > prev.r) slots.set(key, c);
+    if (!prev) slots.set(key, c);
+    else if (stroke(c) && !stroke(prev)) prev.ties = (prev.ties || 0) + 1;
+    else if (stroke(prev) && !stroke(c)) { c.ties = (c.ties || 0) + (prev.ties || 0) + 1; slots.set(key, c); }
+    else if (c.r > prev.r) slots.set(key, c);
   }
-  const unique = [...slots.values()].sort((a, b) => (a.col - b.col) || (a.row - b.row));
+  let unique = [...slots.values()].sort((a, b) => (a.col - b.col) || (a.row - b.row));
 
-  const nRows = rows.count, nCols = cols.count;
+  // A bead plate is six rows, and what stands a row under it, or over it, at
+  // the pitch of its cells is not its seventh: the legend most tables print
+  // under the plate -- a disc of each side with its count -- under the first
+  // columns, a row of pair badges, a strip of buttons. Drawn as any table
+  // draws them, a plate of six with the legend's Banker one cell under its
+  // first column read as a big road of seven, and at twelve coups, with the
+  // legend's Player under the third column too, as fourteen. Where the six
+  // rows from the top, or from the foot, fill as a plate fills -- column by
+  // column, every column but the last full -- and what is left over does
+  // not reach into them, the plate is those six and the rest is not read.
+  const nRows0 = rows.count, nCols0 = cols.count;
+  let trimmed = false;
+  if (nRows0 >= 7 && nRows0 <= 9 && unique.length >= 7) {
+    for (const first of [0, nRows0 - 6]) {
+      const inside = unique.filter((c) => c.row >= first && c.row < first + 6);
+      const outside = unique.length - inside.length;
+      if (!outside || inside.length < 6) continue;
+      const six = inside.map((c) => ({ ...c, row: c.row - first }));
+      const colsUsed = new Set(six.map((c) => c.col)).size;
+      if (colsUsed * 6 < six.length) continue;
+      const stacked = fillsLikeABeadPlate(six, nCols0, 6)
+        && (six.some((c) => c.outcome === "T") || mixesSides(six) || colsUsed >= 2);
+      if (!stacked) continue;
+      unique = six;
+      trimmed = true;
+      break;
+    }
+  }
+
+  const nRows = trimmed ? 6 : rows.count, nCols = cols.count;
   const occupancy = unique.length / Math.max(1, nRows * nCols);
   const hasTie = unique.some((c) => c.outcome === "T");
 
@@ -4892,14 +5071,20 @@ function buildBoard(marks, diameter) {
   return {
     kind, cells: unique, nRows, nCols, occupancy, hasTie, diameter,
     // Read as far as the first hole, and said to have one: past it, nothing
-    // on screen is in the place it seems to be.
-    sequence: (hole < 0 ? unique : unique.slice(0, hole)).map((c) => c.outcome).join(""),
+    // on screen is in the place it seems to be. A big road is read the way
+    // it was drawn, run by run (see `roadSequence`).
+    sequence: kind === "bead" ? (hole < 0 ? unique : unique.slice(0, hole)).map((c) => c.outcome).join("")
+            : roadSequence(unique, nRows),
     holed: hole >= 0,
     // The rows it spans, a row a hole has emptied included (see `beadPlaces`).
     rowSpan: placed.rows,
+    // Of the cells kept, not of every mark offered: a legend's disc a row
+    // under the plate, trimmed out of its cells, stayed in its box, and
+    // once the plate was wiped the disc "carried on" from where the plate
+    // had been, read as the next shoe's first coup for ten coups running.
     box: {
-      x: Math.min(...marks.map((m) => m.minX)), y: Math.min(...marks.map((m) => m.minY)),
-      x2: Math.max(...marks.map((m) => m.maxX)), y2: Math.max(...marks.map((m) => m.maxY)),
+      x: Math.min(...unique.map((c) => c.minX)), y: Math.min(...unique.map((c) => c.minY)),
+      x2: Math.max(...unique.map((c) => c.maxX)), y2: Math.max(...unique.map((c) => c.maxY)),
     },
     // Cell count alone would hand the pick to the derived roads, which carry
     // far more marks than the bead plate and mean far less. Six rows exactly,
@@ -5479,7 +5664,17 @@ function detectBoards(imageData, { region = null, minCells = 8, whole = null, pi
       classify(lut);
       const relabelled = labelBlobs(codes, w, h);
       const recovered = keepMarks(relabelled, w, h);
-      if (recovered.length > marks.length) {
+      // Taken where it finds more marks and loses none of any colour: glare
+      // takes the greens, so the stretch gives ties back and keeps the rest.
+      // On a white panel, which has no dark pixels either, the stretch read
+      // as glare, and once the plate was wide enough for it to find one
+      // more mark it was taken -- with both ties turned to nothing, and the
+      // shoe read only as far as the first of them.
+      const byCode = (ms) => { const n = [0, 0, 0, 0]; for (const m of ms) n[m.code] += 1; return n; };
+      const before = byCode(marks), after = byCode(recovered);
+      const gains = recovered.length > marks.length && after.every((n, c) => n >= before[c]);
+      if (globalThis.__LATTICE_DEBUG) console.log(`[detect] glare: ${marks.length} marks (${before[TIE]} ties) -> ${recovered.length} (${after[TIE]} ties)${gains ? " taken" : ""}`);
+      if (gains) {
         all = relabelled;
         marks = recovered;
       } else {
@@ -5553,10 +5748,38 @@ function detectBoards(imageData, { region = null, minCells = 8, whole = null, pi
     // big road under it, and the plate was not read at all.
     const edged = (b) => (x0 > 0 && b.minX === 0) || (x1 < W && b.maxX === w - 1)
       || (y0 > 0 && b.minY === 0) || (y1 < H && b.maxY === h - 1);
+    // Whether the marks around a blob are tiles (see `TILE_FILL`): drawn as
+    // tiles, a run of one side is one solid bar, which nothing but the ruling
+    // tells from a band, and only beside tiles is it asked to. Measured on a
+    // plate of squares nine pixels to the cell, shared: a Banker's tile over
+    // three Players' filled 0.94, the three Players one bar of 1.00, and the
+    // shoe stood at two coups while the bar was turned away as a band.
+    //
+    // Asked of the marks within half a cell of the blob's box: on a plate,
+    // the cells beside a run, and not the legend's discs a row under it. Or
+    // of the board being followed, whose marks' size and fill the reader
+    // hands down (see `whole`): a run with nothing beside it -- a shoe's
+    // first column, all one side -- has only that to go by, and a tile
+    // twelve pixels wide, shared, loses enough of its edges to the blur to
+    // fill its box no more than a disc does, where the board's marks as a
+    // whole still fill theirs. Drawn as tiles at that size, two Bankers over
+    // two were one block of four cells, passed for one mark by its one
+    // neighbour's fill, and the shoe stood at two coups.
+    const tiled = (b) => {
+      const near = 0.5 * pitch, fills = [];
+      for (let i = from(b.minX - near - 3 * pitch); i < byX.length && xs[i] <= b.maxX + near + 3 * pitch; i += 1) {
+        const m = byX[i];
+        if (m === b || m.minX > b.maxX + near || m.maxX < b.minX - near
+            || m.minY > b.maxY + near || m.maxY < b.minY - near) continue;
+        fills.push(m.n / (m.w * m.h));
+      }
+      return (fills.length > 0 && median(fills) >= TILE_FILL)
+        || !!(whole && whole.d <= pitch * 1.25 && whole.fill >= FOLLOWED_TILE_FILL);
+    };
     const isMark = new Set(marks);
     for (const blob of all) {
       if (edged(blob)) continue;
-      const ruled = size(blob) >= 9 ? ruledCells(blob, pitch) : null;
+      const ruled = size(blob) >= 9 ? ruledCells(blob, pitch, pitch >= 6 && tiled(blob)) : null;
       if (!ruled && !candidate(blob)) continue;
       let cut = null;
       if (!isMark.has(blob)) {
@@ -5576,6 +5799,7 @@ function detectBoards(imageData, { region = null, minCells = 8, whole = null, pi
         }
       } else if (ruled && size(blob) >= pitch * 1.4 && (whole && whole.d <= pitch * 1.25
                                                          || blob.n / (blob.w * blob.h) < SOLID_MARK
+                                                         || blob.n / (blob.w * blob.h) >= TILE_FILL && tiled(blob)
                                                          || pinched(codes, w, blob, ruled.cols, ruled.rows))) {
         // Bigger than a cell, where the board being read has marks a cell
         // big, which a mark half as big again is not one of: on an owner's
@@ -5669,6 +5893,11 @@ function detectBoards(imageData, { region = null, minCells = 8, whole = null, pi
     return again && own.every((m) => m.split || keeps(m) || again.strays.has(m))
       ? { cells: again, d, reread: true } : { cells: own, d };
   });
+  if (globalThis.__LATTICE_DEBUG) {
+    console.log(`[detect] region ${x0},${y0}-${x1},${y1} pitch ${pitch.toFixed(1)} unit ${unit.toFixed(1)} marks ${marks.length} merged ${merged.length} pieces ${pieces.length}`);
+    for (const g of groups) console.log(`[detect]   group ${g.cells.length} cells d ${g.d.toFixed(1)}${g.reread ? " reread" : ""}: ${g.cells.slice(0, 40).map((c) => `${CODE_TO_OUTCOME[c.code]}@${Math.round(c.cx)},${Math.round(c.cy)}`).join(" ")}`);
+    for (const b of merged.slice(0, 12)) console.log(`[detect]   merged blob ${b.size.toFixed(0)}px at ${Math.round(b.cx)},${Math.round(b.cy)}`);
+  }
   const boards = [];
   for (const g of groups) {
     if (g.cells.length < minCells) continue;
@@ -5714,12 +5943,33 @@ function detectBoards(imageData, { region = null, minCells = 8, whole = null, pi
   // were each other's company -- two against the plate's one, and the plate
   // was read third. A young shoe's single column gets no such head start, so
   // a row of chips is kept out the way it always was (see `looksLikePlate`).
+  //
+  // And before company, a column: a shoe's first coups stand one under
+  // another, which nothing else on a screen does in these colours, while a
+  // legend -- a disc of each side with its count, printed under the plate on
+  // most tables -- is a row of three boards of one mark each, three for
+  // company against the young column's one. Drawn as any table draws them,
+  // at eight pixels a cell the legend's discs outranked the plate from its
+  // second coup to its fourth, and the reader wrote nothing down until the
+  // fifth. Two marks or more in one column, two rows deep, say more than any
+  // number of marks standing alone.
   for (const b of boards) {
     b.band = boards.filter((o) => sharesBand(o, b));
     b.bandScore = b.band.reduce((sum, o) => sum + o.score, 0);
     b.plated = b.band.some(looksLikePlate);
+    b.grown = b.band.some((o) => o.cells.length >= 2 && o.nRows >= 2);
+    // A table that shows no bead plate shows its big road, and under or
+    // beside it the three derived roads, drawn at half the size: three
+    // boards in a band of their own, three for company against the big
+    // road's one, and the reader read the big eye boy as the shoe. Among
+    // bands with no plate, a road's marks say which is the road: the big
+    // road's are the biggest marks on the screen that stand in a road's
+    // shape, eight cells or more, two rows deep.
+    b.roadLead = Math.max(0, ...b.band.filter((o) => o.cells.length >= 8 && o.nRows >= 2).map((o) => o.diameter));
   }
   const byCompany = (a, b) => (b.plated - a.plated)
+                           || (b.grown - a.grown)
+                           || (b.roadLead - a.roadLead)
                            || (b.band.length - a.band.length)
                            || (b.bandScore - a.bandScore)
                            || (b.score - a.score);
@@ -6500,23 +6750,174 @@ function detectGrid(imageData, { region = null } = {}) {
     x1: r ? Math.min(W, Math.round(r.x + r.w)) : W, y1: r ? Math.min(H, Math.round(r.y + r.h)) : H,
   });
   const outer = clip(region);
-  const core = ruledLattice(imageData, outer);
-  if (!core) return null;
-  const { box: lattice, pitch, cols: nCols, rows: nRows } = core;
+  const found = ruledLattice(imageData, outer);
+  if (!found) return null;
   const { x0, y0, x1, y1 } = outer;
-  // The ruling shows where the cells are empty; to its left the plate's
-  // filled columns hide it, and the panel's colour with it. Those columns
-  // are on the same lattice, so they are found as cells with marks in.
-  const reach = { ...lattice, x: markedReach(imageData, lattice, pitch, nRows, x0) };
-  return {
-    box: lattice,
-    panel: growToPanel(imageData, reach, pitch, { x: x0, y: y0, x2: x1 - 1, y2: y1 - 1 }),
-    pitch,
-    cols: nCols,
-    rows: nRows,
-    solidity: core.solidity,
-    filled: latticeFill(imageData, lattice, nCols, nRows, pitch),
+  const bounds = { x: x0, y: y0, x2: x1 - 1, y2: y1 - 1 };
+  // Every lattice the search verified, and the one the search stopped at
+  // is the longest run: on most tables the big road's, wider by a column
+  // for every run in the shoe, or the derived roads', three panels in a
+  // row at half the cell, their rules in step across the strip's whole
+  // width. The plate is the one with discs in its cells -- a big road's
+  // rings leave their cells' middles bare, and a disc, a letter across it
+  // and all, fills its own -- and of lattices with discs, the coarser: the
+  // small road is drawn in discs too, at half the plate's cell or less.
+  // With nothing dealt yet none has any, and the coarsest six-row lattice
+  // is taken, the plate's or the big road's -- the derived roads are the
+  // finest on any screen -- and of two alike the one with fewer columns,
+  // until a coup says otherwise (see the live reader's `_opensThePanel`,
+  // which keeps every other lattice at hand). A coarse lattice laid over
+  // finer ones is no road (see `underneath`), and is not in the running.
+  const all = found.candidates || [found];
+  // -- unless the coarse one is aligned on discs of its own, every marked
+  // cell of it a disc at its middle: discs on a plain ground, with no
+  // ruling, make a finer lattice of their edges at half their pitch, and
+  // the lattice of the discs themselves is the one to keep.
+  const marksOf = new Map();
+  const marks = (l) => { if (!marksOf.has(l)) marksOf.set(l, markedCells(imageData, l)); return marksOf.get(l); };
+  const onDiscs = (l) => { const c = marks(l); return c.discs >= 1 && c.discs * 5 >= c.marked * 4; };
+  const covering = (c) => !onDiscs(c) && all.some((f) => f !== c && f.pitch < c.pitch * 0.8 && underneath(f, c));
+  // Nor a lattice lying over another's ground with fewer cells: a fragment
+  // of the plate's own ruling, found a row above it and at a hair more
+  // pitch, on an owner's table with its roads beside the video.
+  const area = (b) => Math.max(0, b.x2 - b.x) * Math.max(0, b.y2 - b.y);
+  const lying = (c) => all.some((f) => f !== c && f.cols * f.rows > c.cols * c.rows
+    && Math.abs(f.pitch - c.pitch) <= c.pitch * 0.12
+    && area({ x: Math.max(f.box.x, c.box.x), y: Math.max(f.box.y, c.box.y),
+              x2: Math.min(f.box.x2, c.box.x2), y2: Math.min(f.box.y2, c.box.y2) }) >= area(c.box) / 2);
+  // The lattice the search stopped at stays in the running whatever lies
+  // over it: on an owner's table shared at one and a half times the size,
+  // the plate's own five-row ruling lay under a lattice of eight rows that
+  // ran on into the big road, bigger and wrong.
+  const candidates = all.filter((c) => c === found || (!covering(c) && !lying(c)));
+  // Marks say most: a lattice with marks in its cells over one without,
+  // and among those, not the derived roads -- drawn at half the cell of the
+  // big road or less, and in discs on the small road, so discs alone would
+  // take the small road for the plate -- then the one with discs, then the
+  // coarser, then the one with fewer columns. The marks are looked for as
+  // far left of the ruling as its rows go on (see `markedReach`): a ruling
+  // shows where the cells are empty, and the plate's coups are beside it.
+  const cells = new Map(candidates.map((l) => {
+    const x = markedReach(imageData, l.box, l.pitch, l.rows, x0);
+    const reach = { ...l, box: { ...l.box, x }, cols: Math.max(l.cols, Math.round((l.box.x2 - x) / l.pitch)) };
+    return [l, markedCells(imageData, reach)];
+  }));
+  // The derived roads are told by the cell of a road with marks in plenty
+  // -- most of its first cells marked -- not by a stray lattice with a mark
+  // here and there: drawn as an owner's table draws its roads beside a red
+  // felt, a lattice of three times the plate's cell, with two of its cells
+  // marked, set the plate itself aside; shared at twice the size, with four.
+  const coarsest = Math.max(0, ...candidates.filter((l) => cells.get(l).dense).map((l) => l.pitch));
+  // Then, the marks not deciding it, the lattice the search stopped at --
+  // the longest run's, as it always was -- then six rows deep, the coarser,
+  // the one with fewer columns, and a lattice from a whole run of rows over
+  // one from part of a run (see `ruledLattice`).
+  const rank = (l) => {
+    const c = cells.get(l);
+    const road = c.marked && l.pitch > coarsest * 0.6 ? 1 : 0;
+    // Aligned on its marks: every cell with a mark has a disc at its middle,
+    // where a lattice laid over the same marks at some other pitch hits
+    // them at its middles only now and then.
+    const aligned = road && c.discs && (c.marked < 4 || c.discs * 5 >= c.marked * 4) ? 1 : 0;
+    // Then the more marks in its cells the better: a lattice at some
+    // multiple of the marks' pitch has a mark at a middle only here and
+    // there -- over eight coups ruled at seventeen, a lattice of twenty-nine
+    // had two cells marked to the plate's eight, and being the coarser it
+    // was taken, with every coup then read into the wrong cell.
+    return [road, road && c.discs ? 1 : 0, road && c.dense ? 1 : 0, aligned, c.marked, l === found ? 1 : 0, l.rows >= 6 ? 1 : 0, l.pitch, -l.cols, l.part ? 0 : 1];
   };
+  const better = (p, q) => { for (let i = 0; i < p.length; i += 1) if (p[i] !== q[i]) return p[i] > q[i]; return false; };
+  let core = candidates[0], top = rank(core);
+  for (const l of candidates) { const r = rank(l); if (better(r, top)) { core = l; top = r; } }
+  if (globalThis.__LATTICE_DEBUG) {
+    for (const l of all) console.log(`[grid] ${candidates.includes(l) ? (l === core ? "CHOSEN" : "      ") : "dropped"} ${l.cols}x${l.rows}@${l.box.x},${l.box.y}-${l.box.x2},${l.box.y2} pitch ${l.pitch.toFixed(2)} ${candidates.includes(l) ? "rank " + JSON.stringify(rank(l).map((v) => +v.toFixed(2))) + " marks " + JSON.stringify(cells.get(l)) : ""}${l.part ? " part" : ""}`);
+  }
+  const describe = (l) => {
+    const { box: lattice, pitch, cols: nCols, rows: nRows } = l;
+    // The ruling shows where the cells are empty; to its left the plate's
+    // filled columns hide it, and the panel's colour with it. Those columns
+    // are on the same lattice, so they are found as cells with marks in.
+    const reach = { ...lattice, x: markedReach(imageData, lattice, pitch, nRows, x0) };
+    return {
+      box: lattice,
+      panel: growToPanel(imageData, reach, pitch, bounds),
+      pitch,
+      cols: nCols,
+      rows: nRows,
+      solidity: l.solidity,
+      filled: latticeFill(imageData, lattice, nCols, nRows, pitch),
+    };
+  };
+  const grid = describe(core);
+  grid.siblings = candidates.filter((l) => l !== core).map(describe);
+  return grid;
+}
+
+/**
+ * What a lattice's cells hold, counted down its first columns and no further
+ * than it needs to: `marked`, cells with a mark of any kind in them -- a
+ * mark's colour around a ring a third of the cell out from its middle,
+ * where a disc and a ring both are, and the cell's corners bare, where a
+ * felt of a mark's colour, or a betting box, fills corner and middle alike
+ * (drawn as an owner's table draws its roads beside a video of a Banker's
+ * red felt, a lattice found over the felt had every cell "solid") -- and
+ * `discs`, those whose middle is a mark's colour too, a letter printed
+ * across it and all, which a ring leaves bare; `scanned`, how many cells
+ * were looked at for them, and `dense`, whether most of those were marked.
+ */
+function markedCells(imageData, l) {
+  const { width: W, height: H, data } = imageData;
+  const { box, pitch, cols, rows } = l;
+  const marked = (x, y) => {
+    x = Math.round(x); y = Math.round(y);
+    if (x < 0 || y < 0 || x >= W || y >= H) return -1;
+    const p = (y * W + x) * 4;
+    return classifyPixel(data[p], data[p + 1], data[p + 2], true) !== NONE ? 1 : 0;
+  };
+  let found = 0, discs = 0, scanned = 0;
+  for (let c = 0; c < cols && found < 12; c += 1) {
+    for (let r = 0; r < rows; r += 1) {
+      const cx = box.x + (c + 0.5) * pitch, cy = box.y + (r + 0.5) * pitch;
+      let middle = 0, seen = 0, around = 0, corners = 0;
+      scanned += 1;
+      for (let j = -2; j <= 2; j += 1) {
+        for (let i = -2; i <= 2; i += 1) {
+          const m = marked(cx + i * pitch * 0.12, cy + j * pitch * 0.12);
+          if (m < 0) continue;
+          seen += 1; middle += m;
+        }
+      }
+      for (let k = 0; k < 8; k += 1) {
+        const a = (k * Math.PI) / 4;
+        around += Math.max(0, marked(cx + Math.cos(a) * pitch * 0.33, cy + Math.sin(a) * pitch * 0.33));
+      }
+      for (const [i, j] of CORNERS) corners += Math.max(0, marked(cx + i * pitch * 0.45, cy + j * pitch * 0.45));
+      // A mark of the cell's own is all the way round, and reaches none of
+      // the cell's corners: a lattice laid over marks at twice their pitch,
+      // or a little off theirs, crosses two or three of them with the ring
+      // of samples and marks a few of it -- and one laid over the video, or
+      // a betting box, has whole cells of one colour, which reach every
+      // corner, and at the edge of the box a cell with a corner or two.
+      // Measured on a dark table stacking its roads beside its video, a
+      // lattice of forty-five pixels over the whole band reached five cells
+      // into the video and the boxes, and four of those, one corner each,
+      // passed for discs, which put it over the roads' own empty ruling.
+      // In a small cell, one corner is allowed: the blur of a shared screen
+      // rounds a mark of eight pixels into a square that reaches them (on an
+      // owner's table, Hoca Games RC038, the next shoe after a long shuffle
+      // was read late without it).
+      if (corners > (pitch < SMALL_CELL ? 1 : 0)) continue;
+      if (around >= 7 || (seen && middle * 3 >= seen)) found += 1;
+      if (seen && middle * 3 >= seen) discs += 1;
+      if (globalThis.__LATTICE_DEBUG && (around >= 7 || (seen && middle * 3 >= seen))) {
+        console.log(`[marked] ${cols}x${rows}@${box.x},${box.y} pitch ${pitch.toFixed(1)}: cell ${c},${r} at ${Math.round(cx)},${Math.round(cy)} middle ${middle}/${seen} around ${around}`);
+      }
+    }
+  }
+  // Dense where its cells, from the first, are mostly marked -- a road's
+  // filled columns -- and sparse where a lattice laid over marks at some
+  // other pitch catches one here and there.
+  return { marked: found, discs, scanned, dense: found >= 4 && found * 2 >= scanned };
 }
 
 /**
@@ -6587,8 +6988,64 @@ function ruledLattice(imageData, { x0, y0, x1, y1 }) {
   // were.
   const rowRuns = ruledRuns(rulePeaks(rowProfile(L, w, h)), GRID_MIN_PITCH, maxPitch, GRID_ROW_RUNS);
 
-  const latticeFrom = (first) => {
-    if (first.cells < GRID_MIN_ROWS) return null;
+  // Every lattice the runs verify, in the order they were tried -- the
+  // longest row run first, the longest column run across it first -- so the
+  // first of them is the one the search used to stop at. The rest are kept:
+  // a table rules its bead plate and its big road at the same pitch as
+  // often as not, side by side or one over the other, and the longest run
+  // is the big road's, which is wider. Which of two lattices of one pitch
+  // is the plate is a question for the marks in them (see `detectGrid`),
+  // and for the shoe's first coup where there are none yet (see the live
+  // reader's `_opensThePanel`), so both are returned.
+  const all = [];
+  const same = (p, q) => Math.abs(p.pitch - q.pitch) <= p.pitch * 0.12
+    && Math.abs(p.box.x - q.box.x) <= p.pitch && Math.abs(p.box.y - q.box.y) <= p.pitch
+    && Math.abs(p.box.x2 - q.box.x2) <= p.pitch && Math.abs(p.box.y2 - q.box.y2) <= p.pitch;
+  const verify = (across, down) => {
+    let cols = across.chain, rows = down.chain, ok = true;
+    for (let pass = 0; pass < 2 && ok; pass += 1) {
+      const jFrom = Math.max(0, Math.round(rows[0]));
+      const tall = Math.max(1, Math.min(h - 1 - jFrom, Math.round(rows[rows.length - 1]) - jFrom));
+      const downHalf = Math.min(SMOOTH, Math.max(0, (tall >> 1) - 1));
+      cols = trimToCrossing(cols, (i) => (i < 1 || i >= w - 2 ? 0
+        : runAt((x, d) => {
+            for (let y = 0; y < tall; y += 1) {
+              const at = (jFrom + y) * w + x;
+              d[y] = L[at + 1] - L[at];
+            }
+          }, i, tall, downHalf) / tall));
+      if (cols.length < GRID_MIN_COLS + 1) { ok = false; break; }
+
+      const iFrom = Math.max(0, Math.round(cols[0]));
+      const wide = Math.max(1, Math.min(w - 1 - iFrom, Math.round(cols[cols.length - 1]) - iFrom));
+      const acrossHalf = Math.min(SMOOTH, Math.max(0, (wide >> 1) - 1));
+      rows = trimToCrossing(rows, (j) => (j < 1 || j >= h - 2 ? 0
+        : runAt((y, d) => {
+            for (let x = 0; x < wide; x += 1) d[x] = L[(y + 1) * w + iFrom + x] - L[y * w + iFrom + x];
+          }, j, wide, acrossHalf) / wide));
+      if (rows.length < GRID_MIN_ROWS + 1) { ok = false; break; }
+    }
+    if (!ok) return null;
+    return {
+      box: {
+        x: x0 + Math.round(cols[0]), y: y0 + Math.round(rows[0]),
+        x2: x0 + Math.round(cols[cols.length - 1]), y2: y0 + Math.round(rows[rows.length - 1]),
+      },
+      pitch: (across.pitch + down.pitch) / 2,
+      cols: Math.round((cols[cols.length - 1] - cols[0]) / across.pitch),
+      rows: Math.round((rows[rows.length - 1] - rows[0]) / down.pitch),
+      solidity: Math.min(across.solidity, down.solidity),
+    };
+  };
+  const latticesFrom = (first, whole = true) => {
+    const out = [];
+    if (first.cells < GRID_MIN_ROWS) return out;
+    // A run of rows that goes on past one panel into the next -- the big
+    // road's six rows and, under them, the derived roads' at half the cell,
+    // every second rule of which is in step -- verifies as one tall lattice
+    // of mixed columns, and the big road's own six rows are not found at
+    // all. Eight rows or more is more than any road has, so the run's first
+    // seven rules and its last seven are tried as runs of their own too.
 
     // Across, at the same spacing, because road cells are square. Given a
     // quarter either way: a layout that rounds its cell height and its cell
@@ -6596,7 +7053,7 @@ function ruledLattice(imageData, { x0, y0, x1, y1 }) {
     // different shapes is not -- and leaving the spacing free here let the
     // columns fit themselves to whatever else was periodic on the screen.
     const col = colProfile(L, w, Math.floor(first.from), Math.ceil(first.to) + 1);
-    const colRuns = ruledRuns(rulePeaks(col), first.pitch * 0.78, first.pitch * 1.28, 3);
+    const colRuns = ruledRuns(rulePeaks(col), first.pitch * 0.78, first.pitch * 1.28, 5);
 
     for (const across of colRuns) {
       if (across.cells < GRID_MIN_COLS) continue;
@@ -6614,78 +7071,64 @@ function ruledLattice(imageData, { x0, y0, x1, y1 }) {
       // it to count. Measured on an owner's screen shared at twice the size:
       // the longest ran from the game's edge to the big road, and the plate's
       // own rows came after it.
-      const downs = ruledRuns(
+      const derived = ruledRuns(
         rulePeaks(rowProfile(L, w, h, Math.floor(across.from), Math.ceil(across.to) + 1)),
         across.pitch * 0.82, across.pitch * 1.22, 3);
+      // A part of a longer run is tried on its own rows: fitted again over
+      // the columns, the rows ran on into the next panel as before.
+      const downs = whole ? derived
+        : [first, ...derived.filter((d) => d.from >= first.from - first.pitch && d.to <= first.to + first.pitch)];
       for (const down of downs) {
         if (down.cells < GRID_MIN_ROWS) continue;
-
         // And now the absolute test. Everything above ranked lines against their
         // neighbours; this asks whether they are lines at all, and cuts the box
         // back to the part where they are. Twice, because each axis is judged
         // over the other's extent and the first cut moves it.
-        let cols = across.chain, rows = down.chain, ok = true;
-        for (let pass = 0; pass < 2 && ok; pass += 1) {
-          const jFrom = Math.max(0, Math.round(rows[0]));
-          const tall = Math.max(1, Math.min(h - 1 - jFrom, Math.round(rows[rows.length - 1]) - jFrom));
-          const downHalf = Math.min(SMOOTH, Math.max(0, (tall >> 1) - 1));
-          cols = trimToCrossing(cols, (i) => (i < 1 || i >= w - 2 ? 0
-            : runAt((x, d) => {
-                for (let y = 0; y < tall; y += 1) {
-                  const at = (jFrom + y) * w + x;
-                  d[y] = L[at + 1] - L[at];
-                }
-              }, i, tall, downHalf) / tall));
-          if (cols.length < GRID_MIN_COLS + 1) { ok = false; break; }
-
-          const iFrom = Math.max(0, Math.round(cols[0]));
-          const wide = Math.max(1, Math.min(w - 1 - iFrom, Math.round(cols[cols.length - 1]) - iFrom));
-          const acrossHalf = Math.min(SMOOTH, Math.max(0, (wide >> 1) - 1));
-          rows = trimToCrossing(rows, (j) => (j < 1 || j >= h - 2 ? 0
-            : runAt((y, d) => {
-                for (let x = 0; x < wide; x += 1) d[x] = L[(y + 1) * w + iFrom + x] - L[y * w + iFrom + x];
-              }, j, wide, acrossHalf) / wide));
-          if (rows.length < GRID_MIN_ROWS + 1) { ok = false; break; }
-        }
-        if (!ok) continue;
-
-        return {
-          box: {
-            x: x0 + Math.round(cols[0]), y: y0 + Math.round(rows[0]),
-            x2: x0 + Math.round(cols[cols.length - 1]), y2: y0 + Math.round(rows[rows.length - 1]),
-          },
-          pitch: (across.pitch + down.pitch) / 2,
-          cols: Math.round((cols[cols.length - 1] - cols[0]) / across.pitch),
-          rows: Math.round((rows[rows.length - 1] - rows[0]) / down.pitch),
-          solidity: Math.min(across.solidity, down.solidity),
-        };
+        const found = verify(across, down);
+        if (!found) continue;
+        found.part = !whole;
+        if (!out.some((o) => same(o, found)) && !all.some((o) => same(o, found))) out.push(found);
+        break;                       // one lattice a column run: the rows under it are its own
       }
     }
-    return null;
+    if (whole && first.cells >= 8 && first.chain.length >= 8) {
+      const part = (chain) => ({
+        ...first, chain, cells: Math.round((chain[chain.length - 1] - chain[0]) / first.pitch),
+        from: chain[0], to: chain[chain.length - 1],
+      });
+      for (const p of [part(first.chain.slice(0, 7)), part(first.chain.slice(-7))]) {
+        for (const l of latticesFrom(p, false)) if (!out.some((o) => same(o, l))) out.push(l);
+      }
+    }
+    return out;
   };
 
   for (const first of rowRuns) {
-    const found = latticeFrom(first);
-    if (!found) continue;
-    // A lattice laid over a finer one is the finer one and its neighbour
-    // together, not a road (see `underneath`): a bead plate's rules every 7.6
-    // pixels and the big road's under it every 5.2 meet every second and
-    // third, and a lattice of 16 verified across both. On an owner's table
-    // (Hoca Games) the plate's own rows came third among the candidates, and
-    // what was in the video beside it decided which came first: with the
-    // dealer's hands blurred, the coarse one did, and the plate was read on
-    // cells two of its own wide. So the finer candidates are tried too, and
-    // the coarsest of those under it kept -- the plate's, rather than the big
-    // road's under that.
-    let best = found;
-    for (const finer of rowRuns) {
-      if (finer === first || finer.pitch >= found.pitch * 0.8) continue;
-      const fine = latticeFrom(finer);
-      if (fine && underneath(fine, found) && (best === found || fine.pitch > best.pitch)) best = fine;
-    }
-    return best;
+    const got = latticesFrom(first);
+    if (globalThis.__LATTICE_DEBUG) console.log(`[lattice] row run pitch ${first.pitch.toFixed(1)} cells ${first.cells} ${first.from.toFixed(0)}-${first.to.toFixed(0)} solidity ${first.solidity.toFixed(2)} -> ${got.map((g) => `${g.cols}x${g.rows}@${g.box.x},${g.box.y}`).join(" ") || "none"}`);
+    all.push(...got);
+    if (all.length >= 40) break;
   }
-  return null;
+  if (!all.length) return null;
+
+  // A lattice laid over a finer one is the finer one and its neighbour
+  // together, not a road (see `underneath`): a bead plate's rules every 7.6
+  // pixels and the big road's under it every 5.2 meet every second and
+  // third, and a lattice of 16 verified across both. On an owner's table
+  // (Hoca Games) the plate's own rows came third among the candidates, and
+  // what was in the video beside it decided which came first: with the
+  // dealer's hands blurred, the coarse one did, and the plate was read on
+  // cells two of its own wide. So the finer candidates are tried too, and
+  // the coarsest of those under it kept -- the plate's, rather than the big
+  // road's under that.
+  const found = all.find((l) => !l.part) || all[0];
+  let best = found;
+  for (const fine of all) {
+    if (fine === found || fine.pitch >= found.pitch * 0.8) continue;
+    if (underneath(fine, found) && (best === found || fine.pitch > best.pitch)) best = fine;
+  }
+  best.candidates = all;
+  return best;
 }
 
 /* ------------------------------------------------------------ text input */
@@ -9730,6 +10173,7 @@ class LiveWatcher {
     this.anchor = null;      // centre of the board being read, to keep the pick stable
     this.lastBox = null;     // and its box, so a neighbour is not mistaken for it
     this.lastSize = 0;       // and the size of its marks
+    this.lastFill = 0;       // and how much of their boxes they fill: tiles fill them
     this.lastRead = null;    // and what it read last, through a shoe change too
     /**
      * Whether the board being followed has shown itself to be a road: two
@@ -10016,6 +10460,7 @@ class LiveWatcher {
   _unfollow() {
     this.lastBox = null;
     this.lastSize = 0;
+    this.lastFill = 0;
     this.lastRead = null;
     this.anchor = null;
     this.proven = false;
@@ -10078,6 +10523,7 @@ class LiveWatcher {
     const ctx = this.canvas.getContext("2d", { willReadFrequently: true });
     ctx.drawImage(v, 0, 0, w, h);
     const frame = ctx.getImageData(0, 0, w, h);
+    this.frame = { w, h };
 
     // Inside a located strip three marks are coups, not coincidence, so a shoe
     // is read from its opening hands instead of waiting for eight. A cold
@@ -10131,7 +10577,7 @@ class LiveWatcher {
     const following = !!(this.region && this.lastBox && this.proven);
     // The board being followed is read as one, so a mark hidden inside it is
     // a hole in it rather than a seam between two boards (see `groupBlobs`).
-    const whole = following ? { ...this.lastBox, d: this.lastSize } : null;
+    const whole = following ? { ...this.lastBox, d: this.lastSize, fill: this.lastFill } : null;
     // And a strip whose ruling has been found is read by its cells' size,
     // which a run of one side that ran together is cut by (see `detectBoards`)
     // -- while it can be the cells of the board being read: no mark is much
@@ -10152,8 +10598,33 @@ class LiveWatcher {
       const look = { region: attempt.where, minCells: attempt.minCells, whole, pitch };
       let got = detectBoards(frame, look);
       if (unsure) {
+        // Or where the ruling's reading lost the biggest marks on the screen
+        // and kept nothing whole in their place: cut by the derived roads'
+        // cells, the big road's rings -- a table that shows no plate -- were
+        // pieces, four to a ring, none of them a mark, or forty cells of a
+        // board filling under half their boxes (see `SOLID_MARK`), and the
+        // coup that would have opened the big road's own lattice was never
+        // seen. Not where the ruling's reading is whole marks: on an owner's
+        // table (Hoca Games, RC038) read whole on its ruling, fifteen coups
+        // filling 0.9 of their cells, the reading without it ran the first
+        // column together into two marks half again as big, and taken for
+        // the biggest marks they read the shoe as two.
+        //
+        // Or where the ruling is finer than the marks by a third and more:
+        // a column's worth of marks, six and up, half again as big as the
+        // ruling's cell are not marks run together (a bar of those is two or
+        // three cells at most) but marks over a finer road's ruling, and the
+        // ruling's reading has cut every one of them -- on a table ruled for
+        // its derived roads with the plate's nine coups twice their size,
+        // the big road's rings cut four ways read as thirty-six coups.
         const plain = detectBoards(frame, { ...look, pitch: 0 });
-        if (plate(plain) > plate(got)) got = plain;
+        const biggest = (r) => Math.max(0, ...r.boards.map((b) => b.diameter));
+        const most = (r) => (r.boards.length ? r.boards[0].cells.length : 0);
+        const whole = (r) => r.boards.some((b) => b.cells.length > 2
+          && b.cells.map((c) => c.fill).sort((p, q) => p - q)[b.cells.length >> 1] >= SOLID_MARK);
+        const finer = plain.boards.some((b) => b.cells.length >= 6 && b.diameter > pitch * 1.3);
+        if (plate(plain) > plate(got) || finer
+            || (biggest(plain) > biggest(got) * 1.3 && (most(plain) >= most(got) || !whole(got)))) got = plain;
       }
       if (!got.boards.length) continue;
       const best = got.boards[0];
@@ -10435,6 +10906,7 @@ class LiveWatcher {
     this.anchor = centreOf(board.box);
     this.lastBox = board.box;
     this.lastSize = board.diameter;
+    this.lastFill = board.cells.length ? board.cells.map((c) => c.fill).sort((a, b) => a - b)[board.cells.length >> 1] : 0;
     this.lastRead = board.sequence;
     this.bounds = bounds;
     this.lastBoard = { ...board, frameWidth: w, frameHeight: h };
@@ -10507,6 +10979,27 @@ class LiveWatcher {
    * coup between marks; a fixed one only ever flickers.
    */
   _roadsAmong(boards) {
+    // A shoe's first coup is a disc on the plate and a ring on the big road,
+    // and where the two are ruled alike the reader may be pinned to either
+    // (see `_opensThePanel`). The disc says which is the plate: where a disc
+    // opens a sibling lattice and only rings open the one pinned, the lock
+    // moves to the disc's before anything is asked; and a ring never takes
+    // the lock from a lattice a disc opens (see `_opensThePanel`).
+    //
+    // Where only rings open either -- a plate drawn in rings -- or nothing
+    // opens the lattice pinned, the lock stays, or moves to the first lattice
+    // anything opens: the big road reads as the plate does until a tie, and
+    // the plate takes the reading over once it is a plate past doubt.
+    if (this._ruling() && !boards.some((b) => b.nCols > 1 || looksLikePlate(b))) {
+      const openings = boards.map((b) => this._opening(b, boards));
+      const disc = (i) => !!openings[i] && !hollow(boards[i]);
+      const discHere = boards.some((b, i) => disc(i) && openings[i].pinned);
+      const discThere = boards.findIndex((b, i) => disc(i) && !openings[i].pinned);
+      const anyHere = openings.some((o) => o && o.pinned);
+      const anyThere = openings.findIndex((o) => o && !o.pinned);
+      if (!discHere && discThere >= 0) this._adoptRuling(openings[discThere].lattice);
+      else if (!anyHere && anyThere >= 0) this._adoptRuling(openings[anyThere].lattice);
+    }
     const before = this.sightings, now = [], shown = [];
     for (const b of boards) {
       if (b.nCols > 1 || this._opensThePanel(b, boards)) { b.shown = true; shown.push(b); continue; }
@@ -10594,15 +11087,56 @@ class LiveWatcher {
    * be seen growing.
    */
   _opensThePanel(board, boards = []) {
+    const opening = this._opening(board, boards);
+    return !!opening && opening.pinned;
+  }
+
+  /**
+   * The lattice `board` opens, if any: `{ lattice, pinned }`, pinned where it
+   * is the ruling's own; null where the board opens nothing. Nothing is moved.
+   */
+  _opening(board, boards = []) {
     const grid = this._ruling();
-    if (!grid) return false;
-    const reach = 1.5 * (board.diameter || grid.pitch);
-    const near = (a, b) => Math.abs(a - b) <= reach;
-    const at = (corner) => !!corner && near(board.box.x, corner.x) && near(board.box.y, corner.y);
-    if (at(grid.panel) || at(grid.box)) return true;
-    const edge = (b) => near(b.box.x, grid.box.x) || near(b.box.x, grid.panel.x);
-    return edge(board) && board.box.y >= grid.box.y - reach && board.box.y <= grid.box.y2
-      && !boards.some((o) => o !== board && edge(o) && o.box.y < board.box.y);
+    if (!grid) return null;
+    const opens = (g) => {
+      const reach = 1.5 * (board.diameter || g.pitch);
+      const near = (a, b) => Math.abs(a - b) <= reach;
+      const at = (corner) => !!corner && near(board.box.x, corner.x) && near(board.box.y, corner.y);
+      if (at(g.panel) || at(g.box)) return true;
+      const edge = (b) => near(b.box.x, g.box.x) || near(b.box.x, g.panel.x);
+      return edge(board) && board.box.y >= g.box.y - reach && board.box.y <= g.box.y2
+        && !boards.some((o) => o !== board && edge(o) && o.box.y < board.box.y);
+    };
+    if (opens(grid)) return { lattice: grid, pinned: true };
+    // Or the first cell of another lattice ruled at the same pitch, apart
+    // from this one: a table rules its bead plate and its big road alike as
+    // often as not, and with nothing dealt the wider of the two, the big
+    // road's, is the one found (see `detectGrid`). The shoe's first coup
+    // says which is the plate: a disc in a plate's first cell, with a ring
+    // in the big road's beside it -- drawn as any table draws them, the
+    // reader pinned to the big road waited on its first cell, and took its
+    // rings for the shoe. The lattice the disc opens is the plate's, and the
+    // lock moves to it before the boards are asked (see `_roadsAmong`).
+    //
+    // Only where nothing on the screen is a road already: beside a plate
+    // being read, the big road's first ring opens the big road's lattice
+    // every look, and moving the lock there read one ring for the shoe.
+    if (boards.some((o) => o !== board && (o.nCols > 1 || looksLikePlate(o)))) return null;
+    const sibling = (grid.siblings || []).find((g) => g.panel && opens(g));
+    return sibling ? { lattice: sibling, pinned: false } : null;
+  }
+
+  /** Pin to another lattice of the ruling's, keeping the rest at hand. */
+  _adoptRuling(sibling) {
+    const grid = this.grid;
+    const others = [grid, ...(grid.siblings || [])].filter((g) => g !== sibling)
+      .map((g) => ({ ...g, siblings: undefined }));
+    this.grid = { ...sibling, siblings: others };
+    this.gridMisses = 0;
+    if (this.pinned === "grid" && this.frame) {
+      this.region = this.gridBox = gridLock(this.grid, this.frame.w, this.frame.h);
+      this.memory = this.region;
+    }
   }
 
   /**
@@ -11044,6 +11578,9 @@ function movedTo(found, last) {
 
 /** Whether two boxes share any ground. */
 const overlaps = (a, b) => a.x < b.x2 && b.x < a.x2 && a.y < b.y2 && b.y < a.y2;
+
+/** A board of rings: any of its marks hollow past `HOLLOW_MARK` (see `labelBlobs`). */
+const hollow = (board) => board.cells.some((c) => (c.hollow || 0) >= HOLLOW_MARK);
 
 /** The board whose centre is closest to `point`, falling back to the best. */
 function nearestTo(boards, point) {
