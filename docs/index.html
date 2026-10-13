@@ -286,10 +286,6 @@ table.plancmp tr.on td{background:var(--surface-2); font-weight:600}
 table.plancmp .pshort{display:none}
 @media (max-width:820px){ table.plancmp .plong{display:none} table.plancmp .pshort{display:inline} }
 .plannow{margin:6px 0 0; font-size:12.5px; color:var(--ink-2)}
-.airule{display:flex; flex-wrap:wrap; align-items:center; gap:4px 8px; margin:6px 0 2px;
-  font-size:12px; color:var(--ink-2)}
-.airule select{padding:4px 8px; border:1px solid var(--line-2); border-radius:7px;
-  background:var(--surface); color:var(--ink); font:inherit; font-size:12.5px; max-width:100%}
 table.stake tr:last-child td{border-bottom:none}
 .betbadge{margin-left:10px; padding:3px 9px; border-radius:999px; font-size:11px;
   font-weight:500; letter-spacing:.01em; white-space:nowrap; vertical-align:2px}
@@ -326,8 +322,7 @@ table.stake tr:last-child td{border-bottom:none}
 .airec:has(.v.P){border-color:var(--player); background:var(--player-soft)}
 .airec:has(.v.B){border-color:var(--banker); background:var(--banker-soft)}
 .airec:has(.v.T){border-color:var(--tie); background:var(--tie-soft)}
-.airule{margin:0 0 14px}
-.predhead{margin-top:14px; padding-top:14px; border-top:1px solid var(--line)}
+.predhead{margin-top:16px; padding-top:14px; border-top:1px solid var(--line)}
 .aigrid{display:grid; grid-template-columns:1fr 1fr; gap:9px 16px}
 .aifact{display:flex; align-items:baseline; justify-content:space-between; gap:8px;
         padding-bottom:7px; border-bottom:1px solid var(--line)}
@@ -1016,19 +1011,13 @@ body.open > #gate{display:none}
     <h2 data-i18n="ai.h"></h2>
     <p class="sub" data-i18n="ai.sub"></p>
     <!-- The pick first: it is what somebody at a table looks up for, and it
-         sat under the three bars that explain it. -->
+         sat under the three bars that explain it. One way of picking, with
+         nothing to choose (2026-10-13): the four ways are one. -->
     <div class="airec">
       <span class="k" data-i18n="ai.recommend"></span>
       <span class="v" id="aiSide"></span>
       <span class="betbadge" id="aiBetBadge"></span>
     </div>
-    <label class="airule"><span data-i18n="ai.ruleLabel"></span>
-      <select id="pickRule">
-        <option value="pattern" data-i18n="rule.option.pattern"></option>
-        <option value="streak" data-i18n="rule.option.streak"></option>
-        <option value="chop" data-i18n="rule.option.chop"></option>
-        <option value="banker" data-i18n="rule.option.banker"></option>
-      </select></label>
     <p class="ainote" id="aiBetWhy" hidden></p>
     <p class="plannow" id="planNow" hidden></p>
     <div class="predhead">
@@ -1484,28 +1473,28 @@ const S = {
   "learn.model": { ko: "학습 모델", en: "Network", "zh-Hant": "神經網路", "zh-Hans": "神经网络" },
   "learn.split": { ko: "추천이 갈린 판", en: "coups they disagreed on", "zh-Hant": "推薦分歧的局數", "zh-Hans": "推荐分歧的局数" },
   "learn.usingModel": {
-    ko: "<b>학습 모델을 씁니다.</b> 이번 슈 패턴 추천보다 {lead}유닛 앞서고, 우연으로 보기 어렵습니다 (z {z}).",
-    en: "<b>Using the network.</b> It is {lead} [lead|unit|units] ahead of the shoe-pattern pick, by more than chance would give (z {z}).",
-    "zh-Hant": "<b>採用神經網路。</b>領先本靴牌路推薦 {lead} 單位，超出運氣可解釋的範圍（z {z}）。",
-    "zh-Hans": "<b>采用神经网络。</b>领先本靴牌路推荐 {lead} 单位，超出运气可解释的范围（z {z}）。",
+    ko: "<b>학습 모델을 씁니다.</b> 통합 추천보다 {lead}유닛 앞서고, 우연으로 보기 어렵습니다 (z {z}).",
+    en: "<b>Using the network.</b> It is {lead} [lead|unit|units] ahead of the combined pick, by more than chance would give (z {z}).",
+    "zh-Hant": "<b>採用神經網路。</b>領先綜合推薦 {lead} 單位，超出運氣可解釋的範圍（z {z}）。",
+    "zh-Hans": "<b>采用神经网络。</b>领先综合推荐 {lead} 单位，超出运气可解释的范围（z {z}）。",
   },
   "learn.behind": {
-    ko: "<b>{rule} 추천을 씁니다.</b> 학습 모델이 앞서지 못합니다.",
+    ko: "<b>{rule}을 씁니다.</b> 학습 모델이 앞서지 못합니다.",
     en: "<b>Using {rule}.</b> The network is not ahead of it.",
-    "zh-Hant": "<b>採用{rule}推薦。</b>神經網路並未領先。",
-    "zh-Hans": "<b>采用{rule}推荐。</b>神经网络并未领先。",
+    "zh-Hant": "<b>採用{rule}。</b>神經網路並未領先。",
+    "zh-Hans": "<b>采用{rule}。</b>神经网络并未领先。",
   },
   "learn.noise": {
-    ko: "<b>{rule} 추천을 씁니다.</b> 학습 모델이 앞서 있지만 (z {z}) 우연과 구별되지 않습니다 — 판마다 다시 확인하는 만큼, 지금은 z {bar}는 되어야 합니다.",
+    ko: "<b>{rule}을 씁니다.</b> 학습 모델이 앞서 있지만 (z {z}) 우연과 구별되지 않습니다 — 판마다 다시 확인하는 만큼, 지금은 z {bar}는 되어야 합니다.",
     en: "<b>Using {rule}.</b> The network is ahead (z {z}) but not by more than chance — asked after every coup, it needs z {bar} here.",
-    "zh-Hant": "<b>採用{rule}推薦。</b>神經網路雖領先（z {z}），但與運氣無法區分 — 每局都重新檢查，此時需要 z {bar}。",
-    "zh-Hans": "<b>采用{rule}推荐。</b>神经网络虽领先（z {z}），但与运气无法区分 — 每局都重新检查，此时需要 z {bar}。",
+    "zh-Hant": "<b>採用{rule}。</b>神經網路雖領先（z {z}），但與運氣無法區分 — 每局都重新檢查，此時需要 z {bar}。",
+    "zh-Hans": "<b>采用{rule}。</b>神经网络虽领先（z {z}），但与运气无法区分 — 每局都重新检查，此时需要 z {bar}。",
   },
   "learn.tooFew": {
-    ko: "<b>{rule} 추천을 씁니다.</b> 두 추천이 갈린 판이 {n}판뿐입니다 — 어느 쪽이 나은지 묻기에 200판은 필요합니다.",
+    ko: "<b>{rule}을 씁니다.</b> 두 추천이 갈린 판이 {n}판뿐입니다 — 어느 쪽이 나은지 묻기에 200판은 필요합니다.",
     en: "<b>Using {rule}.</b> They have disagreed on only {n} [n|coup|coups] — asking which is better takes 200.",
-    "zh-Hant": "<b>採用{rule}推薦。</b>兩者僅在 {n} 局上分歧 — 要判斷孰優需要 200 局。",
-    "zh-Hans": "<b>采用{rule}推荐。</b>两者仅在 {n} 局上分歧 — 要判断孰优需要 200 局。",
+    "zh-Hant": "<b>採用{rule}。</b>兩者僅在 {n} 局上分歧 — 要判斷孰優需要 200 局。",
+    "zh-Hans": "<b>采用{rule}。</b>两者仅在 {n} 局上分歧 — 要判断孰优需要 200 局。",
   },
   "verify.h": {
     ko: "실제 추천 성적", en: "What was actually recommended",
@@ -2003,10 +1992,10 @@ const S = {
   "plan.colWorst": { ko: "나쁜 5% 슈", en: "Worst 5%", "zh-Hant": "最差 5%", "zh-Hans": "最差 5%" },
   "plan.colStaked": { ko: "한 슈 총 배팅", en: "Staked a shoe", "zh-Hant": "每靴總下注", "zh-Hans": "每靴总下注" },
   "plan.note": {
-    ko: "공정한 8덱 슈 {n}개(이 페이지의 규칙 엔진)에서 이 페이지의 AI 추천(추천 방식: {rule})으로 한 슈씩 걸어 본 결과입니다 — 원금 {bankroll} · 테이블 최대 {max} · 목표 이익 {win} · 손실 한도 {loss}. <b>예상 손실은 총 배팅액에 판당 기대 손실(어느 방식이든 약 {pct})을 곱한 값</b>이고, 나머지 칸은 모의 결과라 몇 %p 흔들릴 수 있습니다. 앞서서 끝나는 슈가 많은 방식일수록 크게 걸고, 원금을 다 잃는 슈가 생깁니다. 고른 방식({plan})의 예상 손실은 한 슈 {cost}입니다.",
-    en: "Every plan played a shoe at a time, on {n} fair 8-deck shoes dealt by this page's rules engine, on this page's AI pick (picking by: {rule}) — at a bankroll of {bankroll}, a table limit of {max}, a win to stop at of {win} and a loss to stop at of {loss}. <b>The expected loss is what a plan stakes times the loss on a unit staked, about {pct} whatever the plan</b>; the other columns are simulated and can move by a few points. The plans that end more shoes ahead stake more, and lose the whole bankroll in some. The plan chosen ({plan}) expects {cost} a shoe.",
-    "zh-Hant": "以本頁規則引擎發出的 {n} 靴公平八副牌靴，用本頁的 AI 推薦（推薦方式：{rule}）每次玩一靴的結果 — 本金 {bankroll} · 桌台上限 {max} · 停利 {win} · 停損 {loss}。<b>預期損失是總下注額乘以每單位的期望損失（無論哪種方式約 {pct}）</b>，其餘欄位為模擬結果，可能有幾個百分點的波動。以贏結束的牌靴越多的方式押得越大，並會在部分牌靴輸光本金。所選方式（{plan}）每靴預期損失 {cost}。",
-    "zh-Hans": "以本页规则引擎发出的 {n} 靴公平八副牌靴，用本页的 AI 推荐（推荐方式：{rule}）每次玩一靴的结果 — 本金 {bankroll} · 桌台上限 {max} · 停利 {win} · 停损 {loss}。<b>预期损失是总下注额乘以每单位的期望损失（无论哪种方式约 {pct}）</b>，其余栏位为模拟结果，可能有几个百分点的波动。以赢结束的牌靴越多的方式押得越大，并会在部分牌靴输光本金。所选方式（{plan}）每靴预期损失 {cost}。",
+    ko: "공정한 8덱 슈 {n}개(이 페이지의 규칙 엔진)에서 이 페이지의 AI 추천으로 한 슈씩 걸어 본 결과입니다 — 원금 {bankroll} · 테이블 최대 {max} · 목표 이익 {win} · 손실 한도 {loss}. <b>예상 손실은 총 배팅액에 판당 기대 손실(어느 방식이든 약 {pct})을 곱한 값</b>이고, 나머지 칸은 모의 결과라 몇 %p 흔들릴 수 있습니다. 앞서서 끝나는 슈가 많은 방식일수록 크게 걸고, 원금을 다 잃는 슈가 생깁니다. 고른 방식({plan})의 예상 손실은 한 슈 {cost}입니다.",
+    en: "Every plan played a shoe at a time, on {n} fair 8-deck shoes dealt by this page's rules engine, on this page's AI pick — at a bankroll of {bankroll}, a table limit of {max}, a win to stop at of {win} and a loss to stop at of {loss}. <b>The expected loss is what a plan stakes times the loss on a unit staked, about {pct} whatever the plan</b>; the other columns are simulated and can move by a few points. The plans that end more shoes ahead stake more, and lose the whole bankroll in some. The plan chosen ({plan}) expects {cost} a shoe.",
+    "zh-Hant": "以本頁規則引擎發出的 {n} 靴公平八副牌靴，用本頁的 AI 推薦每次玩一靴的結果 — 本金 {bankroll} · 桌台上限 {max} · 停利 {win} · 停損 {loss}。<b>預期損失是總下注額乘以每單位的期望損失（無論哪種方式約 {pct}）</b>，其餘欄位為模擬結果，可能有幾個百分點的波動。以贏結束的牌靴越多的方式押得越大，並會在部分牌靴輸光本金。所選方式（{plan}）每靴預期損失 {cost}。",
+    "zh-Hans": "以本页规则引擎发出的 {n} 靴公平八副牌靴，用本页的 AI 推荐每次玩一靴的结果 — 本金 {bankroll} · 桌台上限 {max} · 停利 {win} · 停损 {loss}。<b>预期损失是总下注额乘以每单位的期望损失（无论哪种方式约 {pct}）</b>，其余栏位为模拟结果，可能有几个百分点的波动。以赢结束的牌靴越多的方式押得越大，并会在部分牌靴输光本金。所选方式（{plan}）每靴预期损失 {cost}。",
   },
   // The conditional is not decoration. On a fair table the share drifts back to
   // the pack's own rate, so the count is never reached -- it is what *this*
@@ -2085,10 +2074,10 @@ const S = {
     "zh-Hans": "本桌的 {n} 局已将估计值自基准移动 {delta}%p。",
   },
   "ai.patternRule": {
-    ko: "추천은 <b>이번 슈 전체의 패턴</b>을 읽어 고릅니다: 줄, 퐁당, 빅아이·스몰아이·카카로치, 같은 흐름의 반복, 많이 나온 쪽 가운데 <b>이번 슈에서 지금까지 가장 잘 맞아 온 패턴</b>이 가리키는 쪽이고, 슈가 바뀌면 처음부터 다시 봅니다. 어떤 패턴도 쪽을 정하지 못하면(새 슈의 첫 판 등) 확률이 조금 더 나은 쪽(대개 뱅커)입니다. 패턴을 따라갈 뿐 더 맞히지는 않습니다 — 공정한 테이블을 수십만 판 시뮬레이션하면 이 방식은 결정된 판의 <b>약 50.0%</b>를 맞혔고, 늘 뱅커를 골랐다면 <b>약 50.7%</b>였습니다. 카드는 섞여 있으므로, 어떤 방식도 매 판 맞힐 수는 없습니다.",
-    en: "The pick reads <b>this whole shoe's pattern</b>: of the streak, the chop, the big eye boy, small road and cockroach road, the shoe repeating itself and the side ahead in it, it is the side named by <b>the pattern that has called this shoe best so far</b>, and a new shoe starts over. Where no pattern names a side (a shoe's first coup, say), it is the side with the slightly better odds (usually Banker). It follows the pattern; it does not win more — over hundreds of thousands of simulated fair coups it was right on <b>about 50.0%</b> of decided coups, where always backing Banker was right on <b>about 50.7%</b>. The cards are shuffled, so no way of picking can be right every coup.",
-    "zh-Hant": "推薦會讀<b>整個本靴的牌路</b>：在長龍、單跳、大眼仔・小路・曱甴路、重複的走勢與本靴出現較多的一方之中，選<b>到目前為止在本靴最準的牌路</b>所指的一方；換新靴就重新開始。若沒有任何牌路能決定（例如新靴第一局），則選機率稍佳的一方（通常是莊）。它只是跟隨牌路，並不會更準 — 在數十萬局公正牌局的模擬中，這種方式猜中約 <b>50.0%</b> 的已決局，而一直押莊約為 <b>50.7%</b>。牌是洗過的，任何方法都無法每局猜中。",
-    "zh-Hans": "推荐会读<b>整个本靴的牌路</b>：在长龙、单跳、大眼仔・小路・蟑螂路、重复的走势与本靴出现较多的一方之中，选<b>到目前为止在本靴最准的牌路</b>所指的一方；换新靴就重新开始。若没有任何牌路能决定（例如新靴第一局），则选概率稍佳的一方（通常是庄）。它只是跟随牌路，并不会更准 — 在数十万局公正牌局的模拟中，这种方式猜中约 <b>50.0%</b> 的已决局，而一直押庄约为 <b>50.7%</b>。牌是洗过的，任何方法都无法每局猜中。",
+    ko: "추천은 <b>통합 방식</b> 하나입니다: 줄타기, 퐁당, 항상 뱅커, 빅아이·스몰아이·카카로치, 같은 흐름의 반복, 많이 나온 쪽을 모두 <b>이번 슈</b>에 맞춰 보고, <b>이번 슈에서 지금까지 가장 잘 맞아 온 읽기</b>가 가리키는 쪽을 추천합니다. 슈가 바뀌면 처음부터 다시 봅니다. 어떤 읽기도 쪽을 정하지 못하면(새 슈의 첫 판) 확률이 조금 더 나은 쪽(대개 뱅커)입니다. 흐름을 따라갈 뿐 더 맞히지는 않습니다 — 공정한 테이블을 수십만 판 시뮬레이션하면 이 방식은 결정된 판의 <b>약 50.0%</b>를 맞혔고, 늘 뱅커를 골랐다면 <b>약 50.7%</b>였습니다. 카드는 섞여 있으므로, 어떤 방식도 매 판 맞힐 수는 없습니다.",
+    en: "The pick is <b>one combined way</b>: the streak, the chop, always Banker, the big eye boy, small road and cockroach road, the shoe repeating itself and the side ahead in it are each held to <b>this shoe</b>, and the pick is the side named by <b>the reading that has called this shoe best so far</b>; a new shoe starts over. Where no reading names a side (a shoe's first coup), it is the side with the slightly better odds (usually Banker). It follows the shoe; it does not win more — over hundreds of thousands of simulated fair coups it was right on <b>about 50.0%</b> of decided coups, where always backing Banker was right on <b>about 50.7%</b>. The cards are shuffled, so no way of picking can be right every coup.",
+    "zh-Hant": "推薦只有<b>一種綜合方式</b>：長龍、單跳、一律押莊、大眼仔・小路・曱甴路、重複的走勢與本靴出現較多的一方，全部對照<b>本靴</b>檢驗，選<b>到目前為止在本靴最準的讀法</b>所指的一方；換新靴就重新開始。若沒有任何讀法能決定（新靴第一局），則選機率稍佳的一方（通常是莊）。它只是跟隨牌路，並不會更準 — 在數十萬局公正牌局的模擬中，這種方式猜中約 <b>50.0%</b> 的已決局，而一直押莊約為 <b>50.7%</b>。牌是洗過的，任何方法都無法每局猜中。",
+    "zh-Hans": "推荐只有<b>一种综合方式</b>：长龙、单跳、一律押庄、大眼仔・小路・蟑螂路、重复的走势与本靴出现较多的一方，全部对照<b>本靴</b>检验，选<b>到目前为止在本靴最准的读法</b>所指的一方；换新靴就重新开始。若没有任何读法能决定（新靴第一局），则选概率稍佳的一方（通常是庄）。它只是跟随牌路，并不会更准 — 在数十万局公正牌局的模拟中，这种方式猜中约 <b>50.0%</b> 的已决局，而一直押庄约为 <b>50.7%</b>。牌是洗过的，任何方法都无法每局猜中。",
   },
   /* The reading of the pattern the pick is following now: its name only. Its
      record in the shoe would read as an accuracy, and it is the record of the
@@ -2107,55 +2096,21 @@ const S = {
   "pattern.streak": { ko: "줄", en: "the streak", "zh-Hant": "長龍", "zh-Hans": "长龙" },
   "pattern.chop": { ko: "퐁당", en: "the chop", "zh-Hant": "單跳", "zh-Hans": "单跳" },
   "pattern.majority": { ko: "많이 나온 쪽", en: "the side ahead", "zh-Hant": "多數方", "zh-Hans": "多数方" },
+  "pattern.banker": { ko: "항상 뱅커", en: "always Banker", "zh-Hant": "一律押莊", "zh-Hans": "一律押庄" },
   "ai.notBaccarat": {
-    ko: "<b>이 기록은 8덱 바카라의 모양이 아닙니다.</b> 타이가 <b>{rate}</b>인데 공정한 슈는 <b>9.52%</b>이고, {coups}판에서 그 차이는 <b>{z}표준오차</b>입니다. 타이 비율은 셔플이 아니라 덱 구성이 정하는 값이라, 이만큼 벗어났다면 셔플이 아니라 <b>판독</b>을 먼저 의심해야 합니다 — 화면 인식이 판을 빠뜨렸거나, 같은 슈를 두 번 세었거나, 조각난 슈를 이어 붙였을 수 있습니다. 그 전까지 추천은 학습 모델이 아니라 고르신 추천 방식({rule})을 따릅니다.",
-    en: "<b>This record is not the shape 8-deck baccarat produces.</b> Ties run at <b>{rate}</b> where a fair shoe gives <b>9.52%</b>, and over {coups} [coups|coup|coups] that gap is <b>{z} standard [z|error|errors]</b>. The tie rate is set by the pack rather than by the shuffle, so a gap this size points at the <b>reading</b> before it points at the table — coups dropped, a shoe counted twice, a shoe stitched from fragments. Until it is sorted out the recommendation follows the way of picking chosen ({rule}), not the learned model.",
-    "zh-Hant": "<b>這份紀錄不是 8 副牌百家樂會有的樣子。</b>和局為 <b>{rate}</b>，而公正牌靴是 <b>9.52%</b>；在 {coups} 局上，這個差距是 <b>{z} 個標準誤</b>。和局比率由牌組決定而非洗牌決定，差這麼多應該先懷疑<b>判讀</b>而不是桌子 — 可能漏讀了局數、同一靴數了兩次，或把碎片接成了一靴。在釐清之前，推薦一律依所選的推薦方式（{rule}），不採用學習模型。",
-    "zh-Hans": "<b>这份记录不是 8 副牌百家乐会有的样子。</b>和局为 <b>{rate}</b>，而公正牌靴是 <b>9.52%</b>；在 {coups} 局上，这个差距是 <b>{z} 个标准误</b>。和局比率由牌组决定而非洗牌决定，差这么多应该先怀疑<b>判读</b>而不是桌子 — 可能漏读了局数、同一靴数了两次，或把碎片接成了一靴。在厘清之前，推荐一律依所选的推荐方式（{rule}），不采用学习模型。",
+    ko: "<b>이 기록은 8덱 바카라의 모양이 아닙니다.</b> 타이가 <b>{rate}</b>인데 공정한 슈는 <b>9.52%</b>이고, {coups}판에서 그 차이는 <b>{z}표준오차</b>입니다. 타이 비율은 셔플이 아니라 덱 구성이 정하는 값이라, 이만큼 벗어났다면 셔플이 아니라 <b>판독</b>을 먼저 의심해야 합니다 — 화면 인식이 판을 빠뜨렸거나, 같은 슈를 두 번 세었거나, 조각난 슈를 이어 붙였을 수 있습니다. 그 전까지 추천은 학습 모델이 아니라 {rule}을 따릅니다.",
+    en: "<b>This record is not the shape 8-deck baccarat produces.</b> Ties run at <b>{rate}</b> where a fair shoe gives <b>9.52%</b>, and over {coups} [coups|coup|coups] that gap is <b>{z} standard [z|error|errors]</b>. The tie rate is set by the pack rather than by the shuffle, so a gap this size points at the <b>reading</b> before it points at the table — coups dropped, a shoe counted twice, a shoe stitched from fragments. Until it is sorted out the recommendation follows {rule}, not the learned model.",
+    "zh-Hant": "<b>這份紀錄不是 8 副牌百家樂會有的樣子。</b>和局為 <b>{rate}</b>，而公正牌靴是 <b>9.52%</b>；在 {coups} 局上，這個差距是 <b>{z} 個標準誤</b>。和局比率由牌組決定而非洗牌決定，差這麼多應該先懷疑<b>判讀</b>而不是桌子 — 可能漏讀了局數、同一靴數了兩次，或把碎片接成了一靴。在釐清之前，推薦一律依{rule}，不採用學習模型。",
+    "zh-Hans": "<b>这份记录不是 8 副牌百家乐会有的样子。</b>和局为 <b>{rate}</b>，而公正牌靴是 <b>9.52%</b>；在 {coups} 局上，这个差距是 <b>{z} 个标准误</b>。和局比率由牌组决定而非洗牌决定，差这么多应该先怀疑<b>判读</b>而不是桌子 — 可能漏读了局数、同一靴数了两次，或把碎片接成了一靴。在厘清之前，推荐一律依{rule}，不采用学习模型。",
   },
-  "learn.ruleChosen": {
-    ko: "<b>고르신 {rule} 추천을 씁니다.</b> 학습 모델이 {lead}유닛 앞서 있지만 (z {z}), 학습 모델은 추천 방식이 '이번 슈 패턴'일 때만 씁니다.",
-    en: "<b>Using {rule}, as chosen.</b> The network is {lead} [lead|unit|units] ahead (z {z}), but it is followed only when the pick is by the shoe's pattern.",
-    "zh-Hant": "<b>採用所選的{rule}推薦。</b>神經網路領先 {lead} 單位（z {z}），但只有推薦方式為「本靴牌路」時才採用神經網路。",
-    "zh-Hans": "<b>采用所选的{rule}推荐。</b>神经网络领先 {lead} 单位（z {z}），但只有推荐方式为「本靴牌路」时才采用神经网络。",
-  },
-  /* -------------------------------------------- the way the pick is made */
-  "ai.ruleLabel": { ko: "추천 방식", en: "Pick by", "zh-Hant": "推薦方式", "zh-Hans": "推荐方式" },
-  "rule.option.streak": { ko: "줄타기 — 직전 결과 따라가기", en: "Streak — follow the last result", "zh-Hant": "跟龍 — 跟隨上一局", "zh-Hans": "跟龙 — 跟随上一局" },
-  "rule.option.pattern": { ko: "이번 슈 패턴 — 가장 잘 맞아 온 패턴", en: "Shoe pattern — whatever has called it best", "zh-Hant": "本靴牌路 — 本靴最準的牌路", "zh-Hans": "本靴牌路 — 本靴最准的牌路" },
-  "rule.option.chop": { ko: "퐁당 — 직전 결과 반대", en: "Chop — against the last result", "zh-Hant": "單跳 — 與上一局相反", "zh-Hans": "单跳 — 与上一局相反" },
-  "rule.option.banker": { ko: "항상 뱅커", en: "Always Banker", "zh-Hant": "一律押莊", "zh-Hans": "一律押庄" },
-  "rule.label.streak": { ko: "줄타기", en: "Streak", "zh-Hant": "跟龍", "zh-Hans": "跟龙" },
-  "rule.label.pattern": { ko: "이번 슈 패턴", en: "Shoe pattern", "zh-Hant": "本靴牌路", "zh-Hans": "本靴牌路" },
-  "rule.label.chop": { ko: "퐁당", en: "Chop", "zh-Hant": "單跳", "zh-Hans": "单跳" },
-  "rule.label.banker": { ko: "항상 뱅커", en: "Always Banker", "zh-Hant": "一律押莊", "zh-Hans": "一律押庄" },
-  "rule.name.streak": { ko: "줄타기", en: "the streak", "zh-Hant": "跟龍", "zh-Hans": "跟龙" },
-  "rule.name.pattern": { ko: "이번 슈 패턴", en: "the shoe's pattern", "zh-Hant": "本靴牌路", "zh-Hans": "本靴牌路" },
-  "rule.name.chop": { ko: "퐁당", en: "the chop", "zh-Hant": "單跳", "zh-Hans": "单跳" },
-  "rule.name.banker": { ko: "항상 뱅커", en: "Banker every coup", "zh-Hant": "一律押莊", "zh-Hans": "一律押庄" },
-  "ai.rule.streak": {
-    ko: "추천은 <b>줄타기</b>입니다: 직전에 나온 쪽(타이는 건너뜀)을 그대로 추천하고, 줄이 끊기면 새로 나온 쪽을 따라갑니다. 슈의 첫 판처럼 직전 결과가 없으면 확률이 조금 더 나은 쪽(대개 뱅커)입니다. 줄을 따라갈 뿐 더 맞히지는 않습니다 — 공정한 8덱 슈 1만 개에서 줄타기는 결정된 판의 <b>약 49.96%</b>를 맞혔고, 늘 뱅커를 골랐다면 <b>약 50.67%</b>였습니다. 다른 방식은 '추천 방식'에서 고를 수 있습니다.",
-    en: "The pick is <b>the streak</b>: the side of the last decided coup (ties skipped), switching when the run breaks. Where the shoe has no decided coup yet (its first coup, say), it is the side with the slightly better odds (usually Banker). It follows the run; it does not win more — on 10,000 fair 8-deck shoes the streak was right on <b>about 49.96%</b> of decided coups, where always backing Banker was right on <b>about 50.67%</b>. Another way can be chosen under 'Pick by'.",
-    "zh-Hant": "推薦是<b>跟龍</b>：照上一局開出的一方（和局略過）推薦，長龍斷了就跟新的一方。像新靴第一局這樣還沒有上一局時，選機率稍佳的一方（通常是莊）。它只是跟龍，並不會更準 — 在 1 萬靴公正的八副牌靴中，跟龍猜中約 <b>49.96%</b> 的已決局，一直押莊則約 <b>50.67%</b>。可在「推薦方式」選其他方式。",
-    "zh-Hans": "推荐是<b>跟龙</b>：照上一局开出的一方（和局略过）推荐，长龙断了就跟新的一方。像新靴第一局这样还没有上一局时，选概率稍佳的一方（通常是庄）。它只是跟龙，并不会更准 — 在 1 万靴公正的八副牌靴中，跟龙猜中约 <b>49.96%</b> 的已决局，一直押庄则约 <b>50.67%</b>。可在「推荐方式」选其他方式。",
-  },
-  "ai.rule.chop": {
-    ko: "추천은 <b>퐁당</b>입니다: 직전에 나온 쪽(타이는 건너뜀)의 반대쪽을 추천합니다. 슈의 첫 판처럼 직전 결과가 없으면 확률이 조금 더 나은 쪽(대개 뱅커)입니다. 반대로 갈 뿐 더 맞히지는 않습니다 — 공정한 8덱 슈 1만 개에서 퐁당은 결정된 판의 <b>약 50.04%</b>를 맞혔고, 늘 뱅커를 골랐다면 <b>약 50.67%</b>였습니다. 다른 방식은 '추천 방식'에서 고를 수 있습니다.",
-    en: "The pick is <b>the chop</b>: the other side from the last decided coup (ties skipped). Where the shoe has no decided coup yet, it is the side with the slightly better odds (usually Banker). It goes against the run; it does not win more — on 10,000 fair 8-deck shoes the chop was right on <b>about 50.04%</b> of decided coups, where always backing Banker was right on <b>about 50.67%</b>. Another way can be chosen under 'Pick by'.",
-    "zh-Hant": "推薦是<b>單跳</b>：推薦與上一局（和局略過）相反的一方。還沒有上一局時，選機率稍佳的一方（通常是莊）。它只是反著押，並不會更準 — 在 1 萬靴公正的八副牌靴中，單跳猜中約 <b>50.04%</b> 的已決局，一直押莊則約 <b>50.67%</b>。可在「推薦方式」選其他方式。",
-    "zh-Hans": "推荐是<b>单跳</b>：推荐与上一局（和局略过）相反的一方。还没有上一局时，选概率稍佳的一方（通常是庄）。它只是反着押，并不会更准 — 在 1 万靴公正的八副牌靴中，单跳猜中约 <b>50.04%</b> 的已决局，一直押庄则约 <b>50.67%</b>。可在「推荐方式」选其他方式。",
-  },
-  "ai.rule.banker": {
-    ko: "추천은 <b>항상 뱅커</b>입니다: 결과와 상관없이 매판 뱅커입니다. 바카라에서 기대 손실이 가장 작은 쪽이고(판당 약 −1.06%, 플레이어는 약 −1.24%), 공정한 8덱 슈 1만 개에서 결정된 판의 <b>약 50.67%</b>를 맞혔습니다 — 그래도 손실입니다. 다른 방식은 '추천 방식'에서 고를 수 있습니다.",
-    en: "The pick is <b>Banker every coup</b>, whatever came before. It is the bet that costs least in baccarat (about −1.06% a unit, Player about −1.24%), and on 10,000 fair 8-deck shoes it was right on <b>about 50.67%</b> of decided coups — a loss still. Another way can be chosen under 'Pick by'.",
-    "zh-Hant": "推薦是<b>一律押莊</b>：不論之前結果，每局都押莊。這是百家樂期望損失最小的一方（每單位約 −1.06%，閒約 −1.24%），在 1 萬靴公正的八副牌靴中猜中約 <b>50.67%</b> 的已決局 — 仍然是虧損。可在「推薦方式」選其他方式。",
-    "zh-Hans": "推荐是<b>一律押庄</b>：不论之前结果，每局都押庄。这是百家乐期望损失最小的一方（每单位约 −1.06%，闲约 −1.24%），在 1 万靴公正的八副牌靴中猜中约 <b>50.67%</b> 的已决局 — 仍然是亏损。可在「推荐方式」选其他方式。",
-  },
+  /* --------------------------------------------- the one way the pick is made */
+  "rule.label.combined": { ko: "통합 추천", en: "Combined pick", "zh-Hant": "綜合推薦", "zh-Hans": "综合推荐" },
+  "rule.name.combined": { ko: "통합 추천", en: "the combined pick", "zh-Hant": "綜合推薦", "zh-Hans": "综合推荐" },
   "learn.record": {
-    ko: "<b>{rule} 추천을 씁니다.</b> 이 테이블의 기록이 8덱 바카라의 모양이 아니라, 모델이 배운 것이 판독 오류일 수 있습니다.",
+    ko: "<b>{rule}을 씁니다.</b> 이 테이블의 기록이 8덱 바카라의 모양이 아니라, 모델이 배운 것이 판독 오류일 수 있습니다.",
     en: "<b>Using {rule}.</b> This table's record is not the shape 8-deck baccarat produces, so what the network learned may be a misreading.",
-    "zh-Hant": "<b>採用{rule}推薦。</b>本桌紀錄不是 8 副牌百家樂會有的樣子，網路學到的可能是判讀錯誤。",
-    "zh-Hans": "<b>采用{rule}推荐。</b>本桌记录不是 8 副牌百家乐会有的样子，网络学到的可能是判读错误。",
+    "zh-Hant": "<b>採用{rule}。</b>本桌紀錄不是 8 副牌百家樂會有的樣子，網路學到的可能是判讀錯誤。",
+    "zh-Hans": "<b>采用{rule}。</b>本桌记录不是 8 副牌百家乐会有的样子，网络学到的可能是判读错误。",
   },
   "ai.disclaimer": {
     ko: "바카라는 양쪽 모두 기댓값이 마이너스입니다. 이 추천은 지난 결과로 고른 것일 뿐, 다음 판을 맞힌다는 보장도 수익 보장도 없습니다.",
@@ -7145,29 +7100,19 @@ function sideConfidence(n, q, deff = 1, pick = "B") {
  * base-4: the side is the shoe's pattern -- whichever of the readings in
  * `PATTERNS` has called the shoe being dealt best so far, the estimate's side
  * where none names one (`ShoePattern`). The owner's choice, the same day.
+ *
+ * base-5: always Banker is one of the readings the pattern chooses among,
+ * and the pattern is the one way of picking. From 2026-10-10 the pick was
+ * the owner's choice of four ways -- the streak (filed as `streak-1`), the
+ * shoe's pattern, the chop (`chop-1`) and always Banker (`banker-1`) -- and
+ * on 2026-10-13 the owner asked for the four to be one, with nothing to
+ * choose: the streak and the chop were readings of the pattern already, and
+ * always Banker is one now. Measured on fair shoes the four were right on
+ * 49.96%, about 50.0%, 50.04% and 50.67% of decided coups, and the one is
+ * right on about 50.0% (`tests/test_js_port.py`).
  */
 const FEATURE_VERSION = "f2";
-const BASE_MODEL_VERSION = "base-4";
-
-/**
- * The ways the pick can be made, and what each is filed under in the log.
- *
- * On 2026-10-10 the owner, seeing the pattern pick bet against a run of
- * three -- it does on 28% of them, where the chop has called the shoe best
- * -- chose the streak: the side of the last decided coup (줄타기), the
- * estimate's side where the shoe has none yet. On 2026-10-12 the owner made
- * the shoe's pattern the pick again (`DEFAULT_PICK_RULE`), and the streak,
- * the chop and always Banker are a choice away. Measured on 10,000 fair
- * shoes, the four are right on 49.96%, about 50.0%, 50.04% and 50.67% of
- * decided coups: a choice of what to follow, not of how often to be right.
- */
-const PICK_RULES = ["streak", "pattern", "chop", "banker"];
-
-/** The way of picking on a device that has not chosen one: the owner's, 2026-10-12. */
-const DEFAULT_PICK_RULE = "pattern";
-const RULE_MODEL_VERSION = {
-  streak: "streak-1", pattern: BASE_MODEL_VERSION, chop: "chop-1", banker: "banker-1",
-};
+const BASE_MODEL_VERSION = "base-5";
 
 /**
  * Standard errors of evidence required before the estimate's side leaves
@@ -7246,6 +7191,11 @@ function sidePick(q, se) {
  *   streak    the side of the last decided coup (줄)
  *   chop      the other side (퐁당)
  *   majority  the side that has come up more in this shoe
+ *   banker    Banker, every coup of the shoe after its first decided one: the
+ *             way of picking that was a choice of its own until 2026-10-13,
+ *             as a reading. Before the shoe's first decided coup there is
+ *             nothing to read, and the estimate's side stands as it does for
+ *             every other reading -- Player on a table that has run to Player.
  *
  * The owner asked, on 2026-10-04, for the pick to read the whole shoe's
  * pattern rather than its last six coups. So it follows whichever of these
@@ -7253,7 +7203,9 @@ function sidePick(q, se) {
  * the shoe it named a side for, from the coups before that one, and the one
  * with the best record -- hits plus one over calls plus two, so a reading
  * with one call is not taken for a sure thing -- names the side. A new shoe
- * starts every record over: the pattern is the shoe's own.
+ * starts every record over: the pattern is the shoe's own. Readings whose
+ * records are level go to the earlier in the list, so always Banker, last,
+ * is followed only where it has called this shoe better than every other.
  *
  * What it costs was measured before it shipped, on the page's own simulator,
  * two independent sets of six fair tables of 700 shoes, each coup named from
@@ -7274,7 +7226,7 @@ function sidePick(q, se) {
  * backing Banker. The page says so in its reasons for the pick
  * (`ai.patternRule`), with figures `tests/test_js_port.py` measures.
  */
-const PATTERNS = ["roads3", "beb", "small", "roach", "repeat", "streak", "chop", "majority"];
+const PATTERNS = ["roads3", "beb", "small", "roach", "repeat", "streak", "chop", "majority", "banker"];
 
 /** How far back each derived road looks: the big eye boy, the small road, the cockroach road. */
 const DERIVED_OFFSETS = [1, 2, 3];
@@ -7389,31 +7341,6 @@ function patternSides(shoe) {
   return sides;
 }
 
-/**
- * The side a pick rule names for each coup of `shoe`, from the coups before
- * it, as a string -- "-" where it names none and the estimate's side is
- * taken. See `PICK_RULES`.
- */
-function ruleSides(shoe, rule = "pattern") {
-  if (rule === "pattern") return patternSides(shoe);
-  let out = "", last = null;
-  for (const o of shoe) {
-    out += rule === "banker" ? "B" : !last ? "-" : rule === "chop" ? (last === "B" ? "P" : "B") : last;
-    if (o === "B" || o === "P") last = o;
-  }
-  return out;
-}
-
-/** The side a pick rule names for the coup after `shoe`, or `level` where it names none. */
-function ruleNext(shoe, rule, level) {
-  if (rule === "pattern") return shoePattern(shoe).pick(level);
-  if (rule === "banker") return "B";
-  let last = null;
-  for (let i = shoe.length - 1; i >= 0 && !last; i -= 1) if (shoe[i] !== "T") last = shoe[i];
-  if (!last) return level;
-  return rule === "chop" ? (last === "B" ? "P" : "B") : last;
-}
-
 /** What each reading names for the next coup of a shoe read this far. */
 function readPattern({ text, lengths, last, banker }) {
   const n = text.length;
@@ -7443,6 +7370,7 @@ function readPattern({ text, lengths, last, banker }) {
   calls.streak = last;
   calls.chop = last ? (last === "B" ? "P" : "B") : null;
   calls.majority = banker * 2 > n ? "B" : banker * 2 < n ? "P" : null;
+  calls.banker = n ? "B" : null;
   return calls;
 }
 
@@ -7530,7 +7458,7 @@ function posterior(sample = {}) {
  * a string -- the board marks each coup of the shoe with what its pick did.
  */
 function replayPicks(sequences, {
-  deff = 1, commission = 0.05, from = 0, keepFrom = null, rule = "pattern",
+  deff = 1, commission = 0.05, from = 0, keepFrom = null,
 } = {}) {
   const step = 1 / Math.max(1, deff);
   let a = PRIOR_A, b = PRIOR_B;
@@ -7552,12 +7480,12 @@ function replayPicks(sequences, {
   let bankerBets = 0, playerBets = 0;
 
   for (const seq of sequences) {
-    // The side the rule names before each coup -- the shoe's own pattern, its
-    // last coup, the other side, or Banker: a sequence here is one shoe.
-    const sides = ruleSides(seq, rule);
+    // The side the shoe's own pattern names before each coup: a sequence
+    // here is one shoe.
+    const sides = patternSides(seq);
     for (let i = 0; i < seq.length; i += 1) {
       const outcome = seq[i];
-      // decide on what was knowable at the time, by the rule the panel uses
+      // decide on what was knowable at the time, as the panel does
       const q = a / (a + b);
       const se = Math.sqrt((q * (1 - q)) / (a + b + 1));
       const pick = sides[i] === "-" ? sidePick(q, se) : sides[i];
@@ -7920,9 +7848,9 @@ const PLAN_TABLE = 40;
  *
  * The shoes are dealt by the page's own rules engine from a fixed seed, so the
  * table is the same every time it is drawn for the same settings; the picks
- * are the page's own, by the way of picking chosen (`rule`, see `ruleSides`),
- * each made from the coups before it on a table of forty shoes, as the page
- * makes them. A session is a shoe.
+ * are the page's own -- the shoe's pattern, see `patternSides` -- each made
+ * from the coups before it on a table of forty shoes, as the page makes them.
+ * A session is a shoe.
  *
  * `cost` is what the plan expects to lose a shoe -- what it stakes, each unit
  * at its side's edge. It is the steady figure: the simulated mean wanders with
@@ -7930,12 +7858,12 @@ const PLAN_TABLE = 40;
  * that luck. `perUnit` is the cost a unit staked, which no plan changes.
  */
 function comparePlans({ bankroll = 100, max = Infinity, stopWin = 0, stopLoss = 0 } = {},
-                             { shoes = PLAN_SHOES, seed = 20261010, rule = "pattern" } = {}) {
+                             { shoes = PLAN_SHOES, seed = 20261010 } = {}) {
   const dealt = simulate(shoes, seed);
   const picks = [];
   for (let t = 0; t < dealt.length; t += PLAN_TABLE) {
     const table = dealt.slice(t, t + PLAN_TABLE);
-    const all = replayPicks(table, { keepFrom: 0, rule }).picks;
+    const all = replayPicks(table, { keepFrom: 0 }).picks;
     let at = 0;
     for (const shoe of table) { picks.push(all.slice(at, at + shoe.length)); at += shoe.length; }
   }
@@ -8324,7 +8252,7 @@ function advance(run, sequences) {
  * clustering discount it counts with moves as the corpus grows.
  */
 function settleAll(sequences, picks, {
-  commission = BANKER_COMMISSION, deff = 1, from = 0, rule = "pattern",
+  commission = BANKER_COMMISSION, deff = 1, from = 0,
 } = {}) {
   const step = 1 / Math.max(1, deff);
   const model = empty(), base = empty();
@@ -8333,7 +8261,7 @@ function settleAll(sequences, picks, {
 
   for (const seq of sequences) {
     // The rule the network would replace reads the shoe's own pattern.
-    const sides = ruleSides(seq, rule);
+    const sides = patternSides(seq);
     for (let i = 0; i < seq.length; i += 1) {
       const modelPick = picks[seen];
       // Coups before the mark are what the two are made of, not what either is
@@ -8375,10 +8303,9 @@ function settleAll(sequences, picks, {
 
 /** What the panel reads: both books, the comparison, and the coup to come. */
 function report(run, sequences,
-                { commission = BANKER_COMMISSION, deff = 1, next = null, from = 0,
-                  rule = "pattern" } = {}) {
+                { commission = BANKER_COMMISSION, deff = 1, next = null, from = 0 } = {}) {
   const { model, base, coups, agree, decided, split, faced } =
-    settleAll(sequences, run.picks, { commission, deff, from, rule });
+    settleAll(sequences, run.picks, { commission, deff, from });
 
   // The coup that has not happened yet, which is what the panel recommends on.
   // The last pick in the record is the pick that was made for the coup at the
@@ -8447,7 +8374,7 @@ class Learner {
   }
 
   update(sequences, {
-    commission = BANKER_COMMISSION, deff = 1, next = null, from = 0, rule = "pattern",
+    commission = BANKER_COMMISSION, deff = 1, next = null, from = 0,
   } = {}) {
     if (extendsRun(this.run, sequences)) this.resumes += 1;
     // A successful rewind leaves exactly the shoes before the mark, and those
@@ -8456,7 +8383,7 @@ class Learner {
     else if (rewind(this.run, sequences)) this.rewinds += 1;
     else { this.run = newRun(this.options); this.restarts += 1; }
     advance(this.run, sequences);
-    return report(this.run, sequences, { commission, deff, next, from, rule });
+    return report(this.run, sequences, { commission, deff, next, from });
   }
 
   /**
@@ -8466,8 +8393,8 @@ class Learner {
    * judged on: one shoe of it, while the question of whether the network has
    * earned the wheel is asked over all of it.
    */
-  settle(sequences, { commission = BANKER_COMMISSION, deff = 1, from = 0, rule = "pattern" } = {}) {
-    const { model, base, coups } = settleAll(sequences, this.run.picks, { commission, deff, from, rule });
+  settle(sequences, { commission = BANKER_COMMISSION, deff = 1, from = 0 } = {}) {
+    const { model, base, coups } = settleAll(sequences, this.run.picks, { commission, deff, from });
     return { model: finish(model), base: finish(base), coups };
   }
 
@@ -14034,47 +13961,18 @@ function invalidate() {
  * The pick actually shown: the network's where it has earned it, and
  * otherwise the shoe's pattern -- the side named by whichever reading of it
  * has called the shoe being dealt best so far, the estimate's side where none
- * names one. The pattern is the owner's choice; see `PATTERNS` for what it
- * costs.
+ * names one. One way of picking, with nothing to choose: the streak, the chop
+ * and always Banker, which were ways of their own until 2026-10-13, are
+ * readings of the pattern (see `PATTERNS`, and what it costs). A way a device
+ * chose then, kept under `baccarat.pickRule.v1`, is not read.
  */
 function recommended(p) {
-  const rule = pickRule();
   if (usingNetwork()) return learned().nextPick;
-  return ruleNext(openShoe().o, rule, p.pick);
+  return shoePattern(openShoe().o).pick(p.pick);
 }
 
-/**
- * How the pick is made: the owner's choice among `PICK_RULES`, kept on this
- * device. The shoe's pattern unless chosen otherwise (`DEFAULT_PICK_RULE`);
- * a device that chose a way keeps it, whatever the default becomes.
- *
- * Read from the device once and held here, like the view: a choice the device
- * will not keep -- its store full, or site data blocked -- is still the choice
- * for this visit. Read back from the store each time, it was shown in its
- * field and ignored everywhere else.
- */
-const PICK_RULE_KEY = "baccarat.pickRule.v1";
-let pickRuleNow = (() => {
-  try {
-    const v = localStorage.getItem(PICK_RULE_KEY);
-    return PICK_RULES.includes(v) ? v : DEFAULT_PICK_RULE;
-  } catch {
-    return DEFAULT_PICK_RULE;
-  }
-})();
-
-function pickRule() {
-  return pickRuleNow;
-}
-
-/**
- * Whether the network makes the pick: only with the pick by the shoe's
- * pattern, where it has earned it. A rule the owner chose by name -- the
- * streak, the chop, Banker -- is the pick, whatever the network makes of
- * the record; the network's panel still says how it compares.
- */
+/** Whether the network makes the pick: where it has earned it. */
 function usingNetwork() {
-  if (pickRule() !== "pattern") return false;
   const l = learned();
   return l.trusted && !!l.nextPick;
 }
@@ -14183,7 +14081,7 @@ function logPrediction(p, chosen, worthBacking) {
     pick: chosen,
     backed: worthBacking,
     confidence: sureOf(p, chosen).score,
-    model: usingNet ? NET_MODEL_VERSION : RULE_MODEL_VERSION[pickRule()],
+    model: usingNet ? NET_MODEL_VERSION : BASE_MODEL_VERSION,
     features: FEATURE_VERSION,
     basis: shoe.o,
   });
@@ -14409,7 +14307,7 @@ function renderPrediction() {
       rate: pct(record.rate, 2),
       coups: record.coups.toLocaleString(),
       z: Math.abs(record.z).toFixed(0),
-      rule: t("rule.name." + pickRule()),
+      rule: t("rule.name.combined"),
     });
   }
 
@@ -14457,12 +14355,11 @@ function renderPrediction() {
   if (!p.informed || p.moved < 0.0002) why.push(t("ai.whyThin", { n: p.n }));
   else why.push(t("ai.whyMoved", { n: p.n, delta: (p.moved * 100).toFixed(2) }));
 
-  const rule = pickRule();
-  why.push(t(rule === "pattern" ? "ai.patternRule" : "ai.rule." + rule));
+  why.push(t("ai.patternRule"));
   // Which reading of the pattern the side came from, where it came from one:
   // its name, and no count -- the reading followed is the one that has been
   // luckiest in this shoe, and its record there would read as an accuracy.
-  const following = rule !== "pattern" || usingNetwork() ? null : shoePattern(openShoe().o).following;
+  const following = usingNetwork() ? null : shoePattern(openShoe().o).following;
   if (following) why.push(t("ai.patternNow", { pattern: t("pattern." + following) }));
   // The last line carries emphasis on the two figures the rule turns on.
   $("aiWhy").innerHTML = why.join(" ");
@@ -14538,9 +14435,7 @@ const learners = new LearnerShelf();
  * coup the table has, and it only changes when they do.
  */
 function learned() {
-  const rule = pickRule();
-  if (learnCache && learnCache.revision === revision && learnCache.table === state.active
-      && learnCache.rule === rule) {
+  if (learnCache && learnCache.revision === revision && learnCache.table === state.active) {
     return learnCache.value;
   }
   const o = observed();
@@ -14553,7 +14448,7 @@ function learned() {
   // Re-training cost three quarters of a second per coup at eight hundred
   // shoes, and got worse with every shoe collected.
   const value = learners.for(state.active ?? "").update(shoes().map((s) => s.o).filter(Boolean),
-                               { deff, next: openShoe().o, from: ledgerFrom(), rule });
+                               { deff, next: openShoe().o, from: ledgerFrom() });
   // A model is worth following only if what trained it was baccarat. Where the
   // record cannot be one -- a tie rate whole points off what the pack itself
   // fixes -- the network is being rewarded for learning a misreading, and it
@@ -14572,15 +14467,14 @@ function learned() {
   }
   value.record = record;
   value.shape = shape;
-  learnCache = { revision, table: state.active, rule, value };
+  learnCache = { revision, table: state.active, value };
   return value;
 }
 
 function ledger() {
   const from = shownFrom();
-  const rule = pickRule();
   if (ledgerCache && ledgerCache.revision === revision && ledgerCache.table === state.active
-      && ledgerCache.from === from && ledgerCache.rule === rule) {
+      && ledgerCache.from === from) {
     return ledgerCache.value;
   }
   // The block is the record of backing the recommendation, so it has to settle
@@ -14594,16 +14488,16 @@ function ledger() {
   const deff = Number.isFinite(o.inflate) ? Math.max(1, o.inflate ** 2) : 1;
   const sequences = shoes().map((s) => s.o).filter(Boolean);
   let value;
-  if (l.trusted && rule === "pattern") {
+  if (l.trusted) {
     // The network is judged from the mark; the screen may count less of it.
     value = from === ledgerFrom() ? l.model
-      : learners.for(state.active ?? "").settle(sequences, { deff, from, rule }).model;
+      : learners.for(state.active ?? "").settle(sequences, { deff, from }).model;
   } else {
-    // The rule chosen, coup by coup; the picks over the shoe in progress
+    // The shoe's pattern, coup by coup; the picks over the shoe in progress
     // come back too, for the board.
-    value = replayPicks(sequences, { deff, from, keepFrom: shoeStart(), rule });
+    value = replayPicks(sequences, { deff, from, keepFrom: shoeStart() });
   }
-  ledgerCache = { revision, table: state.active, from, rule, value };
+  ledgerCache = { revision, table: state.active, from, value };
   return value;
 }
 
@@ -14619,7 +14513,7 @@ function shoeCalls() {
   const n = openShoe().o.length;
   if (!n) return null;
   const start = shoeStart();
-  const picks = learned().trusted && pickRule() === "pattern"
+  const picks = learned().trusted
     ? learners.for(state.active ?? "").picksBetween(start, start + n)
     : ledger().picks;
   return typeof picks === "string" && picks.length === n ? picks : null;
@@ -14915,14 +14809,11 @@ function renderLearned() {
   }
 
   const signed = (x) => (x >= 0 ? "+" : "\u2212") + Math.abs(x).toFixed(2);
-  // The network is followed only with the pick by the shoe's pattern; beside
-  // a rule chosen by name it is compared, not followed (see `usingNetwork`).
-  const rule = pickRule();
-  const net = l.trusted && rule === "pattern";
-  const ruleName = t("rule.name." + rule);
+  const net = l.trusted;
+  const ruleName = t("rule.name.combined");
   for (const [key, book, picked] of [
     [t("learn.model"), l.model, net],
-    [t("rule.label." + rule), l.base, !net],
+    [t("rule.label.combined"), l.base, !net],
   ]) {
     const row = el("div", "aifact" + (picked ? " picked" : ""));
     row.appendChild(el("span", "k", key));
@@ -14941,8 +14832,7 @@ function renderLearned() {
   verdict.className = "aiverdict" + (net ? " on" : "");
   verdict.innerHTML =
     l.reason === "record" ? t("learn.record", { rule: ruleName })
-    : l.reason === "ahead" ? t(net ? "learn.usingModel" : "learn.ruleChosen",
-      { lead: signed(l.lead), z, rule: ruleName })
+    : l.reason === "ahead" ? t("learn.usingModel", { lead: signed(l.lead), z })
     : l.reason === "noise" ? t("learn.noise", { z, bar: l.bar.toFixed(2), rule: ruleName })
     : l.reason === "tooFew" ? t("learn.tooFew", { n: l.split.toLocaleString(), rule: ruleName })
     : t("learn.behind", { rule: ruleName });
@@ -15269,7 +15159,7 @@ let planNow = (() => {
   }
 })();
 
-/** The plan chosen: held for the visit, like the way of picking. */
+/** The plan chosen: held for the visit, like the stake. */
 function chosenPlan() {
   return planNow;
 }
@@ -15321,7 +15211,7 @@ function planUnits(cfg = stakeSettings()) {
 let planCompared = null;
 let planComparing = 0;
 
-const planKey = (u, rule) => [u.bankroll, u.max, u.stopWin, u.stopLoss, rule].join("|");
+const planKey = (u) => [u.bankroll, u.max, u.stopWin, u.stopLoss].join("|");
 
 function renderPlan() {
   const plan = chosenPlan();
@@ -15376,28 +15266,26 @@ function renderPlan() {
   // The comparison is the full view's: the guest's has no table to fill, and
   // is not made to wait for one.
   if (viewNow !== "full") return;
-  // On the picks of the way of picking chosen: always Banker costs less a
-  // unit than a pick that names Player half the time.
-  const key = planKey(u, pickRule());
+  const key = planKey(u);
   if (u.bankroll >= 1 && (!planCompared || planCompared.key !== key)) {
     renderPlanTable(null);
     if (!planComparing) {
       planComparing = setTimeout(() => {
         planComparing = 0;
-        const at = planUnits(), rule = pickRule();
+        const at = planUnits();
         if (at.bankroll >= 1) {
-          planCompared = { key: planKey(at, rule), rule, value: comparePlans(at, { rule }) };
+          planCompared = { key: planKey(at), value: comparePlans(at) };
         }
         renderPlan();
       }, 60);
     }
     return;
   }
-  renderPlanTable(u.bankroll >= 1 ? planCompared.value : null, plan, u, planCompared?.rule);
+  renderPlanTable(u.bankroll >= 1 ? planCompared.value : null, plan, u);
 }
 
 /** Every plan side by side on fair shoes, at these settings. See `comparePlans`. */
-function renderPlanTable(cmp, plan, u, rule) {
+function renderPlanTable(cmp, plan, u) {
   const table = $("planTable"), note = $("planNote");
   const head = table.tHead, body = table.tBodies[0];
   head.innerHTML = "";
@@ -15441,7 +15329,6 @@ function renderPlanTable(cmp, plan, u, rule) {
     loss: u.stopLoss ? amount(u.stopLoss) : off,
     pct: pct(-cmp.flat.perUnit, 2),
     cost: signed(cmp[plan].cost), plan: t("plan.short." + plan),
-    rule: t("rule.label." + rule),
   });
 }
 
@@ -16603,24 +16490,6 @@ function bindControls() {
     if (ledgerFrom(name)) delete entry.from;
     else entry.from = tableCoups(name);
     commitTo(name, []);
-  };
-  // How the pick is made (see `pickRule`): kept on this device, and every
-  // panel that reads the pick -- the tally, the board's marks, the plan --
-  // drawn again from it.
-  const rule = $("pickRule");
-  rule.value = pickRule();
-  rule.onchange = () => {
-    pickRuleNow = PICK_RULES.includes(rule.value) ? rule.value : DEFAULT_PICK_RULE;
-    try { localStorage.setItem(PICK_RULE_KEY, pickRuleNow); } catch { /* this visit only */ }
-    // The call for the coup to come changes with the rule, and the log keeps
-    // the one on screen when its coup comes: the one made under the rule left
-    // behind goes, and the render files this rule's (see `withdrawPrediction`).
-    const name = chosenTable();
-    const shoe = name ? openShoe(name) : null;
-    if (shoe && withdrawPrediction(predictionLog, name, shoe.id, shoe.o.length)) {
-      store.saveLog(predictionLog);
-    }
-    render();
   };
   // The shoe, or the whole table: which coups the tally on screen counts. It
   // changes nothing but that, so it redraws the block and nothing else.
