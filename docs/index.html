@@ -131,6 +131,28 @@ select,input[type=text],textarea{
 .themebtn svg{width:15px; height:15px; display:block}
 .themebtn:hover{color:var(--ink-2)}
 .themebtn.on{background:var(--surface); color:var(--ink); box-shadow:var(--shadow)}
+/* The bell sits on the tools row's own ground, not in the theme's tray. */
+.bellbtn{background:none; color:var(--ink-3); cursor:pointer}
+.bellbtn.on{background:var(--accent-soft); color:var(--accent); box-shadow:none}
+.bellbtn:focus-visible{outline:2px solid var(--accent); outline-offset:1px}
+
+/* ── alerts ─────────────────────────────────────────────────────────────
+   A strip under the header, one row per condition that holds. The tag says
+   what kind of thing it is in a word, the line says it in a sentence. */
+.alertbar{background:var(--accent-soft); border-bottom:1px solid var(--accent)}
+.alertbar ul{list-style:none; margin:0 auto; max-width:1220px; padding:7px 20px;
+             display:grid; gap:5px}
+.alertbar li{display:flex; align-items:flex-start; gap:10px; font-size:13px; line-height:1.5;
+             color:var(--ink)}
+.alertbar .tag{flex:none; font-size:11px; font-weight:600; letter-spacing:.03em; white-space:nowrap;
+               padding:1px 8px; margin-top:1px; border-radius:999px; color:var(--accent);
+               background:var(--surface); border:1px solid var(--accent)}
+.alertbar .shuffle .tag{color:var(--banker); border-color:var(--banker)}
+.alertbar .msg{flex:1; min-width:0; overflow-wrap:anywhere}
+.alertbar .x{flex:none; border:none; background:none; color:var(--ink-2); cursor:pointer;
+             font-size:18px; line-height:1; padding:0 4px; border-radius:6px}
+.alertbar .x:hover{color:var(--ink)}
+.alertbar .x:focus-visible{outline:2px solid var(--accent); outline-offset:1px}
 .sdot{width:7px; height:7px; border-radius:50%; background:var(--ink-3)}
 .sdot.synced{background:var(--tie)} .sdot.syncing{background:var(--accent)}
 .sdot.error,.sdot.full{background:var(--banker)}
@@ -721,6 +743,8 @@ footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
   select,#langSel,#reps,#liveInterval{min-height:44px; padding:10px 12px; font-size:14px}
   .themebtn{width:40px; height:40px}
   .themebtn svg{width:18px; height:18px}
+  .bellbtn{width:44px; height:44px}
+  .alertbar .x{min-width:44px; min-height:44px; margin:-10px -8px -10px 0}
   textarea{min-height:88px; font-size:16px}      /* 16px stops iOS zooming on focus */
   /* The staking plan's figures are typed on a phone too: they were 31px tall
      and 13px type, under a finger and under the size iOS zooms the page for. */
@@ -736,6 +760,7 @@ footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
   .panel{padding:14px 15px; border-radius:11px}
   .hrow{padding:8px 12px; gap:8px}
   .htools .hrow{padding:6px 12px}
+  .alertbar ul{padding:7px 12px}
   h1,.brand{font-size:13.5px}
   .brand .pips{gap:3px}
   #shoeMeta{font-size:12px}
@@ -955,6 +980,11 @@ body.open > #gate{display:none}
     <span id="shoeMeta"></span>
     <span class="store" data-full-only><i class="sdot" id="storeDot"></i><span id="storeLabel"></span></span>
     <span class="spacer"></span>
+    <!-- Browser notifications for the alerts below the header: asked for on
+         this button's click, never before it. -->
+    <button class="themebtn bellbtn" id="notifyBtn" type="button" aria-pressed="false" hidden>
+      <svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M4 11.2V7.4a4 4 0 0 1 8 0v3.8l1.2 1.3H2.8z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M6.6 14.1a1.5 1.5 0 0 0 2.8 0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+    </button>
     <button class="btn ghost" id="viewSwitch" type="button"></button>
     <select id="langSel" data-i18n-aria="header.langAria"></select>
     <span class="themeseg" role="group" data-i18n-aria="theme.auto">
@@ -970,6 +1000,13 @@ body.open > #gate{display:none}
     </span>
   </div></div>
 </header>
+
+<!-- What will not wait for a look at the panel that says it: a coup the cards
+     put ahead, the learned model taking over the pick, a shuffle the battery
+     flags. One row each while it holds; in both views. -->
+<div class="alertbar" id="alertBar" role="status" aria-live="polite" hidden>
+  <ul id="alertList"></ul>
+</div>
 
 <main>
   <!-- Left column: what you point at the table, and what it has collected.
@@ -1188,6 +1225,7 @@ body.open > #gate{display:none}
       </table>
     </div>
     <p class="aiverdict" id="stakeVerdict"></p>
+    <p class="aiverdict" id="stakeKelly" hidden></p>
     <p class="ainote foldable" id="stakeNote"></p>
   </section>
 
@@ -1952,6 +1990,102 @@ const S = {
     en: "Computed from the stake a hand; the bankroll only sets the percentage column. Hands are hands an hour x hours a day x days a month. The mean grows with the number of hands and the spread only with its square root, so luck's share shrinks as hands accumulate -- shrinks, not disappears.",
     "zh-Hant": "以每手下注額計算，本金僅用於換算百分比。手數為每小時手數 × 每天小時 × 每月天數。平均值隨手數線性成長，區間只隨平方根成長，所以手數越多，運氣的比重越小 — 只是變小，不會消失。",
     "zh-Hans": "以每手下注额计算，本金仅用于换算百分比。手数为每小时手数 × 每天小时 × 每月天数。平均值随手数线性增长，区间只随平方根增长，所以手数越多，运气的比重越小 — 只是变小，不会消失。",
+  },
+  "stake.kellyNone": {
+    ko: "<b>켈리 기준 배팅: 0.</b> {side}의 기댓값이 판당 {ev}라서, 원금을 가장 빨리 불리는 배팅 비율은 0입니다 — 기댓값이 마이너스인 판에서는 얼마를 걸든 걸수록 원금이 줄어듭니다. 0이 아닌 값은 카드 카운트가 앞서는 판이나, 이 테이블 기록이 손익분기를 확실히 넘었을 때만 나옵니다.",
+    en: "<b>Kelly stake: 0.</b> {side} is at {ev} a hand, so the share of the bankroll that grows it fastest is nothing -- on a wager that is behind, any stake shrinks it. It turns positive only on a coup the card count puts ahead, or once this table's record has clearly cleared the break-even line.",
+    "zh-Hant": "<b>凱利下注：0。</b>{side}每手期望值為 {ev}，讓本金成長最快的下注比例是 0 — 期望值為負的一手，押多少都會讓本金縮水。只有在牌點計數領先的那一手，或本桌紀錄明確越過損益平衡線時，才會出現非 0 的值。",
+    "zh-Hans": "<b>凯利下注：0。</b>{side}每手期望值为 {ev}，让本金增长最快的下注比例是 0 — 期望值为负的一手，押多少都会让本金缩水。只有在牌点计数领先的那一手，或本桌记录明确越过盈亏平衡线时，才会出现非 0 的值。",
+  },
+  "stake.kellyUncleared": {
+    ko: "<b>켈리 기준 배팅: 0.</b> 지금 추정으로는 {side}의 기댓값이 판당 {ev}이지만, 이 테이블 기록이 아직 운과 구별되지 않아('배팅 권장' 배지와 같은 기준) 0으로 둡니다. 운으로 생긴 우위 위에서 켈리를 계산하면 그 운에 원금을 거는 셈입니다.",
+    en: "<b>Kelly stake: 0.</b> The estimate puts {side} at {ev} a hand, but this table's record has not yet cleared what luck gives an honest table -- the line the badge is held to -- so it stays at nothing. Kelly worked out on an edge luck made stakes the bankroll on the luck.",
+    "zh-Hant": "<b>凱利下注：0。</b>依目前估計，{side}每手期望值為 {ev}，但本桌紀錄尚未與運氣區分開來（與「建議下注」標籤同一標準），所以維持 0。在運氣造成的優勢上計算凱利，等於把本金押在運氣上。",
+    "zh-Hans": "<b>凯利下注：0。</b>按目前估计，{side}每手期望值为 {ev}，但本桌记录尚未与运气区分开来（与「建议下注」标签同一标准），所以维持 0。在运气造成的优势上计算凯利，等于把本金押在运气上。",
+  },
+  "stake.kellyCards": {
+    ko: "<b>켈리 기준 배팅: 원금의 {full}.</b> 카드 카운트가 이 판 {side}를 {ev} 앞선다고 계산했습니다(입력한 카드로 계산한 정확한 값). 켈리는 원금을 가장 빨리 불리는 비율이고, 반 켈리 {half}는 성장의 4분의 3을 지키면서 흔들림은 절반입니다.",
+    en: "<b>Kelly stake: {full} of the bankroll.</b> The card count puts {side} ahead by {ev} on this coup, worked exactly from the cards typed. Kelly is the share that grows the bankroll fastest; half Kelly, {half}, keeps three quarters of the growth for half the swing.",
+    "zh-Hant": "<b>凱利下注：本金的 {full}。</b>牌點計數算出這一手{side}領先 {ev}（以輸入的牌精確計算）。凱利是讓本金成長最快的比例；半凱利 {half} 保留四分之三的成長，波動只有一半。",
+    "zh-Hans": "<b>凯利下注：本金的 {full}。</b>牌点计数算出这一手{side}领先 {ev}（以输入的牌精确计算）。凯利是让本金增长最快的比例；半凯利 {half} 保留四分之三的增长，波动只有一半。",
+  },
+  "stake.kellyTable": {
+    ko: "<b>켈리 기준 배팅: 원금의 {full}.</b> 이 테이블 기록이 {side}를 판당 {ev} 앞선다고 추정합니다. 추정치라 실제 우위는 더 작을 수 있으니 반 켈리 {half}를 권합니다 — 성장의 4분의 3을 지키면서 흔들림은 절반입니다.",
+    en: "<b>Kelly stake: {full} of the bankroll.</b> This table's record puts {side} ahead by {ev} a hand. That is an estimate and the real edge may be smaller, so half Kelly, {half}, is the stake to use: three quarters of the growth for half the swing.",
+    "zh-Hant": "<b>凱利下注：本金的 {full}。</b>依本桌紀錄估計{side}每手領先 {ev}。這是估計值，實際優勢可能更小，建議用半凱利 {half} — 保留四分之三的成長，波動只有一半。",
+    "zh-Hans": "<b>凯利下注：本金的 {full}。</b>按本桌记录估计{side}每手领先 {ev}。这是估计值，实际优势可能更小，建议用半凯利 {half} — 保留四分之三的增长，波动只有一半。",
+  },
+  "stake.kellyAmount": {
+    ko: "위의 총 투자 원금으로는 켈리 {full}, 반 켈리 {half}입니다.",
+    en: "On the bankroll above that is {full}, or {half} at half Kelly.",
+    "zh-Hant": "以上方的總本金計，凱利為 {full}，半凱利為 {half}。",
+    "zh-Hans": "以上方的总本金计，凯利为 {full}，半凯利为 {half}。",
+  },
+  "stake.kellyUnder": {
+    ko: "지금 한 판 배팅액 {unit}은 켈리의 {times}배로 켈리보다 작습니다 — 성장은 느리지만 흔들림도 작습니다.",
+    en: "The stake a hand on the form, {unit}, is {times}\u00d7 Kelly: under it, which grows more slowly and swings less.",
+    "zh-Hant": "目前每手下注 {unit} 是凱利的 {times} 倍，比凱利小 — 成長較慢，波動也較小。",
+    "zh-Hans": "目前每手下注 {unit} 是凯利的 {times} 倍，比凯利小 — 增长较慢，波动也较小。",
+  },
+  "stake.kellyAbove": {
+    ko: "지금 한 판 배팅액 {unit}은 켈리의 {times}배입니다 — 켈리보다 크게 걸면 흔들림만 커지고 성장은 오히려 느려집니다.",
+    en: "The stake a hand on the form, {unit}, is {times}\u00d7 Kelly: past it, the swing grows and the growth gets slower, not faster.",
+    "zh-Hant": "目前每手下注 {unit} 是凱利的 {times} 倍 — 押得比凱利大，只會加大波動，成長反而變慢。",
+    "zh-Hans": "目前每手下注 {unit} 是凯利的 {times} 倍 — 押得比凯利大，只会加大波动，增长反而变慢。",
+  },
+  "stake.kellyOver": {
+    ko: "지금 한 판 배팅액 {unit}은 켈리의 <b>{times}배</b>입니다 — 켈리의 약 2배를 넘으면 이 우위가 진짜여도 원금은 오래 갈수록 줄어듭니다.",
+    en: "The stake a hand on the form, {unit}, is <b>{times}\u00d7 Kelly</b> -- past about twice Kelly the bankroll shrinks in the long run even on an edge that is real.",
+    "zh-Hant": "目前每手下注 {unit} 是凱利的 <b>{times} 倍</b> — 超過凱利約 2 倍，即使優勢是真的，本金長期也會縮水。",
+    "zh-Hans": "目前每手下注 {unit} 是凯利的 <b>{times} 倍</b> — 超过凯利约 2 倍，即使优势是真的，本金长期也会缩水。",
+  },
+  /* ------------------------------------------------------------- alerts */
+  "alert.notifyOn": {
+    ko: "브라우저 알림 켜짐 — 누르면 끕니다",
+    en: "Browser alerts on -- press to turn them off",
+    "zh-Hant": "瀏覽器通知已開啟 — 按下即關閉",
+    "zh-Hans": "浏览器通知已开启 — 按下即关闭",
+  },
+  "alert.notifyOff": {
+    ko: "브라우저 알림 꺼짐 — 누르면 켭니다 (카드 +EV · 학습 모델 채택 · 셔플 이상 때, 다른 창을 보고 있을 때만)",
+    en: "Browser alerts off -- press to turn them on (a card-count +EV coup, the learned model taking over, a flagged shuffle; only while you are looking at another window)",
+    "zh-Hant": "瀏覽器通知已關閉 — 按下即開啟（牌點計數 +EV、學習模型接手、洗牌異常；僅在你看著其他視窗時）",
+    "zh-Hans": "浏览器通知已关闭 — 按下即开启（牌点计数 +EV、学习模型接手、洗牌异常；仅在你看着其他窗口时）",
+  },
+  "alert.denied": {
+    ko: "이 브라우저에서 이 페이지의 알림이 막혀 있습니다. 주소창 왼쪽의 사이트 설정에서 알림을 허용하면 켤 수 있습니다.",
+    en: "This browser is blocking alerts from this page. Allow notifications in the site settings beside the address bar to turn them on.",
+    "zh-Hant": "此瀏覽器已封鎖本頁的通知。在網址列旁的網站設定中允許通知後即可開啟。",
+    "zh-Hans": "此浏览器已屏蔽本页的通知。在地址栏旁的网站设置中允许通知后即可开启。",
+  },
+  "alert.dismiss": { ko: "이 알림 닫기", en: "Dismiss this alert", "zh-Hant": "關閉此通知", "zh-Hans": "关闭此通知" },
+  "alert.tag.cards": { ko: "카드 +EV", en: "Cards +EV", "zh-Hant": "牌點 +EV", "zh-Hans": "牌点 +EV" },
+  "alert.tag.table": { ko: "테이블 우위", en: "Table edge", "zh-Hant": "本桌優勢", "zh-Hans": "本桌优势" },
+  "alert.tag.model": { ko: "학습 모델", en: "Learned model", "zh-Hant": "學習模型", "zh-Hans": "学习模型" },
+  "alert.tag.shuffle": { ko: "셔플 이상", en: "Shuffle flag", "zh-Hant": "洗牌異常", "zh-Hans": "洗牌异常" },
+  "alert.cards": {
+    ko: "카드 카운트가 다음 판 {side} 배팅을 {ev} 앞선다고 계산했습니다(입력한 카드로 계산한 정확한 값). 켈리 기준 배팅은 원금의 {kelly}입니다.",
+    en: "The card count puts {side} ahead by {ev} on the next coup, worked exactly from the cards typed. The Kelly stake is {kelly} of the bankroll.",
+    "zh-Hant": "牌點計數算出下一手{side}領先 {ev}（以輸入的牌精確計算）。凱利下注為本金的 {kelly}。",
+    "zh-Hans": "牌点计数算出下一手{side}领先 {ev}（以输入的牌精确计算）。凯利下注为本金的 {kelly}。",
+  },
+  "alert.table": {
+    ko: "이 테이블 기록이 {side}를 판당 {ev} 앞선다고 봅니다 — 정직한 테이블이 운으로는 좀처럼 닿지 않는 선을 넘었습니다. 추정치이니 투자 계획의 반 켈리를 보세요.",
+    en: "This table's record puts {side} ahead by {ev} a hand -- past the line an honest table seldom reaches by luck. It is an estimate, so see half Kelly in the stake plan.",
+    "zh-Hant": "本桌紀錄估計{side}每手領先 {ev} — 已越過誠實牌桌靠運氣難以到達的線。這是估計值，請參考投注計畫中的半凱利。",
+    "zh-Hans": "本桌记录估计{side}每手领先 {ev} — 已越过诚实牌桌靠运气难以到达的线。这是估计值，请参考投注计划中的半凯利。",
+  },
+  "alert.model": {
+    ko: "학습 모델이 이 테이블에서 패턴 규칙보다 앞서(차이 {lead}, z {z}) 지금부터 추천을 정합니다. 앞선 폭이 잡음보다 크다는 뜻이지, 이긴다는 뜻은 아닙니다.",
+    en: "The learned model has pulled ahead of the pattern rule on this table (lead {lead}, z {z}) and now makes the pick. That says its lead is bigger than the noise, not that it wins.",
+    "zh-Hant": "學習模型在本桌領先圖形規則（差距 {lead}，z {z}），從現在起由它決定推薦。這表示領先幅度大於雜訊，不表示會贏。",
+    "zh-Hans": "学习模型在本桌领先图形规则（差距 {lead}，z {z}），从现在起由它决定推荐。这表示领先幅度大于噪声，不表示会赢。",
+  },
+  "alert.shuffle": {
+    ko: "셔플 건전성 검정에서 통계 {total}개 중 {n}개가 정직한 슈의 범위를 벗어났습니다. 다시 볼 때마다 정직한 테이블도 가끔 걸리니, 슈를 더 모아 다시 확인하세요.",
+    en: "The shuffle-integrity test put {n} of its {total} [total|statistic|statistics] outside the band an honest shoe stays in. An honest table is flagged now and then when the test is re-run, so collect more shoes and look again.",
+    "zh-Hant": "洗牌完整性檢定中，{total} 項統計有 {n} 項超出誠實牌靴的範圍。每次重看，誠實的牌桌也偶爾會被標出，請多收集牌靴後再確認。",
+    "zh-Hans": "洗牌完整性检验中，{total} 项统计有 {n} 项超出诚实牌靴的范围。每次重看，诚实的牌桌也偶尔会被标出，请多收集牌靴后再确认。",
   },
   /* ------------------------------------------------------ staking plans */
   "plan.h": { ko: "배팅 방식", en: "Staking plan", "zh-Hant": "下注方式", "zh-Hans": "下注方式" },
@@ -8810,6 +8944,53 @@ function projectStake({ q, tieP, side = "B", unit = 1, bankroll = 0,
 }
 
 /**
+ * The Kelly stake: the share of the bankroll that grows it fastest on a wager
+ * whose chances are known -- and nothing at all on one that is behind.
+ *
+ * A tie returns a main wager's stake, so it moves the bankroll by nothing and
+ * drops out: with `q` the backed side's share of the decided coups and `b`
+ * what a win pays (0.95 on Banker, 1 on Player), the growth per hand
+ *
+ *     g(f) = (1 - t) [ q log(1 + b f) + (1 - q) log(1 - f) ]
+ *
+ * peaks at f* = q - (1 - q) / b, which is the textbook p - q/b with the ties
+ * taken out. Where that is not above zero the answer is zero: no stake grows
+ * a bankroll on a wager that is behind, and staking it anyway is what shrinks
+ * one. Positive only past the break-even lines -- Banker's q above 1/1.95,
+ * Player's below a half -- which is where `edges` turns positive too.
+ *
+ * Two figures beside it, because they are the ones a stake goes wrong on.
+ * Half of f* keeps three quarters of the growth for half the swing, which is
+ * why it is what to stake on an edge that is itself an estimate. And past
+ * about twice f* the growth is below zero again: a stake that size shrinks
+ * the bankroll in the long run even on a wager that really is ahead.
+ * `growth(f)` is per hand, ties included, in natural log units.
+ */
+function kellyStake({ q, tieP, side = "B", bankroll = 0, unit = 0 } = {}) {
+  const b = side === "B" ? 1 - BANKER_COMMISSION : 1;
+  const win = side === "B" ? q : 1 - q;
+  const decided = 1 - tieP;
+  const growth = (f) => {
+    if (!(f > 0)) return 0;
+    if (f >= 1) return -Infinity;
+    return decided * (win * Math.log1p(b * f) + (1 - win) * Math.log1p(-f));
+  };
+  const valid = Number.isFinite(q) && Number.isFinite(tieP) && q > 0 && q < 1 && decided > 0;
+  const fraction = valid ? Math.max(0, win - (1 - win) / b) : 0;
+  const unitShare = bankroll > 0 && unit > 0 ? unit / bankroll : null;
+  return {
+    side, fraction, half: fraction / 2,
+    amount: bankroll > 0 ? fraction * bankroll : null,
+    halfAmount: bankroll > 0 ? (fraction / 2) * bankroll : null,
+    growth: growth(fraction), halfGrowth: growth(fraction / 2),
+    // The stake on the form, as a share of the bankroll and of Kelly.
+    unitShare,
+    times: unitShare !== null && fraction > 0 ? unitShare / fraction : null,
+    unitGrowth: unitShare !== null ? growth(unitShare) : null,
+  };
+}
+
+/**
  * How many more decided coups, at this share, would take the side named to
  * "high" -- on the line `sideConfidence` draws, which is the question the
  * label answers, so the count and the label cannot disagree.
@@ -15529,6 +15710,27 @@ function recommended(p) {
   return shoePattern(openShoe().o).pick(winPick(p.q));
 }
 
+/**
+ * Whether the side named is worth money, and on what chances.
+ *
+ * The cards' own, exact, where they put the side ahead on this coup; else
+ * this table's estimate, where its record has cleared the side's break-even
+ * line by more than luck gives an honest table read after every coup (see
+ * `backingCleared`). The badge beside the pick says this, and the Kelly stake
+ * is worked out on it, so a stake is never offered beside a badge that says
+ * hold, and never on chances other than the ones that made it a bet.
+ */
+function backing(p, chosen) {
+  const count = cardCount();
+  if (count.override && chosen === count.best) {
+    const { P, B, T } = count.probs;
+    return { worth: true, source: "cards", q: B / (B + P), tieP: T, ev: count.ev[chosen] };
+  }
+  const ev = edges(p.q, p.tie)[chosen];
+  const cleared = ev > 0 && !!p.cleared[chosen];
+  return { worth: cleared, source: cleared ? "table" : null, q: p.q, tieP: p.tie, ev };
+}
+
 /** Whether the network makes the pick: where it has earned it. */
 function usingNetwork() {
   const l = learned();
@@ -15829,8 +16031,9 @@ function renderPrediction() {
   const evChosen = edges(p.q, p.tie)[chosen];
   // Or on the cards: exact, and ahead, on the coup the count names a side.
   const count = cardCount();
-  const counted = count.override && chosen === count.best;
-  const worthBacking = counted || (evChosen > 0 && p.cleared[chosen]);
+  const back = backing(p, chosen);
+  const counted = back.source === "cards";
+  const worthBacking = back.worth;
   const pick = $("aiSide");
   pick.textContent = side(chosen);
   pick.className = "v " + chosen;
@@ -16532,6 +16735,7 @@ function renderLiveIntervals() {
 function renderAll() {
   renderLiveIntervals();
   renderLiveSources();
+  renderNotifyButton();
   render();
   if (live) live._emit();
   if (lastReport) renderIntegrityResult(lastReport);
@@ -16552,7 +16756,7 @@ function render() {
   for (const draw of [
     renderHeader, renderLiveBinding, renderPrediction, renderKpis, renderScale,
     renderStake, renderPlan, renderLastResult, renderBoard, renderShoes,
-    renderMilestones, renderIntegrityAvailability,
+    renderMilestones, renderIntegrityAvailability, renderAlerts,
     // Some of the folded paragraphs are written by the renders above, and a
     // paragraph that fitted before this coup may not after it.
     foldExplanations,
@@ -16782,6 +16986,7 @@ function renderStake() {
     const v = $("stakeVerdict");
     v.className = "aiverdict";
     v.textContent = t("stake.idle");
+    $("stakeKelly").hidden = true;
     $("stakeNote").textContent = t("stake.note");
     return;
   }
@@ -16829,7 +17034,44 @@ function renderStake() {
     lo: money(proj.month.lo), hi: money(proj.month.hi),
     need: proj.breakEvenHands.toLocaleString(), needDays: needDays.toLocaleString(),
   });
+  renderKelly(p, side_, cfg);
   $("stakeNote").textContent = t("stake.note");
+}
+
+/**
+ * The Kelly stake on the side the page names: worked out on the chances that
+ * make it a bet, and zero -- said as zero, with the reason -- wherever the
+ * badge says hold, which on a fair table is every coup but a rare one the
+ * cards put ahead. See `kellyStake`.
+ */
+function renderKelly(p, chosen, cfg) {
+  const host = $("stakeKelly");
+  host.hidden = false;
+  const back = backing(p, chosen);
+  if (!back.worth) {
+    host.className = "aiverdict";
+    host.innerHTML = t(back.ev > 0 ? "stake.kellyUncleared" : "stake.kellyNone", {
+      side: side(chosen), ev: signedPct(back.ev, 3),
+    });
+    return;
+  }
+  const k = kellyStake({ q: back.q, tieP: back.tieP, side: chosen,
+                         bankroll: cfg.stakeBankroll, unit: cfg.stakeUnit });
+  const won = (x) => Math.round(x).toLocaleString();
+  const parts = [t(back.source === "cards" ? "stake.kellyCards" : "stake.kellyTable", {
+    side: side(chosen), ev: signedPct(back.ev, 3),
+    full: pct(k.fraction, 3), half: pct(k.half, 3),
+  })];
+  if (k.amount !== null) {
+    parts.push(t("stake.kellyAmount", { full: won(k.amount), half: won(k.halfAmount) }));
+  }
+  if (k.times !== null) {
+    const times = k.times < 10 ? k.times.toFixed(1) : Math.round(k.times).toLocaleString();
+    const key = k.unitGrowth < 0 ? "stake.kellyOver" : k.times > 1 ? "stake.kellyAbove" : "stake.kellyUnder";
+    parts.push(t(key, { unit: won(cfg.stakeUnit), times }));
+  }
+  host.className = "aiverdict on";
+  host.innerHTML = parts.join(" ");
 }
 
 /* --------------------------------------------------------- staking plans */
@@ -17901,6 +18143,9 @@ async function runIntegrity() {
   $("intProgress").hidden = true;
   renderIntegrityResult(report);
   renderIntegrityAvailability();
+  // Outside `render`'s guard, so guarded here the same way: a fault in the
+  // alerts leaves the verdict drawn and is thrown on its own.
+  try { renderAlerts(); } catch (e) { setTimeout(() => { throw e; }); }
 }
 
 /**
@@ -17999,6 +18244,143 @@ function renderIntegrityResult(rep) {
   });
 }
 
+/* ---------------------------------------------------------------- alerts
+ *
+ * What the page can have to say that will not wait for a look at the panel
+ * that says it: a coup the cards put ahead, or a table record that clears the
+ * break-even line (the badge's "worth backing", for either reason); the
+ * learned model taking over the pick; and the shuffle battery flagging the
+ * table. Each is a condition on the table on screen, worked out after every
+ * render. A bar under the header shows the ones that hold, and the moment one
+ * starts to hold the browser is asked to notify, where the owner has turned
+ * that on and is looking at something else.
+ *
+ * "Starts to hold" is the part that needs care. A condition found already
+ * holding -- the page opened on it, or a table switched to that has it -- is
+ * the state of things, not something that happened, so it shows in the bar
+ * and notifies nobody. Each table keeps its own set of conditions from its
+ * last look, so leaving a table and coming back is not a start either. A
+ * condition dismissed by hand stays dismissed until it stops holding.
+ */
+const NOTIFY_KEY = "baccarat.notify.v1";
+let notifyWanted = (() => {
+  try { return localStorage.getItem(NOTIFY_KEY) === "1"; } catch { return false; }
+})();
+const alertsHolding = new Map();     // table -> keys holding at its last look
+const alertsDismissed = new Set();
+
+const notifySupported = () => typeof Notification !== "undefined";
+
+function currentAlerts() {
+  const out = [];
+  if (!state || !state.active || notStarted()) return out;
+  const p = predict();
+  const chosen = recommended(p);
+  const back = backing(p, chosen);
+  if (back.worth && back.source === "cards") {
+    // One a coup: the cards' edge is about the coup about to be dealt, and
+    // the next one ahead is a new chance to back it.
+    const shoe = openShoe();
+    out.push({
+      key: `cards:${state.active}:${shoe.id ?? ""}:${shoe.o.length}`, kind: "cards",
+      text: t("alert.cards", {
+        side: side(chosen), ev: signedPct(back.ev, 3),
+        kelly: pct(kellyStake({ q: back.q, tieP: back.tieP, side: chosen }).fraction, 3),
+      }),
+    });
+  } else if (back.worth) {
+    out.push({
+      key: `table:${state.active}:${chosen}`, kind: "table",
+      text: t("alert.table", { side: side(chosen), ev: signedPct(back.ev, 3) }),
+    });
+  }
+  if (usingNetwork()) {
+    const l = learned();
+    out.push({
+      key: `model:${state.active}`, kind: "model",
+      text: t("alert.model", {
+        lead: (l.lead >= 0 ? "+" : "\u2212") + Math.abs(l.lead).toFixed(2), z: l.z.toFixed(2),
+      }),
+    });
+  }
+  if (lastReport && integrityShown && integrityShown.table === state.active
+      && lastReport.verdict_kind === "flag") {
+    out.push({
+      key: `shuffle:${state.active}:${lastReport.n_games}`, kind: "shuffle",
+      text: t("alert.shuffle", { n: lastReport.flagged.length, total: lastReport.findings.length }),
+    });
+  }
+  return out;
+}
+
+function renderAlerts() {
+  const now = currentAlerts();
+  const table = state && state.active;
+  if (table) {
+    const before = alertsHolding.get(table);
+    const holding = new Set(now.map((a) => a.key));
+    // `before` is undefined the first time this table is looked at in this
+    // visit: whatever holds then is how the table was found.
+    if (before) for (const a of now) if (!before.has(a.key)) notifyAlert(a);
+    if (before) for (const k of before) if (!holding.has(k)) alertsDismissed.delete(k);
+    alertsHolding.set(table, holding);
+  }
+  const shown = now.filter((a) => !alertsDismissed.has(a.key));
+  const list = $("alertList");
+  list.innerHTML = "";
+  for (const a of shown) {
+    const li = el("li", "alert " + a.kind);
+    li.appendChild(el("span", "tag", t("alert.tag." + a.kind)));
+    li.appendChild(el("span", "msg", a.text));
+    const x = el("button", "x", "\u00d7");
+    x.type = "button";
+    x.setAttribute("aria-label", t("alert.dismiss"));
+    x.onclick = () => { alertsDismissed.add(a.key); renderAlerts(); };
+    li.appendChild(x);
+    list.appendChild(li);
+  }
+  $("alertBar").hidden = !shown.length;
+}
+
+/** The browser's own notification, for an owner looking at another window. */
+function notifyAlert(a) {
+  if (!notifyWanted || !notifySupported() || Notification.permission !== "granted") return;
+  // In front of the owner, the bar says it; this is for when the page is not.
+  if (!document.hidden && document.hasFocus()) return;
+  try {
+    new Notification(`${t("app.title")} \u2014 ${t("alert.tag." + a.kind)}`, { body: a.text, tag: a.key });
+  } catch { /* a browser that will not, from a page: the bar still says it */ }
+}
+
+function renderNotifyButton() {
+  const btn = $("notifyBtn");
+  btn.hidden = !notifySupported();
+  if (btn.hidden) return;
+  const on = notifyWanted && Notification.permission === "granted";
+  btn.classList.toggle("on", on);
+  btn.setAttribute("aria-pressed", String(on));
+  btn.title = t(on ? "alert.notifyOn" : "alert.notifyOff");
+  btn.setAttribute("aria-label", btn.title);
+}
+
+async function toggleNotify() {
+  if (!notifySupported()) return;
+  if (notifyWanted && Notification.permission === "granted") {
+    notifyWanted = false;
+  } else {
+    // Asked on this click and never before it: a browser shows the question
+    // only to a page the owner has just done something on.
+    let answer = Notification.permission;
+    if (answer === "default") {
+      try { answer = await Notification.requestPermission(); } catch { answer = "denied"; }
+    }
+    notifyWanted = answer === "granted";
+    if (!notifyWanted) flashNote(t("alert.denied"), NOTE_MS);
+  }
+  try { localStorage.setItem(NOTIFY_KEY, notifyWanted ? "1" : "0"); } catch { /* this visit only */ }
+  renderNotifyButton();
+}
+
 /* ------------------------------------------------------------ import/out */
 
 /**
@@ -18067,6 +18449,8 @@ function bindTextPaste() {
 
 function bindControls() {
   $("shoeMore").onclick = () => { shoeLimit += SHOE_PAGE; render(); };
+  $("notifyBtn").onclick = toggleNotify;
+  renderNotifyButton();
 
   $("tableSel").onchange = (e) => {
     // The blank option is a value, not a gap: choosing it means no table, and
