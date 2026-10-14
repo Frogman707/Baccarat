@@ -585,11 +585,12 @@ table.stake tr:last-child td{border-bottom:none}
 .sbcount b{min-width:2ch; font:500 calc(var(--fs) * .9)/1 var(--mono); color:var(--c);
   font-variant-numeric:tabular-nums}
 .sbcount.B{--c:var(--banker)} .sbcount.P{--c:var(--player)} .sbcount.T{--c:var(--tie)}
-/* Under the three counts, what the AI's picks did on the plate: won and
-   lost, in the ink rather than a side's colour, so neither reads as a side.
-   The first of them keeps a little more room above, as a group of its own. */
+/* Under the three counts, what the AI's picks did on the plate: won in red
+   and lost in blue, the page's own two colours. The first of them keeps a
+   little more room above, as a group of its own. */
 .sbtally{--c:var(--ink); display:flex; align-items:center; gap:calc(var(--fs) * .45)}
-.sbtally.win{margin-top:calc(var(--fs) * .3)}
+.sbtally.win{--c:var(--banker); margin-top:calc(var(--fs) * .3)}
+.sbtally.lose{--c:var(--player)}
 .sbtally .tk{display:grid; place-items:center; border-radius:50%; background:var(--c); color:var(--surface);
   font-style:normal; font-weight:700; line-height:1; font-family:var(--sans);
   width:calc(var(--fs) * 1.5); height:calc(var(--fs) * 1.5); font-size:calc(var(--fs) * .72)}
