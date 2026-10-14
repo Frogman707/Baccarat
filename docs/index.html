@@ -585,6 +585,16 @@ table.stake tr:last-child td{border-bottom:none}
 .sbcount b{min-width:2ch; font:500 calc(var(--fs) * .9)/1 var(--mono); color:var(--c);
   font-variant-numeric:tabular-nums}
 .sbcount.B{--c:var(--banker)} .sbcount.P{--c:var(--player)} .sbcount.T{--c:var(--tie)}
+/* Under the three counts, what the AI's picks did on the plate: won and
+   lost, in the ink rather than a side's colour, so neither reads as a side.
+   The first of them keeps a little more room above, as a group of its own. */
+.sbtally{--c:var(--ink); display:flex; align-items:center; gap:calc(var(--fs) * .45)}
+.sbtally.win{margin-top:calc(var(--fs) * .3)}
+.sbtally .tk{display:grid; place-items:center; border-radius:50%; background:var(--c); color:var(--surface);
+  font-style:normal; font-weight:700; line-height:1; font-family:var(--sans);
+  width:calc(var(--fs) * 1.5); height:calc(var(--fs) * 1.5); font-size:calc(var(--fs) * .72)}
+.sbtally b{min-width:2ch; font:500 calc(var(--fs) * .9)/1 var(--mono); color:var(--c);
+  font-variant-numeric:tabular-nums}
 .sbasks{display:flex; flex-direction:column; gap:calc(var(--fs) * .45)}
 .sbask{--c:var(--ink-3); display:flex; flex-direction:column; align-items:center;
   gap:calc(var(--fs) * .22); padding:calc(var(--fs) * .25); border:1px solid var(--c);
@@ -601,12 +611,7 @@ table.stake tr:last-child td{border-bottom:none}
   background:var(--c); transform:rotate(45deg)}
 .blabel{font-size:11px; color:var(--ink-3); margin-bottom:6px; letter-spacing:.02em}
 #boardMeta{font-family:var(--mono); font-size:12px; color:var(--ink-2); margin-top:10px}
-/* The tally of the AI's picks on the plate, on its own line under the board. */
-.sbscore{display:flex; flex-wrap:wrap; gap:4px 12px; align-items:center; margin:8px 0 0;
-  font:500 12.5px/1.3 var(--sans); color:var(--ink-2)}
-.sbscore b{font-family:var(--mono); font-weight:600}
-.sbscore .win b{color:var(--good, var(--tie))} .sbscore .lose b{color:var(--banker)} .sbscore .push b{color:var(--ink-3)}
-.sbscore .lead{color:var(--ink-3); font-weight:500}
+
 .beadkey{font-size:12px; color:var(--ink-3); line-height:1.5; margin:8px 0 0}
 
 /* ── per-shoe table ─────────────────────────────────────────────────── */
@@ -1129,11 +1134,6 @@ body.open > #gate{display:none}
         </div>
       </div>
     </div>
-    <!-- What the AI's picks did on this shoe's plate, counted: wins and
-         losses, and stakes returned on a tie where there were any. Under the
-         board rather than in the plate's own box, which the counts beside
-         the plate are sized to. -->
-    <div class="sbscore" id="beadScore" role="status" hidden></div>
     <p class="beadkey" data-i18n-html="board.beadKey"></p>
     <div id="boardMeta"></div>
   </section>
@@ -2479,10 +2479,6 @@ const S = {
     "zh-Hans": "{n} 局 · 闲 {p} · 庄 {b} · 和 {t} · 当前连开 {streak}{side}",
   },
   "board.empty": { ko: "이 슈에는 아직 기록된 판이 없습니다.", en: "Nothing recorded in this shoe yet.", "zh-Hant": "本靴尚無紀錄。", "zh-Hans": "本靴尚无记录。" },
-  "board.scoreLead": { ko: "AI 추천", en: "AI picks", "zh-Hant": "AI 推薦", "zh-Hans": "AI 推荐" },
-  "board.scoreWin": { ko: "승 {n}", en: "won {n}", "zh-Hant": "贏 {n}", "zh-Hans": "赢 {n}" },
-  "board.scoreLose": { ko: "패 {n}", en: "lost {n}", "zh-Hant": "輸 {n}", "zh-Hans": "输 {n}" },
-  "board.scorePush": { ko: "무 {n}", en: "pushed {n}", "zh-Hant": "和 {n}", "zh-Hans": "和 {n}" },
   "board.scoreAria": {
     ko: "이번 슈 AI 추천 성적: 승 {w}, 패 {l}, 무 {p}", en: "The AI's picks this shoe: {w} won, {l} lost, {p} pushed",
     "zh-Hant": "本靴 AI 推薦成績：贏 {w}、輸 {l}、和 {p}", "zh-Hans": "本靴 AI 推荐成绩：赢 {w}、输 {l}、和 {p}",
@@ -16634,10 +16630,6 @@ function renderBoard() {
     return true;
   });
 
-  // And the tally of them, as the owner asked: how many the AI's picks won
-  // and lost on this shoe's plate, and how many had their stake back.
-  renderBeadScore(outcomes, calls);
-
   // The big road: rings, and a tie as a green stroke across the coup before
   // it -- with how many, when it is more than one.
   const big = road.grid(ROAD_ROWS);
@@ -16676,6 +16668,18 @@ function renderBoard() {
     row.append(el("i", "mk " + o, o), el("b", null, String(c[o])));
     counts.appendChild(row);
   }
+  // And under them, as the owner asked, what the AI's picks did on this
+  // shoe's plate: won and lost, counted from the same record the beads are
+  // marked from (see `shoeCalls`), so the column and the plate agree.
+  const tally = pickTally(outcomes, calls);
+  const title = t("board.scoreAria", { w: tally.win, l: tally.lose, p: tally.push });
+  for (const kind of ["win", "lose"]) {
+    const row = el("div", "sbtally " + kind);
+    row.dataset.kind = kind;
+    row.title = title;
+    row.append(el("i", "tk", t("board.call." + kind)), el("b", null, String(tally[kind])));
+    counts.appendChild(row);
+  }
 
   // The ask roads: under each side's letter, the mark each derived road would
   // get if that side came next -- a ring, a dot and a stroke, or a gap where
@@ -16705,35 +16709,18 @@ function renderBoard() {
 
 /**
  * The AI's picks on the shoe in progress, counted: won, lost, and pushed --
- * a tie, with the stake back. Hidden with no pick to count, as a shoe's
- * first coup is, so the plate is not captioned "0 and 0".
+ * a tie, with the stake back. All zero with no pick to count, as a shoe's
+ * first coup is.
  */
-function renderBeadScore(outcomes, calls) {
-  const box = $("beadScore");
+function pickTally(outcomes, calls) {
   const n = { win: 0, lose: 0, push: 0 };
-  if (calls) {
-    for (let i = 0; i < outcomes.length && i < calls.length; i += 1) {
-      const o = outcomes[i], pick = calls[i];
-      if (!pick) continue;
-      n[o === "T" ? "push" : o === pick ? "win" : "lose"] += 1;
-    }
+  if (!calls) return n;
+  for (let i = 0; i < outcomes.length && i < calls.length; i += 1) {
+    const o = outcomes[i], pick = calls[i];
+    if (!pick) continue;
+    n[o === "T" ? "push" : o === pick ? "win" : "lose"] += 1;
   }
-  const total = n.win + n.lose + n.push;
-  box.hidden = !total;
-  box.innerHTML = "";
-  if (!total) return;
-  box.setAttribute("aria-label", t("board.scoreAria", { w: n.win, l: n.lose, p: n.push }));
-  box.appendChild(el("span", "lead", t("board.scoreLead")));
-  const words = { win: "board.scoreWin", lose: "board.scoreLose", push: "board.scorePush" };
-  for (const kind of ["win", "lose", "push"]) {
-    if (kind === "push" && !n.push) continue;
-    const item = el("span", kind);
-    // The count set in its own element inside the phrase, wherever the
-    // language puts it.
-    const [before, after] = t(words[kind], { n: "\u0000" }).split("\u0000");
-    item.append(before, el("b", null, String(n[kind])), after);
-    box.appendChild(item);
-  }
+  return n;
 }
 
 /* ------------------------------------------------------------- per shoe */
