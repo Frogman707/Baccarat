@@ -342,6 +342,12 @@ table.stake tr:last-child td{border-bottom:none}
 .aifact .v{font-family:var(--mono); font-size:13px; font-variant-numeric:tabular-nums}
 .aifact .v.neg{color:var(--banker)}
 .aifact .v small{font-family:var(--sans); font-size:10.5px; color:var(--ink-3); margin-left:3px}
+/* The two hands of a coup, typed: ranks only, so a field is short. */
+.cardsin{display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; align-items:center}
+.cardsin input{width:15ch; font-family:var(--mono); text-transform:uppercase; font-size:13px}
+.cardsin input::placeholder{text-transform:none; font-family:var(--sans)}
+.cardsin input:disabled,.cardsin .btn:disabled{opacity:.55}
+#cardsRows .aifact{grid-column:1 / -1}
 .obshead{display:flex; align-items:baseline; justify-content:space-between; gap:10px;
          margin:17px 0 8px; padding-top:14px; border-top:1px solid var(--line)}
 .obssub{font-size:11px; color:var(--ink-3); font-family:var(--mono);
@@ -1057,6 +1063,28 @@ body.open > #gate{display:none}
     <p class="ainote" id="aiEstimate"></p>
     <div id="aiRecord" class="verdict flag" hidden></div>
     <div class="aigrid" id="aiFacts"></div>
+    <!-- The cards, typed by whoever watches the table: the reader reads the
+         results board, never the cards. From them the composition of what
+         the pack still hides, and the coup to come, exactly. -->
+    <div id="cardsBlock" data-full-only hidden>
+      <div class="obshead">
+        <span class="blabel" data-i18n="cards.h"></span>
+        <span class="obssub" id="cardsSub"></span>
+      </div>
+      <p class="ainote foldable" style="margin-top:0" data-i18n="cards.sub"></p>
+      <p class="ainote" id="cardsFor" style="margin-top:8px"></p>
+      <div class="cardsin">
+        <input type="text" id="cardsP" autocomplete="off" spellcheck="false"
+               data-i18n-ph="cards.phP" data-i18n-aria="cards.ariaP">
+        <input type="text" id="cardsB" autocomplete="off" spellcheck="false"
+               data-i18n-ph="cards.phB" data-i18n-aria="cards.ariaB">
+        <button class="btn" id="cardsSave" type="button" data-i18n="cards.save"></button>
+        <button class="btn ghost" id="cardsClear" type="button" data-i18n="cards.clear"></button>
+      </div>
+      <p class="ainote" id="cardsNote" style="margin-top:6px" aria-live="polite"></p>
+      <div class="aigrid" id="cardsRows" style="margin-top:8px"></div>
+      <p class="aiverdict" id="cardsVerdict"></p>
+    </div>
     <div class="obshead ledgerhead">
       <span class="blabel" id="aiOverallH"></span>
       <span class="obssub" id="aiOverallSub"></span>
@@ -2145,6 +2173,92 @@ const S = {
   "pattern.run55": { ko: "파이브파이브", en: "five-five", "zh-Hant": "五五", "zh-Hans": "五五" },
   "pattern.run66": { ko: "식스식스", en: "six-six", "zh-Hant": "六六", "zh-Hans": "六六" },
   "pattern.majority": { ko: "많이 나온 쪽", en: "the side ahead", "zh-Hant": "多數方", "zh-Hans": "多数方" },
+  /* The card count: the cards typed for each coup, the pack's unseen
+     composition, and the coup to come from it, exactly. Its figures are the
+     ceiling's (`docs/MATH.md` section 5): one favourable coup in 368, all in
+     the last quarter of the shoe. */
+  "cards.h": { ko: "카드 카운트", en: "Card count", "zh-Hant": "算牌", "zh-Hans": "算牌" },
+  "cards.sub": {
+    ko: "화면 판독기는 결과만 읽고 카드는 읽지 못합니다. 판이 기록된 뒤 그 판의 카드를 넣으면, 아직 안 나온 카드의 구성으로 다음 판의 확률을 정확히 계산합니다. 8덱에서는 모든 카드를 세어도 뱅커나 플레이어가 유리해지는 판은 368판에 1판꼴이고 전부 슈의 마지막 1/4에 있습니다 — 그런 판에는 추천이 카드를 따릅니다.",
+    en: "The screen reader reads the results, never the cards. Type each coup's cards once it is recorded and the next coup's probabilities are computed exactly from the cards still unseen. Counting every card of an 8-deck shoe puts Banker or Player ahead on about 1 coup in 368, all of them in the shoe's last quarter; on such a coup the pick follows the cards.",
+    "zh-Hant": "畫面判讀器只讀結果，不讀牌。每局記錄後輸入該局的牌，就會依尚未出現的牌精確計算下一局的機率。8 副牌即使每張都算，莊或閒佔優的局約 368 局才有 1 局，而且全在牌靴最後四分之一 — 遇到那種局，推薦會跟牌。",
+    "zh-Hans": "画面判读器只读结果，不读牌。每局记录后输入该局的牌，就会依尚未出现的牌精确计算下一局的概率。8 副牌即使每张都算，庄或闲占优的局约 368 局才有 1 局，而且全在牌靴最后四分之一 — 遇到那种局，推荐会跟牌。",
+  },
+  "cards.for": { ko: "{n}번째 판({side})의 카드:", en: "Cards of coup {n} ({side}):", "zh-Hant": "第 {n} 局（{side}）的牌：", "zh-Hans": "第 {n} 局（{side}）的牌：" },
+  "cards.noCoup": {
+    ko: "카드를 붙일 판이 아직 없습니다 — 먼저 결과를 기록하세요.",
+    en: "No coup to attach cards to yet: record a result first.",
+    "zh-Hant": "還沒有可附上牌的局 — 請先記錄結果。", "zh-Hans": "还没有可附上牌的局 — 请先记录结果。",
+  },
+  "cards.phP": { ko: "플레이어 A 5 9", en: "Player A 5 9", "zh-Hant": "閒 A 5 9", "zh-Hans": "闲 A 5 9" },
+  "cards.phB": { ko: "뱅커 K 9", en: "Banker K 9", "zh-Hant": "莊 K 9", "zh-Hans": "庄 K 9" },
+  "cards.ariaP": { ko: "플레이어 카드", en: "Player's cards", "zh-Hant": "閒家的牌", "zh-Hans": "闲家的牌" },
+  "cards.ariaB": { ko: "뱅커 카드", en: "Banker's cards", "zh-Hant": "莊家的牌", "zh-Hans": "庄家的牌" },
+  "cards.save": { ko: "이 판에 저장", en: "Save to this coup", "zh-Hant": "存入此局", "zh-Hans": "存入此局" },
+  "cards.clear": { ko: "이 판 카드 지우기", en: "Clear this coup's cards", "zh-Hant": "清除此局的牌", "zh-Hans": "清除此局的牌" },
+  "cards.saved": { ko: "{n}번째 판의 카드를 저장했습니다.", en: "Saved the cards of coup {n}.", "zh-Hant": "已儲存第 {n} 局的牌。", "zh-Hans": "已保存第 {n} 局的牌。" },
+  "cards.cleared": { ko: "{n}번째 판의 카드를 지웠습니다.", en: "Cleared the cards of coup {n}.", "zh-Hant": "已清除第 {n} 局的牌。", "zh-Hans": "已清除第 {n} 局的牌。" },
+  "cards.badParse": {
+    ko: "카드를 읽을 수 없습니다 — A, 2~9, 10(또는 T), J, Q, K로 적어 주세요.",
+    en: "Could not read the cards: use A, 2 to 9, 10 (or T), J, Q, K.",
+    "zh-Hant": "無法讀取牌 — 請用 A、2～9、10（或 T）、J、Q、K。", "zh-Hans": "无法读取牌 — 请用 A、2～9、10（或 T）、J、Q、K。",
+  },
+  "cards.badCount": {
+    ko: "한쪽의 카드는 2장 또는 3장입니다.", en: "Each side holds two or three cards.",
+    "zh-Hant": "每方應為 2 或 3 張牌。", "zh-Hans": "每方应为 2 或 3 张牌。",
+  },
+  "cards.badRules": {
+    ko: "이 카드 수는 드로우 규칙과 맞지 않습니다 — 세 번째 카드를 확인해 주세요.",
+    en: "That many cards does not fit the drawing rules: check the third card.",
+    "zh-Hant": "這個張數不符合補牌規則 — 請確認第三張牌。", "zh-Hans": "这个张数不符合补牌规则 — 请确认第三张牌。",
+  },
+  "cards.badOutcome": {
+    ko: "이 카드로는 {have} 승인데 기록은 {want}입니다 — 카드나 결과를 확인해 주세요.",
+    en: "These cards make a {have} win, but the record says {want}: check the cards or the result.",
+    "zh-Hant": "這些牌是 {have} 勝，但記錄是 {want} — 請確認牌或結果。", "zh-Hans": "这些牌是 {have} 胜，但记录是 {want} — 请确认牌或结果。",
+  },
+  "cards.state": {
+    ko: "본 카드 {seen}장 · 안 본 카드 {unseen}장 · 카드 있는 판 {entered} · 없는 판 {missing}",
+    en: "{seen} [seen|card|cards] seen \u00b7 {unseen} unseen \u00b7 {entered} [entered|coup|coups] with cards \u00b7 {missing} without",
+    "zh-Hant": "已見 {seen} 張 · 未見 {unseen} 張 · 有牌的局 {entered} · 無牌的局 {missing}",
+    "zh-Hans": "已见 {seen} 张 · 未见 {unseen} 张 · 有牌的局 {entered} · 无牌的局 {missing}",
+  },
+  "cards.probs": { ko: "카드 기준 다음 판", en: "Next coup from the cards", "zh-Hant": "依牌的下一局", "zh-Hans": "依牌的下一局" },
+  "cards.evs": { ko: "배팅 기댓값", en: "Wager expectation", "zh-Hant": "下注期望值", "zh-Hans": "下注期望值" },
+  "cards.none": {
+    ko: "아직 넣은 카드가 없습니다 — 새 슈 그대로입니다.", en: "No cards entered yet: the shoe reads as fresh.",
+    "zh-Hant": "尚未輸入任何牌 — 視為新靴。", "zh-Hans": "尚未输入任何牌 — 视为新靴。",
+  },
+  "cards.incomplete": {
+    ko: "카드가 없는 판이 {n}개라 이 카운트는 참고만 하세요 — 추천에는 쓰지 않습니다.",
+    en: "{n} [n|coup has|coups have] no cards, so this count is for reference only; the pick does not use it.",
+    "zh-Hant": "有 {n} 局沒有牌，此算牌僅供參考 — 推薦不採用。", "zh-Hans": "有 {n} 局没有牌，此算牌仅供参考 — 推荐不采用。",
+  },
+  "cards.noEdge": {
+    ko: "지금은 어느 배팅도 유리하지 않습니다 — 추천은 이번 슈 패턴을 따릅니다.",
+    en: "No wager is ahead now; the pick follows the shoe's pattern.",
+    "zh-Hant": "目前沒有任何下注佔優 — 推薦跟隨本靴牌路。", "zh-Hans": "目前没有任何下注占优 — 推荐跟随本靴牌路。",
+  },
+  "cards.edge": {
+    ko: "카드 기준 {side} 배팅이 {edge} 유리합니다 — 추천이 이쪽을 따릅니다.",
+    en: "On the cards, {side} is ahead by {edge}; the pick follows it.",
+    "zh-Hant": "依牌計算，{side} 佔優 {edge} — 推薦跟隨。", "zh-Hans": "依牌计算，{side} 占优 {edge} — 推荐跟随。",
+  },
+  "cards.tieEdge": {
+    ko: "타이 배팅은 {edge} 유리합니다 — 추천과 장부는 뱅커·플레이어만 다루므로 참고만 하세요.",
+    en: "The Tie wager is ahead by {edge}; the pick and the ledger cover Banker and Player only, so that is for reference.",
+    "zh-Hant": "和局下注佔優 {edge} — 推薦與帳簿只涵蓋莊與閒，僅供參考。", "zh-Hans": "和局下注占优 {edge} — 推荐与账簿只涵盖庄与闲，仅供参考。",
+  },
+  "cards.overdrawn": {
+    ko: "한 종류의 카드가 8덱에 있는 수보다 많이 입력됐습니다 — 어딘가 잘못 적힌 판이 있습니다.",
+    en: "More cards of one value were entered than eight decks hold: a coup was mistyped somewhere.",
+    "zh-Hant": "某一點數的牌輸入得比 8 副牌還多 — 某一局輸入有誤。", "zh-Hans": "某一点数的牌输入得比 8 副牌还多 — 某一局输入有误。",
+  },
+  "ai.cardsNow": {
+    ko: "지금은 카드 카운트가 {side}를 {edge}로 보아 그쪽을 추천합니다.",
+    en: "Right now the card count has {side} ahead by {edge}, so the pick follows it.",
+    "zh-Hant": "目前算牌顯示 {side} 佔優 {edge}，因此推薦跟隨。", "zh-Hans": "目前算牌显示 {side} 占优 {edge}，因此推荐跟随。",
+  },
   "ai.notBaccarat": {
     ko: "<b>이 기록은 8덱 바카라의 모양이 아닙니다.</b> 타이가 <b>{rate}</b>인데 공정한 슈는 <b>9.52%</b>이고, {coups}판에서 그 차이는 <b>{z}표준오차</b>입니다. 타이 비율은 셔플이 아니라 덱 구성이 정하는 값이라, 이만큼 벗어났다면 셔플이 아니라 <b>판독</b>을 먼저 의심해야 합니다 — 화면 인식이 판을 빠뜨렸거나, 같은 슈를 두 번 세었거나, 조각난 슈를 이어 붙였을 수 있습니다. 그 전까지 추천은 학습 모델이 아니라 {rule}을 따릅니다.",
     en: "<b>This record is not the shape 8-deck baccarat produces.</b> Ties run at <b>{rate}</b> where a fair shoe gives <b>9.52%</b>, and over {coups} [coups|coup|coups] that gap is <b>{z} standard [z|error|errors]</b>. The tie rate is set by the pack rather than by the shuffle, so a gap this size points at the <b>reading</b> before it points at the table — coups dropped, a shoe counted twice, a shoe stitched from fragments. Until it is sorted out the recommendation follows {rule}, not the learned model.",
@@ -3614,6 +3728,363 @@ function beadPlate(outcomes, rows = 6) {
   const grid = Array.from({ length: rows }, () => new Array(width).fill(null));
   for (let i = 0; i < outcomes.length; i++) grid[i % rows][Math.floor(i / rows)] = outcomes[i];
   return grid;
+}
+
+/* ═══ cards.js ═══ */
+/**
+ * Card counting for the shoe on screen.
+ *
+ * The screen reader reads the results board -- which side won each coup --
+ * and never the cards, so nothing here is read from a screen. The cards are
+ * typed in, a coup at a time, by whoever is watching the table: the player's
+ * hand and the banker's, as ranks (suits do not matter in baccarat). From
+ * those the module keeps the composition of the cards nobody has seen and
+ * works out, by enumerating every way the next coup can be dealt from it,
+ * the exact probability of Player, Banker and Tie and so the expectation of
+ * each wager. That is "perfect" counting: no point system, no approximation,
+ * the whole deal tree.
+ *
+ * What it is worth is measured (`docs/RESULTS.md`, `docs/MATH.md` section 5)
+ * and small: in an honestly shuffled 8-deck shoe a wager on Banker or Player
+ * turns favourable on about 0.27% of coups -- one in 368 -- every one of them
+ * in the last quarter of the shoe, and worth about +0.3% of the stake when it
+ * does. The page says exactly that beside the count. What the count does do
+ * is tell the truth about the next coup from what has been seen, and the
+ * pick follows it on the rare coup where a wager is ahead (`cardSides`).
+ *
+ * Only the main wagers are picked. The Tie's expectation is shown -- it
+ * moves far more than the others, since it depends on the pack's density of
+ * a few ranks -- but the page's ledger settles Banker and Player, and a Tie
+ * wager pays 8 to 1 against a probability that starts at 9.5%, so it is a
+ * figure to read, not a side to be sent to.
+ *
+ * The port of `baccarat/core/exact.py`: `exactProbabilities` is checked
+ * against the Python solver on random shoe states by `tests/test_js_port.py`.
+ */
+
+
+/** Cards of each point value in a fresh 8-deck pack: index 0 is the tens, jacks, queens and kings. */
+const CARD_FRESH = Object.freeze([128, 32, 32, 32, 32, 32, 32, 32, 32, 32]);
+const CARD_PACK = 416;
+/** What a Tie pays, to one. */
+const CARD_TIE_PAYOUT = 8;
+/** The version filed with a call the count made, beside `BASE_MODEL_VERSION`. */
+const COUNT_MODEL_VERSION = "count-1";
+
+/** The point value of each rank as it is kept: tens and courts are 0. */
+const CARD_VALUE = {
+  A: 1, "2": 2, "3": 3, "4": 4, "5": 5, "6": 6, "7": 7, "8": 8, "9": 9, T: 0, J: 0, Q: 0, K: 0,
+};
+
+/**
+ * Whether the banker draws a third card, by the banker's two-card total and
+ * the value of the card the player drew: the standard table.
+ */
+const CARD_BANKER_DRAWS = (() => {
+  const table = [];
+  for (let bt = 0; bt < 10; bt += 1) {
+    const row = [];
+    for (let v = 0; v < 10; v += 1) {
+      let draws;
+      if (bt <= 2) draws = true;
+      else if (bt === 3) draws = v !== 8;
+      else if (bt === 4) draws = v >= 2 && v <= 7;
+      else if (bt === 5) draws = v >= 4 && v <= 7;
+      else if (bt === 6) draws = v === 6 || v === 7;
+      else draws = false;
+      row.push(draws);
+    }
+    table.push(row);
+  }
+  return table;
+})();
+
+/**
+ * A hand as typed: ranks, with suits and separators allowed and ignored.
+ * "A 5 9", "A59", "AH 5S 9D", "10 K" and "0K" are all read, and "1" is an
+ * ace; a letter that is neither a rank nor a suit is not read.
+ *
+ * Returns `{ ranks, values }` -- ranks as the string kept ("A59"), values as
+ * points -- or `{ error }`: "parse" for a character that is not a card,
+ * "count" for a hand that is not two or three cards.
+ */
+function parseHand(text) {
+  const s = String(text ?? "").toUpperCase();
+  let ranks = "";
+  for (let i = 0; i < s.length; i += 1) {
+    const ch = s[i];
+    if (ch === "1" && s[i + 1] === "0") { ranks += "T"; i += 1; continue; }
+    if (ch === "1") { ranks += "A"; continue; }          // an ace, as a keypad types it
+    if (ch === "0") { ranks += "T"; continue; }
+    if (Object.prototype.hasOwnProperty.call(CARD_VALUE, ch)) { ranks += ch; continue; }
+    if (" ,.-/\t♠♥♦♣HDSC".includes(ch)) continue;    // suits and separators
+    return { error: "parse" };
+  }
+  if (ranks.length < 2 || ranks.length > 3) return { error: ranks.length ? "count" : "parse" };
+  return { ranks, values: [...ranks].map((r) => CARD_VALUE[r]) };
+}
+
+/** The point total of a hand's values. */
+const handTotal = (values) => values.reduce((n, v) => n + v, 0) % 10;
+
+/**
+ * Play the coup out from the cards shown, to check that they are a coup the
+ * rules could have dealt and to see who won. `{ ok: true, outcome }` -- the
+ * outcome as "P", "B" or "T" -- or `{ ok: false, reason: "count" }` when the
+ * number of cards on either side is not what the drawing rules give: a
+ * player on 5 with two cards, a banker that drew against a natural.
+ */
+function checkCoup(player, banker) {
+  if (player.length < 2 || player.length > 3 || banker.length < 2 || banker.length > 3) {
+    return { ok: false, reason: "count" };
+  }
+  const p2 = handTotal(player.slice(0, 2)), b2 = handTotal(banker.slice(0, 2));
+  let pWant, bWant;
+  if (p2 >= 8 || b2 >= 8) {
+    pWant = 2; bWant = 2;                              // a natural: nobody draws
+  } else if (p2 <= 5) {
+    pWant = 3;
+    bWant = CARD_BANKER_DRAWS[b2][player[2] ?? -1] ? 3 : 2;
+    if (player.length !== 3) return { ok: false, reason: "count" };
+  } else {
+    pWant = 2;
+    bWant = b2 <= 5 ? 3 : 2;
+  }
+  if (player.length !== pWant || banker.length !== bWant) return { ok: false, reason: "count" };
+  const pt = handTotal(player), bt = handTotal(banker);
+  return { ok: true, outcome: pt > bt ? "P" : bt > pt ? "B" : "T", player: pt, banker: bt };
+}
+
+/**
+ * The exact distribution of the next coup from the composition of the cards
+ * nobody has seen: `{ P, B, T }`, or null with fewer than six cards, which
+ * could not complete a coup. Every way the deal can go is enumerated, each
+ * weighted by its probability under drawing without replacement -- the
+ * same enumeration as `reference_probabilities` in `baccarat/core/exact.py`.
+ */
+function exactProbabilities(composition) {
+  const c = Array.from(composition, Number);
+  if (c.length !== 10 || c.some((k) => !Number.isFinite(k) || k < 0)) return null;
+  const n = c.reduce((a, k) => a + k, 0);
+  if (n < 6) return null;
+  let P = 0, B = 0, T = 0;
+  const settle = (pt, bt, w) => { if (pt > bt) P += w; else if (bt > pt) B += w; else T += w; };
+  const c4 = new Float64Array(10);
+  const n4 = n - 4, n5 = n - 5;
+  for (let r0 = 0; r0 < 10; r0 += 1) {
+    const k0 = c[r0];
+    if (k0 <= 0) continue;
+    const w0 = k0 / n;
+    for (let r1 = 0; r1 < 10; r1 += 1) {
+      const k1 = c[r1] - (r1 === r0 ? 1 : 0);
+      if (k1 <= 0) continue;
+      const w1 = (w0 * k1) / (n - 1);
+      for (let r2 = 0; r2 < 10; r2 += 1) {
+        const k2 = c[r2] - (r2 === r0 ? 1 : 0) - (r2 === r1 ? 1 : 0);
+        if (k2 <= 0) continue;
+        const w2 = (w1 * k2) / (n - 2);
+        const pt = (r0 + r2) % 10;
+        for (let r3 = 0; r3 < 10; r3 += 1) {
+          const k3 = c[r3] - (r3 === r0 ? 1 : 0) - (r3 === r1 ? 1 : 0) - (r3 === r2 ? 1 : 0);
+          if (k3 <= 0) continue;
+          const w = (w2 * k3) / (n - 3);
+          const bt = (r1 + r3) % 10;
+          if (pt >= 8 || bt >= 8) { settle(pt, bt, w); continue; }      // a natural
+          for (let v = 0; v < 10; v += 1) c4[v] = c[v];
+          c4[r0] -= 1; c4[r1] -= 1; c4[r2] -= 1; c4[r3] -= 1;
+          if (pt >= 6) {                                                 // player stands
+            if (bt >= 6) { settle(pt, bt, w); continue; }
+            for (let r = 0; r < 10; r += 1) {
+              const k = c4[r];
+              if (k > 0) settle(pt, (bt + r) % 10, (w * k) / n4);
+            }
+            continue;
+          }
+          for (let r4 = 0; r4 < 10; r4 += 1) {                           // player draws
+            const k4 = c4[r4];
+            if (k4 <= 0) continue;
+            const w4 = (w * k4) / n4;
+            const pt4 = (pt + r4) % 10;
+            if (!CARD_BANKER_DRAWS[bt][r4]) { settle(pt4, bt, w4); continue; }
+            for (let r5 = 0; r5 < 10; r5 += 1) {                         // and the banker too
+              const k5 = c4[r5] - (r5 === r4 ? 1 : 0);
+              if (k5 > 0) settle(pt4, (bt + r5) % 10, (w4 * k5) / n5);
+            }
+          }
+        }
+      }
+    }
+  }
+  const total = P + B + T;
+  if (!(total > 0)) return null;
+  return { P: P / total, B: B / total, T: T / total };
+}
+
+/**
+ * The expectation of a unit on each wager from a coup's distribution: a
+ * Banker win pays less its commission, a Player win pays even, a Tie pays
+ * `tiePayout` to one; on a Tie the two main wagers come back.
+ */
+function wagerEdges({ P, B, T }, commission = BANKER_COMMISSION, tiePayout = CARD_TIE_PAYOUT) {
+  return { B: B * (1 - commission) - P, P: P - B, T: T * tiePayout - (1 - T) };
+}
+
+/* ---------------------------------------------------------- the shoe's cards
+ *
+ * A shoe keeps its cards beside its outcomes, as a string `c` of one item a
+ * coup separated by ";": "A59|K9" for a coup whose player showed A, 5, 9 and
+ * whose banker showed K, 9, and "" for a coup whose cards were not typed. The
+ * string is kept the length of the outcomes; a shorter one, from a record
+ * made before cards were kept, reads as empty items from where it ends.
+ */
+
+/** The shape of one coup's item. */
+const CARD_ITEM = /^[A2-9TJQK]{2,3}\|[A2-9TJQK]{2,3}$/;
+
+function cardItems(shoe) {
+  const n = shoe && typeof shoe.o === "string" ? shoe.o.length : 0;
+  const raw = shoe && typeof shoe.c === "string" && shoe.c ? shoe.c.split(";") : [];
+  const items = [];
+  for (let i = 0; i < n; i += 1) items.push(i < raw.length && CARD_ITEM.test(raw[i]) ? raw[i] : "");
+  return items;
+}
+
+/** The items as a shoe keeps them: nothing at all where no coup has cards. */
+function joinCardItems(items) {
+  let last = items.length - 1;
+  while (last >= 0 && !items[last]) last -= 1;
+  return last < 0 ? "" : items.slice(0, last + 1).join(";");
+}
+
+/** One item as a pair of hands, or null for a coup without cards. */
+function handsOf(item) {
+  if (!item || !CARD_ITEM.test(item)) return null;
+  const [p, b] = item.split("|");
+  return { player: [...p].map((r) => CARD_VALUE[r]), banker: [...b].map((r) => CARD_VALUE[r]) };
+}
+
+/**
+ * `shoe.c` with the cards of coup `index` set to `item` ("" to clear). The
+ * item is what `parseHand` read for each side, joined with "|".
+ */
+function withCardItem(shoe, index, item) {
+  const items = cardItems(shoe);
+  if (index < 0 || index >= items.length) return shoe.c || "";
+  items[index] = item || "";
+  return joinCardItems(items);
+}
+
+/**
+ * The cards kept once the outcomes have been rewritten from `was` to `now`:
+ * a coup keeps its cards while the outcome it was typed against is still the
+ * outcome at its place, and loses them from the first coup that changed. The
+ * reader rewrites a shoe when it mends one, and undo takes its last coup.
+ */
+function alignCardItems(c, was, now) {
+  const items = cardItems({ o: was, c });
+  const kept = [];
+  for (let i = 0; i < now.length; i += 1) {
+    if (i < was.length && was[i] === now[i]) kept.push(items[i]); else break;
+  }
+  while (kept.length < now.length) kept.push("");
+  return joinCardItems(kept);
+}
+
+/**
+ * What the shoe's cards say about the coup to come.
+ *
+ *   coups      coups in the shoe
+ *   entered    coups whose cards were typed
+ *   missing    coups without cards -- `complete` is none
+ *   seen       cards shown, `unseen` what the pack still hides
+ *   comp       the unseen composition by point value
+ *   overdrawn  more cards of a value typed than the pack holds: a typo somewhere
+ *   probs      the next coup's exact distribution, where there is one
+ *   ev         the expectation of each wager from it
+ *   best       the better of the two main wagers, `edge` its expectation
+ *   override   the count names the side: every coup has its cards, some
+ *              cards have been seen, and the best main wager is ahead
+ */
+function shoeCount(shoe, { commission = BANKER_COMMISSION } = {}) {
+  const items = cardItems(shoe);
+  const comp = CARD_FRESH.slice();
+  let entered = 0, seen = 0, overdrawn = false;
+  for (const item of items) {
+    const hands = handsOf(item);
+    if (!hands) continue;
+    entered += 1;
+    for (const v of hands.player.concat(hands.banker)) {
+      seen += 1;
+      comp[v] -= 1;
+      if (comp[v] < 0) overdrawn = true;
+    }
+  }
+  const missing = items.length - entered;
+  const probs = overdrawn ? null : exactProbabilities(comp);
+  const ev = probs ? wagerEdges(probs, commission) : null;
+  const best = ev ? (ev.B >= ev.P ? "B" : "P") : null;
+  const edge = ev ? Math.max(ev.B, ev.P) : null;
+  const complete = missing === 0;
+  return {
+    coups: items.length, entered, missing, seen, unseen: CARD_PACK - seen, comp, overdrawn,
+    probs, ev, best, edge, complete,
+    override: complete && entered > 0 && ev !== null && edge > 0,
+  };
+}
+
+/* ----------------------------------------------------------- the pick's side
+ *
+ * The side the count named before each coup of a shoe, "B", "P" or "-" where
+ * it named none, as `patternSides` gives the pattern's. The count before a
+ * coup is made of the cards of the coups before it, and it names a side only
+ * while every one of those has its cards: from the first coup without them
+ * the composition is no longer the pack's, and the answer is "-" from there
+ * on. Memoised by the cards string, and a coup at a time: a shoe that has
+ * gained a coup extends the answer for the shoe before it with one more
+ * enumeration, which is the cost of a coup rather than of the shoe.
+ */
+const cardSidesMemo = new Map();
+const CARD_MEMO_MAX = 4096;
+/** Enumerations run, for the tests to see the memo work. */
+const cardSolves = { n: 0 };
+
+function cardSides(outcomes, c, { commission = BANKER_COMMISSION } = {}) {
+  const items = cardItems({ o: outcomes, c });
+  const n = items.length;
+  // The longest prefix already answered.
+  let from = 0, state = null;
+  for (let k = n; k >= 1; k -= 1) {
+    const hit = cardSidesMemo.get(items.slice(0, k).join(";"));
+    if (hit) { from = k; state = hit; break; }
+  }
+  let sides = state ? state.sides : "";
+  const comp = state ? state.comp.slice() : CARD_FRESH.slice();
+  let entered = state ? state.entered : 0, broken = state ? state.broken : false;
+  for (let i = from; i < n; i += 1) {
+    if (i > 0) {
+      // The coup before this one is now known: fold its cards in.
+      const hands = handsOf(items[i - 1]);
+      if (!hands) broken = true;
+      else {
+        entered += 1;
+        for (const v of hands.player.concat(hands.banker)) comp[v] -= 1;
+      }
+    }
+    let side = "-";
+    if (!broken && entered > 0 && !comp.some((k) => k < 0)) {
+      cardSolves.n += 1;
+      const probs = exactProbabilities(comp);
+      if (probs) {
+        const ev = wagerEdges(probs, commission);
+        const edge = Math.max(ev.B, ev.P);
+        if (edge > 0) side = ev.B >= ev.P ? "B" : "P";
+      }
+    }
+    sides += side;
+    if (cardSidesMemo.size >= CARD_MEMO_MAX) cardSidesMemo.clear();
+    cardSidesMemo.set(items.slice(0, i + 1).join(";"), { sides, comp: comp.slice(), entered, broken });
+  }
+  return sides;
 }
 
 /* ═══ integrity.js ═══ */
@@ -7472,6 +7943,7 @@ function toCsv(rows) {
  */
 
 
+
 /**
  * Where a Banker bet stops being the better of the two losing wagers.
  *
@@ -8187,7 +8659,7 @@ function posterior(sample = {}) {
  * a string -- the board marks each coup of the shoe with what its pick did.
  */
 function replayPicks(sequences, {
-  deff = 1, commission = 0.05, from = 0, keepFrom = null,
+  deff = 1, commission = 0.05, from = 0, keepFrom = null, cards = null,
 } = {}) {
   const step = 1 / Math.max(1, deff);
   let a = PRIOR_A, b = PRIOR_B;
@@ -8208,16 +8680,20 @@ function replayPicks(sequences, {
   let units = 0, peak = 0, drawdown = 0, best = 0, worst = 0;
   let bankerBets = 0, playerBets = 0;
 
-  for (const seq of sequences) {
+  for (const [k, seq] of sequences.entries()) {
     // The side the shoe's own pattern names before each coup: a sequence
-    // here is one shoe.
+    // here is one shoe. And the side its cards name, where they were typed
+    // and a wager is ahead on them (`cardSides`), which comes first: it is
+    // the one thing read here that is not a guess.
     const sides = patternSides(seq);
+    const counted = cards && cards[k] ? cardSides(seq, cards[k], { commission }) : null;
     for (let i = 0; i < seq.length; i += 1) {
       const outcome = seq[i];
       // decide on what was knowable at the time, as the panel does: the
-      // pattern's side, or the likelier side where it names none (`winPick`)
+      // cards' side, else the pattern's, else the likelier side (`winPick`)
       const q = a / (a + b);
-      const pick = sides[i] === "-" ? winPick(q) : sides[i];
+      const pick = counted && counted[i] !== "-" ? counted[i]
+        : sides[i] === "-" ? winPick(q) : sides[i];
       if (kept !== null && seen >= keepFrom) kept += pick;
       const settling = seen >= from;
       seen += 1;
@@ -8656,6 +9132,7 @@ function comparePlans({ bankroll = 100, max = Infinity, stopWin = 0, stopLoss = 
 
 
 
+
 /** Coups of order the network is shown. */
 /**
  * The network's own version, for the prediction log.
@@ -8982,16 +9459,18 @@ function advance(run, sequences) {
  * clustering discount it counts with moves as the corpus grows.
  */
 function settleAll(sequences, picks, {
-  commission = BANKER_COMMISSION, deff = 1, from = 0,
+  commission = BANKER_COMMISSION, deff = 1, from = 0, cards = null,
 } = {}) {
   const step = 1 / Math.max(1, deff);
   const model = empty(), base = empty();
   let a = PRIOR_A, b = PRIOR_B;
   let coups = 0, agree = 0, decided = 0, split = 0, seen = 0;
 
-  for (const seq of sequences) {
-    // The rule the network would replace reads the shoe's own pattern.
+  for (const [k, seq] of sequences.entries()) {
+    // The rule the network would replace reads the shoe's own pattern -- and
+    // its cards first, where they were typed and name a side (`cardSides`).
     const sides = patternSides(seq);
+    const counted = cards && cards[k] ? cardSides(seq, cards[k], { commission }) : null;
     for (let i = 0; i < seq.length; i += 1) {
       const modelPick = picks[seen];
       // Coups before the mark are what the two are made of, not what either is
@@ -9003,10 +9482,11 @@ function settleAll(sequences, picks, {
       seen += 1;
       if (settling) coups += 1;
 
-      // The rule the network would replace: the pattern's side, or the
-      // likelier side where it names none (see `winPick`).
+      // The rule the network would replace: the cards' side, else the
+      // pattern's, else the likelier side where neither names one (`winPick`).
       const q = a / (a + b);
-      const basePick = sides[i] === "-" ? winPick(q) : sides[i];
+      const basePick = counted && counted[i] !== "-" ? counted[i]
+        : sides[i] === "-" ? winPick(q) : sides[i];
 
       const outcome = seq[i];
       if (settling) {
@@ -9034,9 +9514,9 @@ function settleAll(sequences, picks, {
 
 /** What the panel reads: both books, the comparison, and the coup to come. */
 function report(run, sequences,
-                { commission = BANKER_COMMISSION, deff = 1, next = null, from = 0 } = {}) {
+                { commission = BANKER_COMMISSION, deff = 1, next = null, from = 0, cards = null } = {}) {
   const { model, base, coups, agree, decided, split, faced } =
-    settleAll(sequences, run.picks, { commission, deff, from });
+    settleAll(sequences, run.picks, { commission, deff, from, cards });
 
   // The coup that has not happened yet, which is what the panel recommends on.
   // The last pick in the record is the pick that was made for the coup at the
@@ -9105,7 +9585,7 @@ class Learner {
   }
 
   update(sequences, {
-    commission = BANKER_COMMISSION, deff = 1, next = null, from = 0,
+    commission = BANKER_COMMISSION, deff = 1, next = null, from = 0, cards = null,
   } = {}) {
     if (extendsRun(this.run, sequences)) this.resumes += 1;
     // A successful rewind leaves exactly the shoes before the mark, and those
@@ -9114,7 +9594,7 @@ class Learner {
     else if (rewind(this.run, sequences)) this.rewinds += 1;
     else { this.run = newRun(this.options); this.restarts += 1; }
     advance(this.run, sequences);
-    return report(this.run, sequences, { commission, deff, next, from });
+    return report(this.run, sequences, { commission, deff, next, from, cards });
   }
 
   /**
@@ -9124,8 +9604,8 @@ class Learner {
    * judged on: one shoe of it, while the question of whether the network has
    * earned the wheel is asked over all of it.
    */
-  settle(sequences, { commission = BANKER_COMMISSION, deff = 1, from = 0 } = {}) {
-    const { model, base, coups } = settleAll(sequences, this.run.picks, { commission, deff, from });
+  settle(sequences, { commission = BANKER_COMMISSION, deff = 1, from = 0, cards = null } = {}) {
+    const { model, base, coups } = settleAll(sequences, this.run.picks, { commission, deff, from, cards });
     return { model: finish(model), base: finish(base), coups };
   }
 
@@ -12008,6 +12488,7 @@ function drawStrip(ctx, source, bounds, board) {
 
 
 
+
 const LS_KEY = "baccarat.corpus.v2";
 /**
  * The prediction log, kept under a key of its own.
@@ -12477,12 +12958,15 @@ function sanitiseState(raw) {
     for (const shoe of list) {
       if (!shoe || typeof shoe !== "object") continue;
       const outcomes = typeof shoe.o === "string" ? shoe.o.replace(/[^PBT]/g, "") : "";
+      // The cards typed for its coups, kept in step with them (`alignCardItems`).
+      const cards = typeof shoe.c === "string" ? alignCardItems(shoe.c, outcomes, outcomes) : "";
       let id = typeof shoe.id === "string" && shoe.id ? shoe.id : newId(seen);
       if (seen.has(id)) id = newId(seen);
       seen.add(id);
       shoes.push({
         id,
         o: outcomes,
+        ...(cards ? { c: cards } : {}),
         closed: !!shoe.closed,
         // Both ends. The floor was here from the start; the ceiling is the
         // last instant a date can be rendered at, and without it a stored
@@ -13749,6 +14233,7 @@ function startGate({ onOpen = () => {}, onLock = () => {} } = {}) {
 
 
 
+
 // Named, and spelled out: the page is served as one concatenated scope, where
 // a namespace import has nothing to be a namespace of.
 
@@ -14154,7 +14639,9 @@ function undo() {
   const list = shoes(name);
   for (let i = list.length - 1; i >= 0; i--) {
     if (list[i].o.length) {
-      list[i].o = list[i].o.slice(0, -1);
+      const was = list[i].o;
+      list[i].o = was.slice(0, -1);
+      setCards(list[i], alignCardItems(list[i].c || "", was, list[i].o));
       list[i].closed = false;
       commitTo(name, [list[i].id]);
       return;
@@ -14186,6 +14673,7 @@ function newShoe() {
 function replaceCurrentShoe(seq, boundTo = null) {
   const name = readingTable(boundTo, state.tables, chosenTable());
   const shoe = currentShoe(name);
+  setCards(shoe, alignCardItems(shoe.c || "", shoe.o, seq));
   shoe.o = seq;
   commitTo(name, [shoe.id]);
 }
@@ -14261,6 +14749,7 @@ function onLiveRead(seq, board, repeats, { afterClear = false } = {}) {
       liveHolds = 0;
       if ((was === "grow" && repeats >= CONFIRM_GROWTH) || (mend && repeats >= CONFIRM_RESET)) {
         const added = onScreen.length - closed.o.length;
+        setCards(closed, alignCardItems(closed.c || "", closed.o, onScreen));
         closed.o = onScreen;
         commitTo(table, [closed.id]);
         liveLog(mend ? t("live.logMended", { total: onScreen.length })
@@ -14577,6 +15066,7 @@ function resumeShoe(shoe, seq, boundTo = null) {
     }
   }
   list.splice(at, 1);
+  setCards(shoe, alignCardItems(shoe.c || "", shoe.o, seq));
   shoe.o = seq;
   shoe.closed = false;
   shoe.t = list.reduce((t, s) => Math.max(t, (Number(s.t) || 0) + 1), Date.now());
@@ -14928,6 +15418,7 @@ function invalidate() {
   revision += 1;
   observedCache = null;
   shoeCache = null;
+  countCache = null;
 }
 
 /**
@@ -14940,6 +15431,10 @@ function invalidate() {
  * chose then, kept under `baccarat.pickRule.v1`, is not read.
  */
 function recommended(p) {
+  // The cards first, on the rare coup where they put a wager ahead: the one
+  // thing read here that is known rather than guessed (`cardCount`).
+  const count = cardCount();
+  if (count.override) return count.best;
   if (usingNetwork()) return learned().nextPick;
   // The shoe's pattern, or the likelier side where it names nothing yet.
   return shoePattern(openShoe().o).pick(winPick(p.q));
@@ -15055,7 +15550,8 @@ function logPrediction(p, chosen, worthBacking) {
     pick: chosen,
     backed: worthBacking,
     confidence: sureOf(p, chosen).score,
-    model: usingNet ? NET_MODEL_VERSION : BASE_MODEL_VERSION,
+    model: cardCount().override ? COUNT_MODEL_VERSION
+      : usingNet ? NET_MODEL_VERSION : BASE_MODEL_VERSION,
     features: FEATURE_VERSION,
     basis: shoe.o,
   });
@@ -15160,6 +15656,7 @@ function renderPredictionIdle() {
   for (const id of ["aiBetWhy", "aiRecord"]) $(id).hidden = true;
   $("aiFacts").innerHTML = "";
   $("aiWhy").innerHTML = "";
+  $("cardsBlock").hidden = true;
   // Worded for the way in this device has: a phone has no screen to share.
   const cameraOnly = !LiveWatcher.screenSupported && LiveWatcher.cameraSupported;
   $("aiEstimate").textContent = t(cameraOnly ? "ai.idleStartCamera" : "ai.idleStart");
@@ -15241,7 +15738,10 @@ function renderPrediction() {
   // is positive and the share has not got there, the line under the badge
   // says how far it has to go, so the two figures do not seem to disagree.
   const evChosen = edges(p.q, p.tie)[chosen];
-  const worthBacking = evChosen > 0 && p.cleared[chosen];
+  // Or on the cards: exact, and ahead, on the coup the count names a side.
+  const count = cardCount();
+  const counted = count.override && chosen === count.best;
+  const worthBacking = counted || (evChosen > 0 && p.cleared[chosen]);
   const pick = $("aiSide");
   pick.textContent = side(chosen);
   pick.className = "v " + chosen;
@@ -15324,6 +15824,7 @@ function renderPrediction() {
   renderBetOutcome();
   renderLearned();
   renderVerification();
+  renderCards(count);
 
   const why = [t("ai.whyBase")];
   if (!p.informed || p.moved < 0.0002) why.push(t("ai.whyThin", { n: p.n }));
@@ -15333,8 +15834,9 @@ function renderPrediction() {
   // Which reading of the pattern the side came from, where it came from one:
   // its name, and no count -- the reading followed is the one that has been
   // luckiest in this shoe, and its record there would read as an accuracy.
-  const following = usingNetwork() ? null : shoePattern(openShoe().o).following;
+  const following = usingNetwork() || counted ? null : shoePattern(openShoe().o).following;
   if (following) why.push(t("ai.patternNow", { pattern: t("pattern." + following) }));
+  if (counted) why.push(t("ai.cardsNow", { side: side(chosen), edge: signedPct(count.edge) }));
   // The last line carries emphasis on the two figures the rule turns on.
   $("aiWhy").innerHTML = why.join(" ");
   $("aiDisclaimer").textContent = t("ai.disclaimer");
@@ -15399,6 +15901,119 @@ let ledgerCache = null;
 /** The revision this block last flashed for, so a re-render does not re-flash. */
 let ledgerFlash = null;
 let learnCache = null;
+
+/* ------------------------------------------------------------------ cards */
+
+let countCache = null;
+
+/** What the open shoe's cards say about the coup to come (`shoeCount`). */
+function cardCount() {
+  if (countCache && countCache.revision === revision && countCache.table === state.active) {
+    return countCache.value;
+  }
+  const value = shoeCount(openShoe());
+  countCache = { revision, table: state.active, value };
+  return value;
+}
+
+/** A shoe's cards string, or no field at all where it would be empty. */
+function setCards(shoe, c) {
+  if (c) shoe.c = c; else delete shoe.c;
+}
+
+const signedPct = (x, d = 2) => (x > 0 ? "+" : "") + (x * 100).toFixed(d) + "%";
+
+/** A coup's item as it reads: "5 2 / K 10". */
+const prettyCards = (item) => item.split("|")
+  .map((hand) => [...hand].map((r) => (r === "T" ? "10" : r)).join(" ")).join(" / ");
+
+function cardsNote(text) { $("cardsNote").textContent = text; }
+
+/** The count block: the cards typed, what the pack still hides, and the coup to come from it. */
+function renderCards(count) {
+  $("cardsBlock").hidden = false;
+  const shoe = openShoe();
+  $("cardsSub").textContent = t("cards.state", {
+    seen: count.seen, unseen: count.unseen, entered: count.entered, missing: count.missing,
+  });
+  const rows = $("cardsRows");
+  rows.innerHTML = "";
+  if (count.probs) {
+    const facts = [
+      { k: t("cards.probs"), v: `${side("B")} ${pct(count.probs.B, 2)} \u00b7 ${side("P")} ${pct(count.probs.P, 2)} \u00b7 ${side("T")} ${pct(count.probs.T, 2)}` },
+      { k: t("cards.evs"), v: `${side("B")} ${signedPct(count.ev.B)} \u00b7 ${side("P")} ${signedPct(count.ev.P)} \u00b7 ${side("T")} ${signedPct(count.ev.T)}` },
+    ];
+    for (const f of facts) {
+      const row = el("div", "aifact");
+      row.appendChild(el("span", "k", f.k));
+      row.appendChild(el("span", "v", f.v));
+      rows.appendChild(row);
+    }
+  }
+  let verdict;
+  if (count.overdrawn) verdict = t("cards.overdrawn");
+  else if (!count.entered) verdict = t("cards.none");
+  else if (!count.complete) verdict = t("cards.incomplete", { n: count.missing });
+  else if (count.override) verdict = t("cards.edge", { side: side(count.best), edge: signedPct(count.edge) });
+  else verdict = t("cards.noEdge");
+  if (count.ev && count.ev.T > 0 && !count.overdrawn) {
+    verdict += " " + t("cards.tieEdge", { edge: signedPct(count.ev.T) });
+  }
+  const v = $("cardsVerdict");
+  v.textContent = verdict;
+  v.classList.toggle("on", !!count.override);
+  // The inputs take cards for the open shoe's last coup, where there is one.
+  const can = !!shoe.id && shoe.o.length > 0;
+  for (const id of ["cardsP", "cardsB", "cardsSave"]) $(id).disabled = !can;
+  const last = can ? cardItems(shoe)[shoe.o.length - 1] : "";
+  $("cardsClear").disabled = !last;
+  $("cardsFor").textContent = can
+    ? t("cards.for", { n: shoe.o.length, side: side(shoe.o[shoe.o.length - 1]) })
+      + (last ? " " + prettyCards(last) : "")
+    : t("cards.noCoup");
+}
+
+/**
+ * The cards typed, attached to the open shoe's last coup -- once they have
+ * been played out and settle as that coup did. A hand the rules could not
+ * have dealt, or one that wins for the other side, is a typo somewhere, and a
+ * typo in the count is worse than no count.
+ */
+function attachCards() {
+  const name = chosenTable();
+  const open = openShoe(name);
+  if (!open.id || !open.o.length) { cardsNote(t("cards.noCoup")); return; }
+  const p = parseHand($("cardsP").value), b = parseHand($("cardsB").value);
+  if (p.error || b.error) {
+    cardsNote(t(p.error === "count" || b.error === "count" ? "cards.badCount" : "cards.badParse"));
+    return;
+  }
+  const play = checkCoup(p.values, b.values);
+  if (!play.ok) { cardsNote(t("cards.badRules")); return; }
+  const at = open.o.length - 1, outcome = open.o[at];
+  if (play.outcome !== outcome) {
+    cardsNote(t("cards.badOutcome", { have: side(play.outcome), want: side(outcome) }));
+    return;
+  }
+  const shoe = currentShoe(name);
+  setCards(shoe, withCardItem(shoe, at, p.ranks + "|" + b.ranks));
+  $("cardsP").value = "";
+  $("cardsB").value = "";
+  cardsNote(t("cards.saved", { n: at + 1 }));
+  commitTo(name, [shoe.id]);
+}
+
+/** The open shoe's last coup loses its cards. */
+function clearCards() {
+  const name = chosenTable();
+  const open = openShoe(name);
+  if (!open.id || !open.o.length) return;
+  const shoe = currentShoe(name);
+  const at = shoe.o.length - 1;
+  setCards(shoe, withCardItem(shoe, at, ""));
+  cardsNote(t("cards.cleared", { n: at + 1 }));
+  commitTo(name, [shoe.id]);
+}
 /** The walk itself, kept across coups so it is continued and not re-run. */
 const learners = new LearnerShelf();
 
@@ -15421,8 +16036,10 @@ function learned() {
   // only ever moves forward, so a corpus that has gained a coup is continued.
   // Re-training cost three quarters of a second per coup at eight hundred
   // shoes, and got worse with every shoe collected.
-  const value = learners.for(state.active ?? "").update(shoes().map((s) => s.o).filter(Boolean),
-                               { deff, next: openShoe().o, from: ledgerFrom() });
+  const dealt = shoes().filter((s) => s.o);
+  const value = learners.for(state.active ?? "").update(dealt.map((s) => s.o), {
+    deff, next: openShoe().o, from: ledgerFrom(), cards: dealt.map((s) => s.c || ""),
+  });
   // A model is worth following only if what trained it was baccarat. Where the
   // record cannot be one -- a tie rate whole points off what the pack itself
   // fixes -- the network is being rewarded for learning a misreading, and it
@@ -15460,16 +16077,18 @@ function ledger() {
   const l = learned();
   const o = observed();
   const deff = Number.isFinite(o.inflate) ? Math.max(1, o.inflate ** 2) : 1;
-  const sequences = shoes().map((s) => s.o).filter(Boolean);
+  const dealt = shoes().filter((s) => s.o);
+  const sequences = dealt.map((s) => s.o);
+  const cards = dealt.map((s) => s.c || "");
   let value;
   if (l.trusted) {
     // The network is judged from the mark; the screen may count less of it.
     value = from === ledgerFrom() ? l.model
-      : learners.for(state.active ?? "").settle(sequences, { deff, from }).model;
+      : learners.for(state.active ?? "").settle(sequences, { deff, from, cards }).model;
   } else {
-    // The shoe's pattern, coup by coup; the picks over the shoe in progress
-    // come back too, for the board.
-    value = replayPicks(sequences, { deff, from, keepFrom: shoeStart() });
+    // The shoe's pattern, coup by coup -- its cards first where they name a
+    // side; the picks over the shoe in progress come back too, for the board.
+    value = replayPicks(sequences, { deff, from, keepFrom: shoeStart(), cards });
   }
   ledgerCache = { revision, table: state.active, from, value };
   return value;
@@ -17419,6 +18038,13 @@ function bindControls() {
   for (const side of ["P", "B", "T"]) $("key" + side).onclick = () => addOutcomes(side);
   $("keyUndo").onclick = undo;
   $("keyNew").onclick = newShoe;
+  $("cardsSave").onclick = attachCards;
+  $("cardsClear").onclick = clearCards;
+  for (const id of ["cardsP", "cardsB"]) {
+    $(id).addEventListener("keydown", (e) => {
+      if (e.key === "Enter") { e.preventDefault(); attachCards(); }
+    });
+  }
 
   $("textAdd").onclick = () => {
     const { sequence, skipped } = parseSequenceText($("textIn").value);
