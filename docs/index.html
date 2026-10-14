@@ -167,6 +167,9 @@ h2{font-size:15px; font-weight:600; margin:0 0 3px; letter-spacing:-.01em}
    not a class: the renders rewrite the class of several of these on every
    coup, and a class marker went with it. */
 body.simple [data-full-only]{display:none !important}
+/* The guest's one button besides the reader's: clearing the table, drawn as
+   a button rather than a link so it reads as the action it is. */
+body.simple #clearTable{border-color:var(--line-2); background:var(--surface); color:var(--ink); font-weight:600}
 body.simple #aiLedger .aifact{border-bottom:none}
 /* The guest's view at a desk: the board under the reader and beside the
    prediction, so the two are on one screen. Without the full view's panels
@@ -598,6 +601,12 @@ table.stake tr:last-child td{border-bottom:none}
   background:var(--c); transform:rotate(45deg)}
 .blabel{font-size:11px; color:var(--ink-3); margin-bottom:6px; letter-spacing:.02em}
 #boardMeta{font-family:var(--mono); font-size:12px; color:var(--ink-2); margin-top:10px}
+/* The tally of the AI's picks on the plate, on its own line under the board. */
+.sbscore{display:flex; flex-wrap:wrap; gap:4px 12px; align-items:center; margin:8px 0 0;
+  font:500 12.5px/1.3 var(--sans); color:var(--ink-2)}
+.sbscore b{font-family:var(--mono); font-weight:600}
+.sbscore .win b{color:var(--good, var(--tie))} .sbscore .lose b{color:var(--banker)} .sbscore .push b{color:var(--ink-3)}
+.sbscore .lead{color:var(--ink-3); font-weight:500}
 .beadkey{font-size:12px; color:var(--ink-3); line-height:1.5; margin:8px 0 0}
 
 /* ── per-shoe table ─────────────────────────────────────────────────── */
@@ -924,7 +933,11 @@ body.open > #gate{display:none}
     <span class="hgroup" data-full-only>
       <button class="btn ghost" id="addTable" data-i18n="header.addTable"></button>
       <button class="btn ghost" id="renameTable" data-i18n="header.renameTable"></button>
-      <button class="btn ghost" id="clearTable" data-i18n="header.clearTable"></button>
+    </span>
+    <!-- In both views: the guest's view has it at the top of the page, as the
+         one way to clear what the screen shows of this table. -->
+    <button class="btn ghost" id="clearTable" data-i18n="header.clearTable"></button>
+    <span class="hgroup" data-full-only>
       <button class="btn ghost" id="resetBtn" data-i18n="header.deleteTable"></button>
     </span>
     <span id="shoeMeta"></span>
@@ -1116,6 +1129,11 @@ body.open > #gate{display:none}
         </div>
       </div>
     </div>
+    <!-- What the AI's picks did on this shoe's plate, counted: wins and
+         losses, and stakes returned on a tie where there were any. Under the
+         board rather than in the plate's own box, which the counts beside
+         the plate are sized to. -->
+    <div class="sbscore" id="beadScore" role="status" hidden></div>
     <p class="beadkey" data-i18n-html="board.beadKey"></p>
     <div id="boardMeta"></div>
   </section>
@@ -2461,6 +2479,14 @@ const S = {
     "zh-Hans": "{n} 局 · 闲 {p} · 庄 {b} · 和 {t} · 当前连开 {streak}{side}",
   },
   "board.empty": { ko: "이 슈에는 아직 기록된 판이 없습니다.", en: "Nothing recorded in this shoe yet.", "zh-Hant": "本靴尚無紀錄。", "zh-Hans": "本靴尚无记录。" },
+  "board.scoreLead": { ko: "AI 추천", en: "AI picks", "zh-Hant": "AI 推薦", "zh-Hans": "AI 推荐" },
+  "board.scoreWin": { ko: "승 {n}", en: "won {n}", "zh-Hant": "贏 {n}", "zh-Hans": "赢 {n}" },
+  "board.scoreLose": { ko: "패 {n}", en: "lost {n}", "zh-Hant": "輸 {n}", "zh-Hans": "输 {n}" },
+  "board.scorePush": { ko: "무 {n}", en: "pushed {n}", "zh-Hant": "和 {n}", "zh-Hans": "和 {n}" },
+  "board.scoreAria": {
+    ko: "이번 슈 AI 추천 성적: 승 {w}, 패 {l}, 무 {p}", en: "The AI's picks this shoe: {w} won, {l} lost, {p} pushed",
+    "zh-Hant": "本靴 AI 推薦成績：贏 {w}、輸 {l}、和 {p}", "zh-Hans": "本靴 AI 推荐成绩：赢 {w}、输 {l}、和 {p}",
+  },
 
   /* ------------------------------------------------------------- per shoe */
   "shoe.h": { ko: "슈 단위 통계", en: "Shoe by shoe", "zh-Hant": "逐靴統計", "zh-Hans": "逐靴统计" },
@@ -2789,6 +2815,10 @@ const S = {
   "flash.recorded": { ko: "{side} 기록", en: "{side} recorded", "zh-Hant": "已記錄 {side}", "zh-Hans": "已记录 {side}" },
   "flash.undo": { ko: "한 판 취소", en: "One coup undone", "zh-Hant": "已復原一局", "zh-Hans": "已撤销一局" },
   "flash.newShoe": { ko: "새 슈 시작", en: "New shoe started", "zh-Hant": "已開新牌靴", "zh-Hans": "已开新牌靴" },
+  "live.logTableCleared": {
+    ko: "테이블 초기화 — 화면을 처음부터 다시 읽습니다", en: "Table cleared — reading the screen afresh",
+    "zh-Hant": "已清空牌桌 — 重新讀取畫面", "zh-Hans": "已清空牌桌 — 重新读取画面",
+  },
 
   /* --------------------------------------------------------------- footer */
   // The calculation is what stays in the browser. The page as a whole need
@@ -4270,7 +4300,11 @@ const BROWN_BELOW = 100;
 function classifyPixel(r, g, b, asMark = false) {
   const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
   if (max < 55 || d < 38 || d / max < 0.32) return NONE;
+  return markHue(r, g, b, max, d, asMark);
+}
 
+/** The side a hue belongs to, with no floor on how saturated or bright the pixel is. */
+function markHue(r, g, b, max, d, asMark = false) {
   let h;
   if (max === r) h = ((g - b) / d) % 6;
   else if (max === g) h = (b - r) / d + 2;
@@ -6504,8 +6538,34 @@ const PANEL_SHARE = 0.5;
  * what a road panel is not.
  */
 const PANEL_MIN_PLAIN = 0.25;
-/** Lines of something else to cross before deciding the panel has ended. */
+/**
+ * Lines of something else to cross before deciding the panel has ended.
+ *
+ * Few: a betting bar beside the plate, or the video's felt, has a line or
+ * two in it that passes for panel -- the dark gaps between its buttons, a
+ * blurred edge -- and with half a cell's patience the panel walked on to
+ * them, four pixels into the bar on an owner's table (Hoca Games, RC038)
+ * shared at twice the size, and two into the video beside the roads of
+ * another. The blur of a mark's edge, which a column of marks is full of,
+ * is told by its colour instead (see `PANEL_TINT`).
+ */
 const PANEL_PATIENCE = 4;
+/**
+ * How far from the panel's brightness a tint of a mark's colour may be and
+ * still be the mark's blur on the panel, as a multiple of `PANEL_TOLERANCE`.
+ *
+ * Shared, a mark's edge is a band of its colour thinned toward the panel's
+ * -- pink on a white panel, dark red on a black one -- which is a mark's hue
+ * at the panel's brightness, and neither a mark nor the panel's colour.
+ * Judged as something else, a column of marks reads as the end of the
+ * panel: on an owner's table (Solaire) shared at its full size, every
+ * column of the big road's rings and the plate's discs did, the panel found
+ * stopped three cells short of the big road, and the lock it gave left the
+ * bead plate out. At the panel's brightness within the tolerance, no more:
+ * the felt of a video beside the panel blurs into its edge in a Tie's hue
+ * too, darker, and at twice the tolerance the panel grew two pixels into it.
+ */
+const PANEL_TINT = 1;
 
 /**
  * The colour a lattice is drawn on.
@@ -6554,26 +6614,57 @@ function growToPanel(imageData, box, pitch, bounds) {
   const colour = panelColour(imageData, box, pitch);
   if (!colour) return box;
   const [cr, cg, cb] = colour;
+  const bright = Math.max(cr, cg, cb);
   const stride = Math.max(1, Math.round(pitch / 3));
 
-  /** One line's pixels: how many, how many are not marks, how many of those are the panel's colour. */
+  /**
+   * A Banker's or a Player's hue at about the panel's brightness: the blur
+   * of a mark on it (see `PANEL_TINT`). Not a Tie's: a felt beside the panel
+   * blurs into its edge in that hue, and a few pixels of it were taken in.
+   */
+  const tinted = (r, g, b) => {
+    const max = Math.max(r, g, b), d = max - Math.min(r, g, b);
+    if (d < 8 || Math.abs(max - bright) > PANEL_TINT * PANEL_TOLERANCE) return false;
+    const hue = markHue(r, g, b, max, d);
+    return hue === BANKER || hue === PLAYER;
+  };
+  /** Mark samples in a row no longer than this are a mark or two, not a felt. */
+  const shortRun = Math.ceil(2 * pitch / stride);
+  /**
+   * One line's pixels: how many, how many are not marks, how many of those
+   * are the panel's colour -- and how many marks lie on it, short runs of
+   * mark samples with something else either side.
+   */
   const tally = (fixed, from, to, horizontal) => {
-    let plain = 0, hit = 0, seen = 0;
+    let plain = 0, hit = 0, seen = 0, marks = 0, run = 0;
     for (let v = from; v <= to; v += stride) {
       const x = horizontal ? v : fixed, y = horizontal ? fixed : v;
       const p = (y * W + x) * 4;
       seen += 1;
-      if (classifyPixel(data[p], data[p + 1], data[p + 2]) !== NONE) continue;
+      if (classifyPixel(data[p], data[p + 1], data[p + 2]) !== NONE) { run += 1; continue; }
+      if (run > 0 && run <= shortRun) marks += 1;
+      run = 0;
       plain += 1;
       const dr = data[p] - cr, dg = data[p + 1] - cg, db = data[p + 2] - cb;
-      if (dr * dr + dg * dg + db * db <= PANEL_TOLERANCE * PANEL_TOLERANCE) hit += 1;
+      if (dr * dr + dg * dg + db * db <= PANEL_TOLERANCE * PANEL_TOLERANCE
+          || tinted(data[p], data[p + 1], data[p + 2])) hit += 1;
     }
-    return { seen, plain, hit };
+    return { seen, plain, hit, marks };
   };
-  /** How much of one line is panel, ignoring the marks printed on it. */
+  /**
+   * How much of one line is panel, ignoring the marks printed on it.
+   *
+   * A line with almost nothing but mark colours in it is a felt or a button,
+   * not a panel (see `PANEL_MIN_PLAIN`) -- unless what little else is in it
+   * is all panel, between marks of a mark's size: a column of a bead plate
+   * filled to its last row is six discs with a hair of panel between each,
+   * and on an owner's table (Solaire) shared at its full size, every such
+   * column read as the end of the panel.
+   */
   const share = (fixed, from, to, horizontal) => {
-    const { seen, plain, hit } = tally(fixed, from, to, horizontal);
-    if (!seen || plain < seen * PANEL_MIN_PLAIN) return 0;
+    const { seen, plain, hit, marks } = tally(fixed, from, to, horizontal);
+    if (!seen || !plain) return 0;
+    if (plain < seen * PANEL_MIN_PLAIN) return marks >= 3 && hit === plain ? 1 : 0;
     return hit / plain;
   };
 
@@ -6814,7 +6905,10 @@ function detectGrid(imageData, { region = null } = {}) {
   // one from part of a run (see `ruledLattice`).
   const rank = (l) => {
     const c = cells.get(l);
-    const road = c.marked && l.pitch > coarsest * 0.6 ? 1 : 0;
+    // A road has marks of its own in its cells; a lattice with more pieces
+    // of bigger marks in them than marks is laid over some other road's
+    // (see `markedCells`), and ranks as one with none.
+    const road = c.marked && c.big <= c.marked && l.pitch > coarsest * 0.6 ? 1 : 0;
     // Aligned on its marks: every cell with a mark has a disc at its middle,
     // where a lattice laid over the same marks at some other pitch hits
     // them at its middles only now and then.
@@ -6824,7 +6918,7 @@ function detectGrid(imageData, { region = null } = {}) {
     // there -- over eight coups ruled at seventeen, a lattice of twenty-nine
     // had two cells marked to the plate's eight, and being the coarser it
     // was taken, with every coup then read into the wrong cell.
-    return [road, road && c.discs ? 1 : 0, road && c.dense ? 1 : 0, aligned, c.marked, l === found ? 1 : 0, l.rows >= 6 ? 1 : 0, l.pitch, -l.cols, l.part ? 0 : 1];
+    return [road, road && c.discs ? 1 : 0, road && c.dense ? 1 : 0, aligned, road ? c.marked : 0, l === found ? 1 : 0, l.rows >= 6 ? 1 : 0, l.pitch, -l.cols, l.part ? 0 : 1];
   };
   const better = (p, q) => { for (let i = 0; i < p.length; i += 1) if (p[i] !== q[i]) return p[i] > q[i]; return false; };
   let core = candidates[0], top = rank(core);
@@ -6864,6 +6958,8 @@ function detectGrid(imageData, { region = null } = {}) {
  * `discs`, those whose middle is a mark's colour too, a letter printed
  * across it and all, which a ring leaves bare; `scanned`, how many cells
  * were looked at for them, and `dense`, whether most of those were marked.
+ * `big` counts the cells passed over for holding a piece of a mark bigger
+ * than the cell (see below), which is no mark of the lattice's.
  */
 function markedCells(imageData, l) {
   const { width: W, height: H, data } = imageData;
@@ -6874,7 +6970,46 @@ function markedCells(imageData, l) {
     const p = (y * W + x) * 4;
     return classifyPixel(data[p], data[p + 1], data[p + 2], true) !== NONE ? 1 : 0;
   };
-  let found = 0, discs = 0, scanned = 0;
+  // A mark of the cell's own ends inside the cell. One that runs on past
+  // the cell's edge, on either axis, is a bigger mark the lattice is laid
+  // over: a bead plate's full columns, found as a lattice of the pieces its
+  // discs' edges make, read as a road with a mark in every cell -- on an
+  // owner's table (Solaire) shared at its full size, a plate of forty-seven
+  // coups, its discs thirty-six pixels, gave a lattice of fourteen with
+  // twelve "marks" to the strip's own ruling's four, and was taken for the
+  // strip, nine of its cells wide.
+  const classAt = (x, y) => {
+    x = Math.round(x); y = Math.round(y);
+    if (x < 0 || y < 0 || x >= W || y >= H) return -1;
+    const p = (y * W + x) * 4;
+    return classifyPixel(data[p], data[p + 1], data[p + 2], true);
+  };
+  const brightAt = (x, y) => {
+    const p = (Math.round(y) * W + Math.round(x)) * 4;
+    return Math.max(data[p], data[p + 1], data[p + 2]);
+  };
+  const fits = 0.5 * pitch + Math.max(2, 0.15 * pitch);
+  // A run of the mark's colour, out from the cell's middle: to where the
+  // colour ends, or dims -- two discs of one side that all but touch blur
+  // into each other on a shared screen in their own hue, darkened by the
+  // gap between them.
+  const runOn = (cx, cy, dx, dy, side, bright) => {
+    let n = 0;
+    for (let k = 1; k <= fits + 1; k += 1) {
+      const x = cx + dx * k, y = cy + dy * k;
+      if (classAt(x, y) !== side || brightAt(x, y) < bright * 0.75) break;
+      n = k;
+    }
+    return n;
+  };
+  const oversized = (cx, cy) => {
+    const side = classAt(cx, cy);
+    if (side <= NONE) return false;
+    const bright = brightAt(cx, cy);
+    return Math.max(runOn(cx, cy, -1, 0, side, bright), runOn(cx, cy, 1, 0, side, bright)) > fits
+        || Math.max(runOn(cx, cy, 0, -1, side, bright), runOn(cx, cy, 0, 1, side, bright)) > fits;
+  };
+  let found = 0, discs = 0, scanned = 0, big = 0;
   for (let c = 0; c < cols && found < 12; c += 1) {
     for (let r = 0; r < rows; r += 1) {
       const cx = box.x + (c + 0.5) * pitch, cy = box.y + (r + 0.5) * pitch;
@@ -6907,7 +7042,9 @@ function markedCells(imageData, l) {
       // owner's table, Hoca Games RC038, the next shoe after a long shuffle
       // was read late without it).
       if (corners > (pitch < SMALL_CELL ? 1 : 0)) continue;
-      if (around >= 7 || (seen && middle * 3 >= seen)) found += 1;
+      const hit = around >= 7 || (seen && middle * 3 >= seen);
+      if (hit && oversized(cx, cy)) { big += 1; continue; }
+      if (hit) found += 1;
       if (seen && middle * 3 >= seen) discs += 1;
       if (globalThis.__LATTICE_DEBUG && (around >= 7 || (seen && middle * 3 >= seen))) {
         console.log(`[marked] ${cols}x${rows}@${box.x},${box.y} pitch ${pitch.toFixed(1)}: cell ${c},${r} at ${Math.round(cx)},${Math.round(cy)} middle ${middle}/${seen} around ${around}`);
@@ -6917,7 +7054,7 @@ function markedCells(imageData, l) {
   // Dense where its cells, from the first, are mostly marked -- a road's
   // filled columns -- and sparse where a lattice laid over marks at some
   // other pitch catches one here and there.
-  return { marked: found, discs, scanned, dense: found >= 4 && found * 2 >= scanned };
+  return { marked: found, discs, scanned, big, dense: found >= 4 && found * 2 >= scanned };
 }
 
 /**
@@ -10176,6 +10313,12 @@ class LiveWatcher {
     this.lastFill = 0;       // and how much of their boxes they fill: tiles fill them
     this.lastRead = null;    // and what it read last, through a shoe change too
     /**
+     * The last board read, and where: kept while the board is let go of, so a
+     * strip that reads empty can be asked whether the board is still on the
+     * screen before it is called cleared (see `_stillShown`).
+     */
+    this.lastSeen = null;
+    /**
      * Whether the board being followed has shown itself to be a road: two
      * columns or more, or a column watched gaining a mark. Only such a board
      * is protected from what else is in the strip -- see `OPENING_MARKS`.
@@ -10402,6 +10545,7 @@ class LiveWatcher {
     this.memory = null;              // being told the lock is wrong
     this.memoryAt = 0;
     this._unfollow();
+    this.lastSeen = null;
     this.bounds = null;
     this.empties = 0;
     this.cleared = false;
@@ -10547,7 +10691,7 @@ class LiveWatcher {
         this.gridMisses = 0;
         this.pinned = "grid";
         this.gridBox = gridLock(grid, w, h);
-        this.region = this.memory = this.gridBox;
+        this.region = this.memory = this._keepingFollowed(this.gridBox, w, h);
         this.memoryAt = Date.now();
       }
     }
@@ -10686,6 +10830,22 @@ class LiveWatcher {
       boards = this._roadsAmong(boards);
     }
 
+    // A lock that reads empty while the board last read is in plain sight
+    // is a lock in the wrong place, not a shoe change. Before the emptiness
+    // is counted (see `CLEAR_PATIENCE`), the whole frame is asked for that
+    // board -- reading as it read, or on from it -- and the lock is grown
+    // to hold it where it is (see `_stillShown`).
+    if (!boards.length && this.region && this.pinned !== "manual") {
+      const back = this._stillShown(frame, w, h);
+      if (back) {
+        boards = [back.board];
+        bounds = back.bounds;
+        stayed = true;
+        this.region = this.memory = grownToHold(this.region, back.board.box, Math.max(8, Math.round(back.board.diameter || 0)), w, h);
+        this.memoryAt = Date.now();
+      }
+    }
+
     // A remembered strip is given up on time, not on emptiness: emptiness is
     // what a shoe change looks like, and it lasts for the whole shuffle.
     if (remembering && !boards.length && Date.now() - this.memoryAt > MEMORY_HOLD_MS) {
@@ -10749,8 +10909,12 @@ class LiveWatcher {
               || Math.abs(grid.box.y - before.box.y) > grid.pitch / 2);
         if (shifted || Math.abs(want.y - was.y) > grid.pitch
             || Math.abs(want.h - was.h) > grid.pitch) {
-          this.region = this.memory = want;
-          this._unfollow();
+          // Grown to hold the board being read, where the ruling found would
+          // leave it out (see `_keepingFollowed`): then the board has not
+          // moved, whatever the ruling says, and goes on being read.
+          const kept = this._keepingFollowed(want, w, h);
+          this.region = this.memory = kept;
+          if (kept === want) this._unfollow();
         }
         this.gridBox = want;
         // A lattice that has never produced a coup is a lattice, not
@@ -10908,6 +11072,7 @@ class LiveWatcher {
     this.lastSize = board.diameter;
     this.lastFill = board.cells.length ? board.cells.map((c) => c.fill).sort((a, b) => a - b)[board.cells.length >> 1] : 0;
     this.lastRead = board.sequence;
+    this.lastSeen = { sequence: board.sequence, box: board.box, diameter: board.diameter };
     this.bounds = bounds;
     this.lastBoard = { ...board, frameWidth: w, frameHeight: h };
     this.lastReadAt = Date.now();
@@ -11053,9 +11218,60 @@ class LiveWatcher {
     this.grid = ruled;
     this.gridMisses = 0;
     this.pinned = "grid";
-    this.region = this.gridBox = gridLock(ruled, w, h);
+    this.gridBox = gridLock(ruled, w, h);
+    this.region = this._keepingFollowed(this.gridBox, w, h);
     if (this.memory) this.memory = this.region;
     return true;
+  }
+
+  /**
+   * `lock`, grown to hold the board being read where it would leave it out.
+   *
+   * A lock taken from a ruling is the ruling's panel, and the panel is a
+   * guess about where the board is: the roads' own ruling shows where its
+   * cells are empty, and its panel is grown out from there by its colour
+   * (see `growToPanel`), which a column of marks or a hairline can stop
+   * short. Measured on an owner's table (Solaire) shared at its full size:
+   * the strip's ruling was found right of the big road, the panel grown
+   * from it stopped three cells short of the road, and the lock it gave
+   * had the bead plate -- forty-six coups of it read by then -- outside.
+   * The reader sat on the roads, read nothing, and after three looks said
+   * the shoe had finished while the plate in front of it filled; at the
+   * next table it read the big road inside the lock, eight Bankers that
+   * were never dealt. A board that has been read is not a guess, so the
+   * lock keeps it, a mark's width around.
+   */
+  _keepingFollowed(lock, w, h) {
+    const box = this.proven ? this.lastBox : null;
+    if (!box || within(box, lock)) return lock;
+    return grownToHold(lock, box, Math.max(8, Math.round(this.lastSize || 0)), w, h);
+  }
+
+  /**
+   * The board last read, found again anywhere on the frame, or null: a board
+   * reading as the last reading did, from its first coup, or going on from
+   * it -- or short of it by a mark or two, which a newest mark that blinks
+   * is -- with the whole frame's boards and bounds to adopt.
+   *
+   * Only for a reading long enough that nothing else on a screen reads the
+   * same by chance (see `MOVED_MIN`), and only on the first looks of an
+   * empty strip and every so often after (see `RECHECK_EVERY`): a shuffle
+   * empties the strip for minutes, and a search of the whole frame on every
+   * look of it is what the lock was taken to avoid. Not from a share of the
+   * whole screen with this page on it: the page draws the shoe it has read,
+   * and that board reads as this one exactly.
+   */
+  _stillShown(frame, w, h) {
+    const seen = this.lastSeen;
+    if (!seen || seen.sequence.length < MOVED_MIN || this.surface === "monitor") return null;
+    if (this.empties >= CLEAR_PATIENCE && this.samples % RECHECK_EVERY !== 0) return null;
+    const was = seen.sequence;
+    const short = was.slice(0, Math.max(MOVED_MIN, was.length - BLINK_SLACK));
+    const full = detectBoards(frame, { minCells: COLD_CELLS });
+    const board = full.boards.find((b) => b.sequence.startsWith(short));
+    if (!board) return null;
+    board.shown = true;
+    return { board, bounds: full.bounds };
   }
 
   /**
@@ -11103,8 +11319,14 @@ class LiveWatcher {
       const near = (a, b) => Math.abs(a - b) <= reach;
       const at = (corner) => !!corner && near(board.box.x, corner.x) && near(board.box.y, corner.y);
       if (at(g.panel) || at(g.box)) return true;
+      // In the ruling's upper half: a plate opens at the top of what is
+      // ruled, and a table's counts -- a disc of each side, fixed -- sit
+      // under the plate on some layouts, at the ruling's foot and its left
+      // edge, with nothing above them while the plate is empty. Taken for
+      // the shoe's first coup there, the reader followed the counts' first
+      // disc for the whole shoe, the plate filling above it unread.
       const edge = (b) => near(b.box.x, g.box.x) || near(b.box.x, g.panel.x);
-      return edge(board) && board.box.y >= g.box.y - reach && board.box.y <= g.box.y2
+      return edge(board) && board.box.y >= g.box.y - reach && board.box.y <= (g.box.y + g.box.y2) / 2
         && !boards.some((o) => o !== board && edge(o) && o.box.y < board.box.y);
     };
     if (opens(grid)) return { lattice: grid, pinned: true };
@@ -11569,6 +11791,22 @@ function boardsCarryingOn(found, lastBox) {
  * shoe at all.
  */
 const MOVED_MIN = 10;
+/**
+ * Marks a board found again may be short of the last reading and still be
+ * it: the newest mark of a plate blinks on some tables, and an ask button's
+ * preview comes and goes (see `_stillShown`).
+ */
+const BLINK_SLACK = 2;
+
+/** `lock`, grown to hold `box` with `pad` around it, within the frame. */
+function grownToHold(lock, box, pad, frameW, frameH) {
+  const x = Math.max(0, Math.min(lock.x, Math.round(box.x - pad)));
+  const y = Math.max(0, Math.min(lock.y, Math.round(box.y - pad)));
+  const x2 = Math.min(frameW, Math.max(lock.x + lock.w, Math.round(box.x2 + pad)));
+  const y2 = Math.min(frameH, Math.max(lock.y + lock.h, Math.round(box.y2 + pad)));
+  if (x === lock.x && y === lock.y && x2 === lock.x + lock.w && y2 === lock.y + lock.h) return lock;
+  return { x, y, w: x2 - x, h: y2 - y };
+}
 
 /** The boards in `found` that read as `last` and go on from it. */
 function movedTo(found, last) {
@@ -16396,6 +16634,10 @@ function renderBoard() {
     return true;
   });
 
+  // And the tally of them, as the owner asked: how many the AI's picks won
+  // and lost on this shoe's plate, and how many had their stake back.
+  renderBeadScore(outcomes, calls);
+
   // The big road: rings, and a tie as a green stroke across the coup before
   // it -- with how many, when it is more than one.
   const big = road.grid(ROAD_ROWS);
@@ -16459,6 +16701,39 @@ function renderBoard() {
         side: road.currentSide ? ` (${side(road.currentSide)})` : "",
       })
     : t("board.empty");
+}
+
+/**
+ * The AI's picks on the shoe in progress, counted: won, lost, and pushed --
+ * a tie, with the stake back. Hidden with no pick to count, as a shoe's
+ * first coup is, so the plate is not captioned "0 and 0".
+ */
+function renderBeadScore(outcomes, calls) {
+  const box = $("beadScore");
+  const n = { win: 0, lose: 0, push: 0 };
+  if (calls) {
+    for (let i = 0; i < outcomes.length && i < calls.length; i += 1) {
+      const o = outcomes[i], pick = calls[i];
+      if (!pick) continue;
+      n[o === "T" ? "push" : o === pick ? "win" : "lose"] += 1;
+    }
+  }
+  const total = n.win + n.lose + n.push;
+  box.hidden = !total;
+  box.innerHTML = "";
+  if (!total) return;
+  box.setAttribute("aria-label", t("board.scoreAria", { w: n.win, l: n.lose, p: n.push }));
+  box.appendChild(el("span", "lead", t("board.scoreLead")));
+  const words = { win: "board.scoreWin", lose: "board.scoreLose", push: "board.scorePush" };
+  for (const kind of ["win", "lose", "push"]) {
+    if (kind === "push" && !n.push) continue;
+    const item = el("span", kind);
+    // The count set in its own element inside the phrase, wherever the
+    // language puts it.
+    const [before, after] = t(words[kind], { n: "\u0000" }).split("\u0000");
+    item.append(before, el("b", null, String(n[kind])), after);
+    box.appendChild(item);
+  }
 }
 
 /* ------------------------------------------------------------- per shoe */
@@ -17171,7 +17446,19 @@ function bindControls() {
       return;
     }
     const ids = shoes(name).map((s) => s.id);
-    if (liveTable === name) { live.stop(); liveLog(t("live.logStopped")); }
+    // The reader goes on, from nothing: what the screen shows next is read
+    // as this table's first shoe, the way a reader just started reads it.
+    // Stopping it here, as deleting the table does, left the owner's casino
+    // unread until they shared it again -- and clearing is what they press
+    // when the record on screen has gone wrong and the casino has not.
+    if (liveTable === name) {
+      live.relock();
+      liveWrote = null;
+      liveHolds = 0;
+      liveResumed = false;
+      setLiveWarn(null);
+      liveLog(t("live.logTableCleared"), "new");
+    }
     // The same reasoning as deleting: a prediction log whose coups are gone
     // holds figures nothing can be checked against.
     forgetPredictions(predictionLog, name);
