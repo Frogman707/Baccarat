@@ -1490,40 +1490,28 @@ const S = {
     ko: "{pick} 추천 → {came}", en: "picked {pick} → {came}",
     "zh-Hant": "推薦{pick} → {came}", "zh-Hans": "推荐{pick} → {came}",
   },
-  "learn.h": { ko: "학습 모델", en: "Learned model", "zh-Hant": "學習模型", "zh-Hans": "学习模型" },
+  "learn.h": { ko: "AI 총동원", en: "All the AIs", "zh-Hant": "AI 總動員", "zh-Hans": "AI 总动员" },
   "learn.sub": {
-    ko: "판이 들어올 때마다, 그 판 이전의 기록만으로 신경망을 학습시켜 다음 판을 맞혀보게 합니다. 앞을 보지 않으므로 점수는 진짜입니다.",
-    en: "As each coup arrives a network is trained on the record before it and asked for the next one. It never sees ahead, so the score is real.",
-    "zh-Hant": "每一局進來時，以該局之前的紀錄訓練神經網路並預測下一局。不會看到未來，因此分數是真實的。",
-    "zh-Hans": "每一局进来时，以该局之前的记录训练神经网络并预测下一局。不会看到未来，因此分数是真实的。",
+    ko: "판이 들어올 때마다 아래 AI들이 각자 다음 판을 부르고, 이번 슈에서 지금까지 승률이 가장 높은 AI의 추천을 따릅니다. 새 슈가 시작되면 승률도 처음부터 다시 셉니다. 큰 숫자는 이 테이블에서 그 AI가 부른 판 전부의 승률, 작은 숫자는 이번 슈의 적중/부른 판입니다. 공정한 테이블에서는 모든 AI가 약 50%이고, 순위는 이번 슈에서 운이 좋았던 순서입니다.",
+    en: "As each coup comes in, every AI below calls the next one, and the pick follows the AI with the best record in this shoe so far; a new shoe starts every record over. The large figure is the AI's win rate over every coup it called on this table, the small one its hits and calls in this shoe. On a fair table every AI is right about half the time, and the order is the order luck has run in this shoe.",
+    "zh-Hant": "每進一局，下方各個 AI 各自叫下一局，推薦跟隨本靴至今勝率最高的 AI；換新靴時從頭重算。大字是該 AI 在本桌所叫全部局數的勝率，小字是本靴的猜中／叫局數。公正牌桌上每個 AI 都約為五成，排名只是本靴運氣的順序。",
+    "zh-Hans": "每进一局，下方各个 AI 各自叫下一局，推荐跟随本靴至今胜率最高的 AI；换新靴时从头重算。大字是该 AI 在本桌所叫全部局数的胜率，小字是本靴的猜中／叫局数。公正牌桌上每个 AI 都约为五成，排名只是本靴运气的顺序。",
   },
-  "learn.trained": { ko: "{n}판 학습", en: "trained on {n}", "zh-Hant": "已學習 {n} 局", "zh-Hans": "已学习 {n} 局" },
-  "learn.model": { ko: "학습 모델", en: "Network", "zh-Hant": "神經網路", "zh-Hans": "神经网络" },
-  "learn.split": { ko: "추천이 갈린 판", en: "coups they disagreed on", "zh-Hant": "推薦分歧的局數", "zh-Hans": "推荐分歧的局数" },
-  "learn.usingModel": {
-    ko: "<b>학습 모델을 씁니다.</b> 통합 추천보다 {lead}유닛 앞서고, 우연으로 보기 어렵습니다 (z {z}).",
-    en: "<b>Using the network.</b> It is {lead} [lead|unit|units] ahead of the combined pick, by more than chance would give (z {z}).",
-    "zh-Hant": "<b>採用神經網路。</b>領先綜合推薦 {lead} 單位，超出運氣可解釋的範圍（z {z}）。",
-    "zh-Hans": "<b>采用神经网络。</b>领先综合推荐 {lead} 单位，超出运气可解释的范围（z {z}）。",
+  "learn.trained": { ko: "{n}판 분석", en: "{n} [n|coup|coups] read", "zh-Hant": "已分析 {n} 局", "zh-Hans": "已分析 {n} 局" },
+  "learn.shoeRecord": { ko: "이번 슈 {hits}/{calls}", en: "this shoe {hits}/{calls}", "zh-Hant": "本靴 {hits}/{calls}", "zh-Hans": "本靴 {hits}/{calls}" },
+  "learn.following": {
+    ko: "<b>지금은 {member}의 추천을 따릅니다.</b> 이번 슈에서 {calls}판을 불러 {hits}판 맞혔습니다. 승률이 같으면 목록 순서가 앞선 AI입니다.",
+    en: "<b>Following {member}.</b> It has called {calls} [calls|coup|coups] of this shoe and been right on {hits}. Where records are level the earlier AI in the list is followed.",
+    "zh-Hant": "<b>目前跟隨{member}。</b>本靴已叫 {calls} 局，猜中 {hits} 局。勝率相同時跟隨清單中較前的 AI。",
+    "zh-Hans": "<b>目前跟随{member}。</b>本靴已叫 {calls} 局，猜中 {hits} 局。胜率相同时跟随清单中较前的 AI。",
   },
-  "learn.behind": {
-    ko: "<b>{rule}을 씁니다.</b> 학습 모델이 앞서지 못합니다.",
-    en: "<b>Using {rule}.</b> The network is not ahead of it.",
-    "zh-Hant": "<b>採用{rule}。</b>神經網路並未領先。",
-    "zh-Hans": "<b>采用{rule}。</b>神经网络并未领先。",
-  },
-  "learn.noise": {
-    ko: "<b>{rule}을 씁니다.</b> 학습 모델이 앞서 있지만 (z {z}) 우연과 구별되지 않습니다 — 판마다 다시 확인하는 만큼, 지금은 z {bar}는 되어야 합니다.",
-    en: "<b>Using {rule}.</b> The network is ahead (z {z}) but not by more than chance — asked after every coup, it needs z {bar} here.",
-    "zh-Hant": "<b>採用{rule}。</b>神經網路雖領先（z {z}），但與運氣無法區分 — 每局都重新檢查，此時需要 z {bar}。",
-    "zh-Hans": "<b>采用{rule}。</b>神经网络虽领先（z {z}），但与运气无法区分 — 每局都重新检查，此时需要 z {bar}。",
-  },
-  "learn.tooFew": {
-    ko: "<b>{rule}을 씁니다.</b> 두 추천이 갈린 판이 {n}판뿐입니다 — 어느 쪽이 나은지 묻기에 200판은 필요합니다.",
-    en: "<b>Using {rule}.</b> They have disagreed on only {n} [n|coup|coups] — asking which is better takes 200.",
-    "zh-Hant": "<b>採用{rule}。</b>兩者僅在 {n} 局上分歧 — 要判斷孰優需要 200 局。",
-    "zh-Hans": "<b>采用{rule}。</b>两者仅在 {n} 局上分歧 — 要判断孰优需要 200 局。",
-  },
+  "member.likelier": { ko: "다음 판 확률이 높은 쪽", en: "the likelier side", "zh-Hant": "較可能贏的一方", "zh-Hans": "较可能赢的一方" },
+  "member.net": { ko: "학습 모델(신경망)", en: "the network", "zh-Hant": "神經網路", "zh-Hans": "神经网络" },
+  "member.markov1": { ko: "마르코프 1판", en: "Markov, one coup", "zh-Hant": "馬可夫 1 局", "zh-Hans": "马尔可夫 1 局" },
+  "member.markov2": { ko: "마르코프 2판", en: "Markov, two coups", "zh-Hant": "馬可夫 2 局", "zh-Hans": "马尔可夫 2 局" },
+  "member.markov3": { ko: "마르코프 3판", en: "Markov, three coups", "zh-Hant": "馬可夫 3 局", "zh-Hans": "马尔可夫 3 局" },
+  "member.last6": { ko: "최근 6판 다수", en: "the last six", "zh-Hant": "最近 6 局多數", "zh-Hans": "最近 6 局多数" },
+  "member.vote": { ko: "AI 가중 투표", en: "the AIs' vote", "zh-Hant": "AI 加權投票", "zh-Hans": "AI 加权投票" },
   "verify.h": {
     ko: "실제 추천 성적", en: "What was actually recommended",
     "zh-Hant": "實際推薦成績", "zh-Hans": "实际推荐成绩",
@@ -2110,21 +2098,19 @@ const S = {
     "zh-Hant": "本桌的 {n} 局已將估計值自基準移動 {delta}%p。",
     "zh-Hans": "本桌的 {n} 局已将估计值自基准移动 {delta}%p。",
   },
-  "ai.patternRule": {
-    ko: "추천은 <b>통합 방식</b> 하나입니다: 판이 들어올 때마다 <b>이번 슈 전체</b>를 줄, 퐁당, 투원 투원, 쓰리원 쓰리원, 투투·쓰리쓰리·포포·파이브파이브·식스식스로 이어지는 패턴, 빅아이·스몰아이·카카로치(하나씩, 그리고 셋을 함께), 같은 흐름의 반복, 이번 슈에서 많이 나온 쪽, 항상 뱅커로 읽고, 읽기마다 이번 슈에서 지금까지 얼마나 맞았는지 점수를 매겨 <b>가장 잘 맞아 온 읽기</b>가 가리키는 쪽을 추천합니다. 그래서 퐁당 슈에서는 퐁당을, 줄 슈에서는 줄을, BB PP BB PP처럼 반복되는 슈에서는 그 반복을 따라갑니다. 새 슈가 시작되면 점수도 처음부터 다시 셉니다. 어떤 읽기도 쪽을 정하지 못하면(새 슈의 첫 판) 다음 판 확률이 더 높은 쪽(대개 뱅커)입니다. 흐름을 따라갈 뿐 더 맞히지는 않습니다 — 공정한 테이블을 수십만 판 시뮬레이션하면 이 방식은 결정된 판의 <b>약 50.0%</b>를 맞혔고, 늘 뱅커를 골랐다면 <b>약 50.7%</b>였습니다. 카드는 섞여 있으므로, 어떤 방식도 매 판 맞힐 수는 없습니다.",
-    en: "The pick is <b>one combined way</b>: as each coup comes in, <b>the whole of this shoe</b> is read as the streak, the chop, two-one, three-one, the runs of two-two, three-three, four-four, five-five and six-six, the big eye boy, small road and cockroach road (each, and the three together), the shoe repeating itself, the side ahead in it, and always Banker; each reading is scored on how it has called this shoe so far, and the pick is the side named by <b>the reading that has called this shoe best</b>. So a chopping shoe is followed by the chop, a shoe of runs by the streak, and BB PP BB PP by that repeat. A new shoe starts every score over. Where no reading names a side (a shoe's first coup), it is the side likelier to win the next coup (usually Banker). It follows the shoe; it does not win more — over hundreds of thousands of simulated fair coups it was right on <b>about 50.0%</b> of decided coups, where always backing Banker was right on <b>about 50.7%</b>. The cards are shuffled, so no way of picking can be right every coup.",
-    "zh-Hant": "推薦只有<b>一種綜合方式</b>：每進一局，就把<b>本靴全部</b>以長龍、單跳、二一二一、三一三一、二二・三三・四四・五五・六六的連續牌路、大眼仔・小路・曱甴路（各自一條，以及三條合看）、重複的走勢、本靴出現較多的一方與一律押莊來讀，為每種讀法計算到目前為止在本靴的命中分數，推薦<b>最準的讀法</b>所指的一方。因此單跳靴跟單跳、長龍靴跟長龍、BB PP BB PP 這種重複靴就跟那個重複。換新靴時分數從頭重算。若沒有任何讀法能決定（新靴第一局），則選下一局較可能贏的一方（通常是莊）。它只是跟隨牌路，並不會更準 — 在數十萬局公正牌局的模擬中，這種方式猜中約 <b>50.0%</b> 的已決局，而一直押莊約為 <b>50.7%</b>。牌是洗過的，任何方法都無法每局猜中。",
-    "zh-Hans": "推荐只有<b>一种综合方式</b>：每进一局，就把<b>本靴全部</b>以长龙、单跳、二一二一、三一三一、二二・三三・四四・五五・六六的连续牌路、大眼仔・小路・蟑螂路（各自一条，以及三条合看）、重复的走势、本靴出现较多的一方与一律押庄来读，为每种读法计算到目前为止在本靴的命中分数，推荐<b>最准的读法</b>所指的一方。因此单跳靴跟单跳、长龙靴跟长龙、BB PP BB PP 这种重复靴就跟那个重复。换新靴时分数从头重算。若没有任何读法能决定（新靴第一局），则选下一局较可能赢的一方（通常是庄）。它只是跟随牌路，并不会更准 — 在数十万局公正牌局的模拟中，这种方式猜中约 <b>50.0%</b> 的已决局，而一直押庄约为 <b>50.7%</b>。牌是洗过的，任何方法都无法每局猜中。",
+  "ai.panelRule": {
+    ko: "추천은 <b>AI 총동원</b>입니다: 판이 들어올 때마다 이번 슈 전체의 패턴 읽기 열여섯 가지(줄, 퐁당, 투원 투원, 쓰리원 쓰리원, 투투·쓰리쓰리·포포·파이브파이브·식스식스, 빅아이·스몰아이·카카로치와 셋을 함께, 같은 흐름의 반복, 많이 나온 쪽, 항상 뱅커)와 이 테이블 전체를 보는 AI 일곱(다음 판 확률이 높은 쪽, 학습 모델, 마르코프 1·2·3판, 최근 6판 다수, AI 가중 투표)이 각자 다음 판을 부르고, 이번 슈에서 지금까지 <b>승률이 가장 높은 AI</b>의 추천을 따릅니다. 승률이 같으면 앞에 적은 순서입니다. 새 슈가 시작되면 승률도 처음부터 다시 셉니다. 그래서 퐁당 슈에서는 퐁당을, 줄 슈에서는 줄을 따라가고, 어떤 AI가 이번 슈를 더 잘 맞혀 왔으면 그 AI를 따릅니다. 흐름을 따라갈 뿐 더 맞히지는 않습니다 — 공정한 슈 20,000개를 시뮬레이션하면 이 방식은 결정된 판의 <b>약 50.1%</b>를 맞혔고, 늘 뱅커를 골랐다면 <b>약 50.7%</b>였습니다. 카드는 섞여 있으므로, 어떤 AI도 매 판 맞힐 수는 없습니다.",
+    en: "The pick is <b>all the AIs at once</b>: as each coup comes in, the sixteen readings of this whole shoe's pattern (the streak, the chop, two-one, three-one, two-two up to six-six, the big eye boy, small road and cockroach road and the three together, the shoe repeating itself, the side ahead, always Banker) and seven AIs that read the whole table (the likelier side, the network, Markov chains of one, two and three coups, the last six, the AIs' weighted vote) each call the next coup, and the pick follows <b>the AI with the best record in this shoe</b> so far; where records are level, the earlier in that order. A new shoe starts every record over. So a chopping shoe is followed by the chop, a shoe of runs by the streak, and an AI that has called this shoe better is followed instead. It follows the shoe; it does not win more — over 20,000 simulated fair shoes it was right on <b>about 50.1%</b> of decided coups, where always backing Banker was right on <b>about 50.7%</b>. The cards are shuffled, so no AI can be right every coup.",
+    "zh-Hant": "推薦是<b>AI 總動員</b>：每進一局，整個本靴的牌路讀法十六種（長龍、單跳、二一二一、三一三一、二二・三三・四四・五五・六六、大眼仔・小路・曱甴路與三條合看、重複的走勢、多數方、一律押莊）與看整桌的七個 AI（較可能贏的一方、神經網路、馬可夫 1・2・3 局、最近 6 局多數、AI 加權投票）各自叫下一局，推薦跟隨<b>本靴至今勝率最高的 AI</b>；勝率相同時取前面的順序。換新靴時從頭重算。因此單跳靴跟單跳、長龍靴跟長龍，哪個 AI 在本靴叫得更準就跟哪個。它只是跟隨牌路，並不會更準 — 以 20,000 副公正牌靴模擬，這種方式猜中約 <b>50.1%</b> 的已決局，而一直押莊約為 <b>50.7%</b>。牌是洗過的，任何 AI 都無法每局猜中。",
+    "zh-Hans": "推荐是<b>AI 总动员</b>：每进一局，整个本靴的牌路读法十六种（长龙、单跳、二一二一、三一三一、二二・三三・四四・五五・六六、大眼仔・小路・蟑螂路与三条合看、重复的走势、多数方、一律押庄）与看整桌的七个 AI（较可能赢的一方、神经网络、马尔可夫 1・2・3 局、最近 6 局多数、AI 加权投票）各自叫下一局，推荐跟随<b>本靴至今胜率最高的 AI</b>；胜率相同时取前面的顺序。换新靴时从头重算。因此单跳靴跟单跳、长龙靴跟长龙，哪个 AI 在本靴叫得更准就跟哪个。它只是跟随牌路，并不会更准 — 以 20,000 副公正牌靴模拟，这种方式猜中约 <b>50.1%</b> 的已决局，而一直押庄约为 <b>50.7%</b>。牌是洗过的，任何 AI 都无法每局猜中。",
   },
-  /* The reading of the pattern the pick is following now: its name only. Its
-     record in this shoe is not shown -- the reading followed is the one that
-     has been luckiest in this shoe, and a count beside it would read as an
-     accuracy. */
-  "ai.patternNow": {
-    ko: "지금은 이번 슈에서 가장 잘 맞아 온 <b>{pattern}</b> 패턴을 따릅니다.",
-    en: "Right now it follows <b>{pattern}</b>, the pattern that has called this shoe best.",
-    "zh-Hant": "目前跟隨本靴最準的牌路：<b>{pattern}</b>。",
-    "zh-Hans": "目前跟随本靴最准的牌路：<b>{pattern}</b>。",
+  /* The member of the panel the pick is following now: its name. Its record
+     in this shoe is on the panel, beside every other member's. */
+  "ai.panelNow": {
+    ko: "지금은 이번 슈에서 승률이 가장 높은 <b>{member}</b>의 추천을 따릅니다.",
+    en: "Right now it follows <b>{member}</b>, the AI with the best record in this shoe.",
+    "zh-Hant": "目前跟隨本靴勝率最高的 <b>{member}</b>。",
+    "zh-Hans": "目前跟随本靴胜率最高的 <b>{member}</b>。",
   },
   "pattern.roads3": { ko: "세 파생 로드", en: "the three derived roads", "zh-Hant": "三條下路", "zh-Hans": "三条下路" },
   "pattern.beb": { ko: "빅아이", en: "the big eye boy", "zh-Hant": "大眼仔", "zh-Hans": "大眼仔" },
@@ -2143,19 +2129,17 @@ const S = {
   "pattern.majority": { ko: "많이 나온 쪽", en: "the side ahead", "zh-Hant": "多數方", "zh-Hans": "多数方" },
   "pattern.banker": { ko: "항상 뱅커", en: "always Banker", "zh-Hant": "一律押莊", "zh-Hans": "一律押庄" },
   "ai.notBaccarat": {
-    ko: "<b>이 기록은 8덱 바카라의 모양이 아닙니다.</b> 타이가 <b>{rate}</b>인데 공정한 슈는 <b>9.52%</b>이고, {coups}판에서 그 차이는 <b>{z}표준오차</b>입니다. 타이 비율은 셔플이 아니라 덱 구성이 정하는 값이라, 이만큼 벗어났다면 셔플이 아니라 <b>판독</b>을 먼저 의심해야 합니다 — 화면 인식이 판을 빠뜨렸거나, 같은 슈를 두 번 세었거나, 조각난 슈를 이어 붙였을 수 있습니다. 그 전까지 추천은 학습 모델이 아니라 {rule}을 따릅니다.",
-    en: "<b>This record is not the shape 8-deck baccarat produces.</b> Ties run at <b>{rate}</b> where a fair shoe gives <b>9.52%</b>, and over {coups} [coups|coup|coups] that gap is <b>{z} standard [z|error|errors]</b>. The tie rate is set by the pack rather than by the shuffle, so a gap this size points at the <b>reading</b> before it points at the table — coups dropped, a shoe counted twice, a shoe stitched from fragments. Until it is sorted out the recommendation follows {rule}, not the learned model.",
-    "zh-Hant": "<b>這份紀錄不是 8 副牌百家樂會有的樣子。</b>和局為 <b>{rate}</b>，而公正牌靴是 <b>9.52%</b>；在 {coups} 局上，這個差距是 <b>{z} 個標準誤</b>。和局比率由牌組決定而非洗牌決定，差這麼多應該先懷疑<b>判讀</b>而不是桌子 — 可能漏讀了局數、同一靴數了兩次，或把碎片接成了一靴。在釐清之前，推薦一律依{rule}，不採用學習模型。",
-    "zh-Hans": "<b>这份记录不是 8 副牌百家乐会有的样子。</b>和局为 <b>{rate}</b>，而公正牌靴是 <b>9.52%</b>；在 {coups} 局上，这个差距是 <b>{z} 个标准误</b>。和局比率由牌组决定而非洗牌决定，差这么多应该先怀疑<b>判读</b>而不是桌子 — 可能漏读了局数、同一靴数了两次，或把碎片接成了一靴。在厘清之前，推荐一律依{rule}，不采用学习模型。",
+    ko: "<b>이 기록은 8덱 바카라의 모양이 아닙니다.</b> 타이가 <b>{rate}</b>인데 공정한 슈는 <b>9.52%</b>이고, {coups}판에서 그 차이는 <b>{z}표준오차</b>입니다. 타이 비율은 셔플이 아니라 덱 구성이 정하는 값이라, 이만큼 벗어났다면 셔플이 아니라 <b>판독</b>을 먼저 의심해야 합니다 — 화면 인식이 판을 빠뜨렸거나, 같은 슈를 두 번 세었거나, 조각난 슈를 이어 붙였을 수 있습니다. 그 전까지 학습 모델은 AI 총동원에서 뺍니다.",
+    en: "<b>This record is not the shape 8-deck baccarat produces.</b> Ties run at <b>{rate}</b> where a fair shoe gives <b>9.52%</b>, and over {coups} [coups|coup|coups] that gap is <b>{z} standard [z|error|errors]</b>. The tie rate is set by the pack rather than by the shuffle, so a gap this size points at the <b>reading</b> before it points at the table — coups dropped, a shoe counted twice, a shoe stitched from fragments. Until it is sorted out the network is left off the panel of AIs.",
+    "zh-Hant": "<b>這份紀錄不是 8 副牌百家樂會有的樣子。</b>和局為 <b>{rate}</b>，而公正牌靴是 <b>9.52%</b>；在 {coups} 局上，這個差距是 <b>{z} 個標準誤</b>。和局比率由牌組決定而非洗牌決定，差這麼多應該先懷疑<b>判讀</b>而不是桌子 — 可能漏讀了局數、同一靴數了兩次，或把碎片接成了一靴。在釐清之前，神經網路不列入 AI 總動員。",
+    "zh-Hans": "<b>这份记录不是 8 副牌百家乐会有的样子。</b>和局为 <b>{rate}</b>，而公正牌靴是 <b>9.52%</b>；在 {coups} 局上，这个差距是 <b>{z} 个标准误</b>。和局比率由牌组决定而非洗牌决定，差这么多应该先怀疑<b>判读</b>而不是桌子 — 可能漏读了局数、同一靴数了两次，或把碎片接成了一靴。在厘清之前，神经网络不列入 AI 总动员。",
   },
   /* --------------------------------------------- the one way the pick is made */
-  "rule.label.combined": { ko: "통합 추천", en: "Combined pick", "zh-Hant": "綜合推薦", "zh-Hans": "综合推荐" },
-  "rule.name.combined": { ko: "통합 추천", en: "the combined pick", "zh-Hant": "綜合推薦", "zh-Hans": "综合推荐" },
   "learn.record": {
-    ko: "<b>{rule}을 씁니다.</b> 이 테이블의 기록이 8덱 바카라의 모양이 아니라, 모델이 배운 것이 판독 오류일 수 있습니다.",
-    en: "<b>Using {rule}.</b> This table's record is not the shape 8-deck baccarat produces, so what the network learned may be a misreading.",
-    "zh-Hant": "<b>採用{rule}。</b>本桌紀錄不是 8 副牌百家樂會有的樣子，網路學到的可能是判讀錯誤。",
-    "zh-Hans": "<b>采用{rule}。</b>本桌记录不是 8 副牌百家乐会有的样子，网络学到的可能是判读错误。",
+    ko: "학습 모델은 뺐습니다 — 이 테이블의 기록이 8덱 바카라의 모양이 아니라, 모델이 배운 것이 판독 오류일 수 있습니다.",
+    en: "The network is left off: this table's record is not the shape 8-deck baccarat produces, so what it learned may be a misreading.",
+    "zh-Hant": "已排除神經網路：本桌紀錄不是 8 副牌百家樂會有的樣子，網路學到的可能是判讀錯誤。",
+    "zh-Hans": "已排除神经网络：本桌纪录不是 8 副牌百家乐会有的样子，网络学到的可能是判读错误。",
   },
   "ai.disclaimer": {
     ko: "바카라는 양쪽 모두 기댓값이 마이너스입니다. 이 추천은 지난 결과로 고른 것일 뿐, 다음 판을 맞힌다는 보장도 수익 보장도 없습니다.",
@@ -7757,9 +7741,17 @@ function sideConfidence(n, q, deff = 1, pick = "B") {
  * "not Banker every coup" -- with seven readings of runs added (two-one,
  * three-one, two-two up to six-six) and the likelier side (`winPick`)
  * where no reading names a side yet.
+ *
+ * base-8: every AI the page has, on one panel (`panelReplay`): the sixteen
+ * readings of the shoe's pattern, the likelier side, the network, Markov
+ * chains of one, two and three coups, the last six and a weighted vote of
+ * them all, each calling every coup; the one with the best record in this
+ * shoe is followed. The owner asked, on 2026-10-14, for every AI there is
+ * to read the results the screen share brings and for the one with the
+ * highest win rate to be followed.
  */
 const FEATURE_VERSION = "f2";
-const BASE_MODEL_VERSION = "base-7";
+const BASE_MODEL_VERSION = "base-8";
 
 /**
  * Standard errors of evidence required before the estimate's side leaves
@@ -8381,6 +8373,309 @@ function coupsForConfidence(sample = {}, pick = "B") {
   return need > PRACTICAL_HORIZON ? null : need;
 }
 
+
+/* ------------------------------------------------------------- the AI panel */
+
+/**
+ * The members of the panel that read the whole table rather than the shoe,
+ * after the shoe's sixteen readings (`PATTERNS`) in the order a tie between
+ * records goes to:
+ *
+ *   likelier  the side likelier to win the next coup from the table's record
+ *             (`winPick`); the only member with a call before a shoe's first
+ *             decided coup, so a shoe opens on it
+ *   net       the network (`learn.js`), trained coup by coup on everything
+ *             the table has shown; its pick for each coup is handed in, and
+ *             it is left out where the record is not one a network may learn
+ *             from (see `tiePlausibility`)
+ *   markov1   what followed, over the whole table, the last decided coup of
+ *             this shoe -- the side that came after it more often
+ *   markov2   the same for the last two decided coups
+ *   markov3   and the last three
+ *   last6     the side ahead among the last six decided coups of this shoe
+ *   vote      the panel's weighted vote: every other member's call for this
+ *             coup, each weighted by its record in this shoe
+ *
+ * Each names a side for the next coup from the coups before it, or nothing
+ * where it has nothing to go on yet.
+ */
+const TABLE_MEMBERS = ["likelier", "net", "markov1", "markov2", "markov3", "last6", "vote"];
+
+/**
+ * Every AI the page has, as one panel: the sixteen readings of this shoe's
+ * pattern and the seven members above. The owner asked, on 2026-10-14, for
+ * every AI there is to read the results the screen share brings and for the
+ * one with the highest win rate to be followed. So at every coup each member
+ * calls a side (or nothing), and the pick is the call of the member with the
+ * best record in this shoe so far -- hits plus one over calls plus two
+ * (`panelScore`), as the readings were already scored among themselves --
+ * ties going to the earlier in this list. A new shoe starts every record
+ * over. Over the table each member's record is kept too, for the panel to
+ * show, but the choice is the shoe's: a chopping shoe is still followed by
+ * the chop, and the network or a Markov chain takes the wheel in a shoe it
+ * has called better than the readings.
+ *
+ * What it costs is measured on the page's own simulator, 20,000 fair 8-deck
+ * shoes, each coup called from the coups before it: the panel without the
+ * network is right on about 50.0% of decided coups, with it the same, and
+ * always Banker on 50.6% (the pack gives 50.68%); every member alone within
+ * 49.95-50.05%. On a fair table a shoe's past says nothing about its next
+ * coup, and the member with the best record so far is the one that has been
+ * luckiest in this shoe. `tests/test_js_port.py` re-measures the figures
+ * the page states.
+ */
+const PANEL = [...PATTERNS, ...TABLE_MEMBERS];
+
+/** How far back the Markov members read. */
+const MARKOV_REACH = 3;
+
+/** A member's score in the shoe: hits plus one over calls plus two. */
+function panelScore(hits, calls) {
+  return (hits + 1) / (calls + 2);
+}
+
+/**
+ * The readings' calls before every coup of a shoe, memoised by the shoe like
+ * `patternSides`: one string a coup, a character a reading in `PATTERNS`
+ * order, "B", "P" or "-".
+ */
+const callsMemo = new Map();
+
+function patternCallsOf(shoe) {
+  let calls = callsMemo.get(shoe);
+  if (calls === undefined) {
+    const pattern = new ShoePattern();
+    calls = [];
+    for (const o of shoe) {
+      calls.push(PATTERNS.map((k) => pattern.calls[k] || "-").join(""));
+      pattern.add(o);
+    }
+    if (callsMemo.size >= PATTERN_MEMO_MAX) callsMemo.clear();
+    callsMemo.set(shoe, calls);
+  }
+  return calls;
+}
+
+/** Each member's place in `PANEL`. */
+const PANEL_INDEX = Object.fromEntries(PANEL.map((k, i) => [k, i]));
+const PATTERN_COUNT = PATTERNS.length;
+const AT = {
+  likelier: PANEL_INDEX.likelier, net: PANEL_INDEX.net, last6: PANEL_INDEX.last6, vote: PANEL_INDEX.vote,
+  markov: [PANEL_INDEX.markov1, PANEL_INDEX.markov2, PANEL_INDEX.markov3],
+};
+/** A call, as the walk keeps it: nothing, Banker, Player. */
+const CALL_NONE = 0, CALL_B = 1, CALL_P = 2;
+
+/**
+ * The state of one shoe as the walk reads it: the members' records in it, the
+ * last decided coups as bits for the Markov members (Banker 1, Player 0),
+ * how many are decided, and the last six for the majority of them.
+ */
+class ShoeState {
+  constructor(size) {
+    this.hits = new Int32Array(size);
+    this.calls = new Int32Array(size);
+    this.bits = 0;        // the last decided coups, newest lowest
+    this.decided = 0;
+    this.ring = new Int8Array(6);   // the last six decided, 1 Banker 2 Player
+    this.at = 0;
+    this.sixB = 0;
+    this.sixP = 0;
+  }
+
+  learn(side) {
+    this.bits = ((this.bits << 1) | (side === CALL_B ? 1 : 0)) & 7;
+    this.decided += 1;
+    const gone = this.ring[this.at];
+    if (gone === CALL_B) this.sixB -= 1; else if (gone === CALL_P) this.sixP -= 1;
+    this.ring[this.at] = side;
+    if (side === CALL_B) this.sixB += 1; else this.sixP += 1;
+    this.at = (this.at + 1) % 6;
+  }
+}
+
+/**
+ * Every member's call for one coup, into `calls`: the readings' from
+ * `patternCalls` (a string in `PATTERNS` order), the table members' from the
+ * table's Markov counts, the shoe's state, the posterior Banker share and the
+ * network's pick, and the vote from all of those weighted by their records
+ * in this shoe.
+ */
+function fillCalls(calls, patternCalls, markov, shoe, q, netPick) {
+  for (let j = 0; j < PATTERN_COUNT; j += 1) {
+    const c = patternCalls.charCodeAt(j);
+    calls[j] = c === 66 ? CALL_B : c === 80 ? CALL_P : CALL_NONE;
+  }
+  calls[AT.likelier] = q >= 0.5 ? CALL_B : CALL_P;
+  calls[AT.net] = netPick === "B" ? CALL_B : netPick === "P" ? CALL_P : CALL_NONE;
+  for (let k = 1; k <= MARKOV_REACH; k += 1) {
+    let call = CALL_NONE;
+    if (shoe.decided >= k) {
+      const at = (shoe.bits & ((1 << k) - 1)) * 2;
+      const toB = markov[k - 1][at + 1], toP = markov[k - 1][at];
+      call = toB > toP ? CALL_B : toP > toB ? CALL_P : CALL_NONE;
+    }
+    calls[AT.markov[k - 1]] = call;
+  }
+  calls[AT.last6] = shoe.sixB > shoe.sixP ? CALL_B : shoe.sixP > shoe.sixB ? CALL_P : CALL_NONE;
+  let forB = 0, forP = 0;
+  for (let j = 0; j < calls.length; j += 1) {
+    if (j === AT.vote || calls[j] === CALL_NONE) continue;
+    const w = (shoe.hits[j] + 1) / (shoe.calls[j] + 2);
+    if (calls[j] === CALL_B) forB += w; else forP += w;
+  }
+  calls[AT.vote] = forB > forP ? CALL_B : forP > forB ? CALL_P : CALL_NONE;
+}
+
+/** The member followed for this coup: the best record in the shoe among those calling, or -1. */
+function panelChoice(calls, shoe) {
+  let best = -1, score = -1;
+  for (let j = 0; j < calls.length; j += 1) {
+    if (calls[j] === CALL_NONE) continue;
+    const s = (shoe.hits[j] + 1) / (shoe.calls[j] + 2);
+    if (s > score) { best = j; score = s; }
+  }
+  return best;
+}
+
+/**
+ * The panel's walk over a table, coup by coup, and its ledger: `replayPicks`
+ * with every AI on the panel rather than the readings alone.
+ *
+ * `net` is the network's part, or null to leave it out: `picks`, its pick for
+ * every coup of `sequences` in order (ties included, as `learn.js` walks
+ * them), and `next`, its pick for the coup to come. `open` is the shoe being
+ * dealt -- the last of `sequences` where it has coups, the empty string where
+ * it has none yet -- so that the coup to come is read with that shoe's
+ * records, fresh at a new shoe.
+ *
+ * Returns what `replayPicks` returns, and besides: `next`, the pick for the
+ * coup to come with the member it comes from; `followed`, that member; and
+ * `members`, every member's record in the shoe and over the table, how often
+ * it was followed, and its call now.
+ *
+ * Walked on typed arrays, a member an index: the page walks the whole table
+ * at every coup, and a thousand shoes cost half a second on objects.
+ */
+function panelReplay(sequences, {
+  deff = 1, commission = 0.05, from = 0, keepFrom = null, net = null, open = null,
+} = {}) {
+  const step = 1 / Math.max(1, deff);
+  let a = PRIOR_A, b = PRIOR_B;
+  const size = PANEL.length;
+  // What followed each context of one, two and three decided coups over the
+  // table: at context * 2, Player; at context * 2 + 1, Banker.
+  const markov = [new Int32Array(4), new Int32Array(8), new Int32Array(16)];
+  const tableHits = new Int32Array(size), tableCalls = new Int32Array(size);
+  const tableFollowed = new Int32Array(size);
+  const calls = new Int8Array(size);
+  let shoe = new ShoeState(size);
+  let kept = keepFrom === null ? null : "";
+
+  let seen = 0;
+  let bets = 0, wins = 0, losses = 0, pushes = 0, coups = 0;
+  let last = null;
+  let units = 0, peak = 0, drawdown = 0, best = 0, worst = 0;
+  let bankerBets = 0, playerBets = 0;
+
+  for (const seq of sequences) {
+    const patternCalls = patternCallsOf(seq);
+    shoe = new ShoeState(size);
+    for (let i = 0; i < seq.length; i += 1) {
+      const outcome = seq[i];
+      // decide on what was knowable at the time, as the panel does
+      const q = a / (a + b);
+      fillCalls(calls, patternCalls[i], markov, shoe, q, net ? net.picks[seen] : null);
+      const member = panelChoice(calls, shoe);
+      const pick = member < 0 ? winPick(q) : calls[member] === CALL_B ? "B" : "P";
+      if (kept !== null && seen >= keepFrom) kept += pick;
+      const settling = seen >= from;
+      seen += 1;
+      if (settling) coups += 1;
+
+      const who = member < 0 ? null : PANEL[member];
+      if (!settling) {
+        // not ours to settle, but still ours to learn from
+      } else if (outcome === "T") {
+        pushes += 1;
+        last = { pick, outcome, kind: "push", paid: 0, units, member: who };
+      } else {
+        bets += 1;
+        if (pick === "B") bankerBets += 1; else playerBets += 1;
+        let paid;
+        if (outcome === pick) {
+          wins += 1;
+          paid = pick === "B" ? 1 - commission : 1;
+          units += paid;
+        } else {
+          losses += 1;
+          paid = -1;
+          units -= 1;
+        }
+        last = { pick, outcome, kind: paid > 0 ? "win" : "lose", paid, units, member: who };
+        peak = Math.max(peak, units);
+        drawdown = Math.min(drawdown, units - peak);
+        best = Math.max(best, units);
+        worst = Math.min(worst, units);
+      }
+
+      // and only then learn from it: every member's call is settled, in the
+      // shoe and on the table, and the Markov counts and the posterior move
+      if (outcome !== "T") {
+        const side = outcome === "B" ? CALL_B : CALL_P;
+        for (let j = 0; j < size; j += 1) {
+          const c = calls[j];
+          if (c === CALL_NONE) continue;
+          shoe.calls[j] += 1; tableCalls[j] += 1;
+          if (c === side) { shoe.hits[j] += 1; tableHits[j] += 1; }
+        }
+        if (member >= 0) tableFollowed[member] += 1;
+        for (let k = 1; k <= MARKOV_REACH && shoe.decided >= k; k += 1) {
+          markov[k - 1][(shoe.bits & ((1 << k) - 1)) * 2 + (side === CALL_B ? 1 : 0)] += 1;
+        }
+        shoe.learn(side);
+        if (outcome === "B") a += step; else b += step;
+      }
+    }
+  }
+
+  // The coup to come, read with the open shoe's state: the last shoe's where
+  // that is the shoe being dealt, fresh where a new one has started.
+  const dealt = open === null ? (sequences.length ? sequences[sequences.length - 1] : "") : open;
+  const current = dealt.length && sequences.length && sequences[sequences.length - 1] === dealt;
+  let now = shoe;
+  if (!current) {
+    // A shoe the walk has not seen -- empty, or handed in apart from the
+    // table: no records, but its own coups for the Markov and last-six context.
+    now = new ShoeState(size);
+    for (const o of dealt) if (o !== "T") now.learn(o === "B" ? CALL_B : CALL_P);
+  }
+  const q = a / (a + b);
+  const pattern = shoePattern(dealt);
+  fillCalls(calls, PATTERNS.map((k) => pattern.calls[k] || "-").join(""), markov, now, q,
+            net ? net.next : null);
+  const chosen = panelChoice(calls, now);
+  const followed = chosen < 0 ? null : PANEL[chosen];
+  const next = { pick: chosen < 0 ? winPick(q) : calls[chosen] === CALL_B ? "B" : "P", member: followed };
+
+  return {
+    last,
+    from, trained: Math.min(from, seen), faced: seen,
+    coups, bets, wins, losses, pushes, units, drawdown, best, worst,
+    bankerBets, playerBets,
+    winRate: bets ? wins / bets : 0,
+    perBet: bets ? units / bets : 0,
+    picks: kept,
+    next, followed,
+    members: PANEL.map((k, j) => ({
+      key: k, call: calls[j] === CALL_B ? "B" : calls[j] === CALL_P ? "P" : null,
+      shoeHits: now.hits[j], shoeCalls: now.calls[j],
+      score: panelScore(now.hits[j], now.calls[j]),
+      hits: tableHits[j], calls: tableCalls[j], followed: tableFollowed[j],
+    })),
+  };
+}
+
 /* ═══ plans.js ═══ */
 /**
  * Staking plans: how much to put on each coup, given how the coups before it
@@ -8574,9 +8869,10 @@ const PLAN_TABLE = 40;
  *
  * The shoes are dealt by the page's own rules engine from a fixed seed, so the
  * table is the same every time it is drawn for the same settings; the picks
- * are the page's own -- the shoe's pattern, see `patternSides`, with the
- * likelier side where it names none -- each made from the coups before it
- * on a table of forty shoes, as the page makes them.
+ * are the page's own -- the panel of every AI, see `panelReplay`, without
+ * the network, whose walk over two thousand shoes would cost the page
+ * seconds -- each made from the coups before it on a table of forty shoes,
+ * as the page makes them.
  * A session is a shoe.
  *
  * `cost` is what the plan expects to lose a shoe -- what it stakes, each unit
@@ -8590,7 +8886,7 @@ function comparePlans({ bankroll = 100, max = Infinity, stopWin = 0, stopLoss = 
   const picks = [];
   for (let t = 0; t < dealt.length; t += PLAN_TABLE) {
     const table = dealt.slice(t, t + PLAN_TABLE);
-    const all = replayPicks(table, { keepFrom: 0 }).picks;
+    const all = panelReplay(table, { keepFrom: 0 }).picks;
     let at = 0;
     for (const shoe of table) { picks.push(all.slice(at, at + shoe.length)); at += shoe.length; }
   }
@@ -9057,6 +9353,11 @@ function report(run, sequences,
     split,
     lastPick: run.picks.length ? run.picks[run.picks.length - 1] : null,
     lastProbability: run.lastProbability,
+    // Its pick for every coup walked, in order, for the panel of every AI
+    // (`panelReplay`) to score beside the rest -- a copy, because a rewind
+    // truncates the run's own array, and a report already handed out must
+    // not change under whoever holds it.
+    picks: run.picks.slice(),
     ...verdict(model, base, split),
   };
 }
@@ -14928,24 +15229,24 @@ function invalidate() {
 }
 
 /**
- * The pick actually shown: the network's where it has earned it, and
- * otherwise the shoe's pattern -- the side named by whichever reading of it
- * has called the shoe being dealt best so far, the estimate's side where none
- * names one. One way of picking, with nothing to choose: the streak, the chop
- * and always Banker, which were ways of their own until 2026-10-13, are
- * readings of the pattern (see `PATTERNS`, and what it costs). A way a device
+ * The pick actually shown: the call of the member of the panel of every AI
+ * -- the shoe's sixteen readings, the likelier side, the network, the Markov
+ * chains, the last six, the vote -- with the best record in the shoe being
+ * dealt (see `PANEL`, and what it costs). One way of picking, with nothing
+ * to choose: the streak, the chop and always Banker, which were ways of
+ * their own until 2026-10-13, are readings on the panel. A way a device
  * chose then, kept under `baccarat.pickRule.v1`, is not read.
  */
 function recommended(p) {
-  if (usingNetwork()) return learned().nextPick;
-  // The shoe's pattern, or the likelier side where it names nothing yet.
-  return shoePattern(openShoe().o).pick(winPick(p.q));
+  // The panel of every AI: the call of the member with the best record in
+  // this shoe, the likelier side where no member calls (see `panelReplay`).
+  const next = ledger().next;
+  return next && next.pick ? next.pick : winPick(p.q);
 }
 
-/** Whether the network makes the pick: where it has earned it. */
-function usingNetwork() {
-  const l = learned();
-  return l.trusted && !!l.nextPick;
+/** A panel member's name: the readings by their pattern, the rest by theirs. */
+function memberName(key) {
+  return TABLE_MEMBERS.includes(key) ? t("member." + key) : t("pattern." + key);
 }
 
 /**
@@ -15042,7 +15343,6 @@ function logPrediction(p, chosen, worthBacking) {
   const shoe = openShoe(name);
   if (!shoe.id) return;
 
-  const usingNet = usingNetwork();
   const wrote = recordPrediction(predictionLog, name, {
     shoe: shoe.id,
     index: shoe.o.length,
@@ -15052,7 +15352,7 @@ function logPrediction(p, chosen, worthBacking) {
     pick: chosen,
     backed: worthBacking,
     confidence: sureOf(p, chosen).score,
-    model: usingNet ? NET_MODEL_VERSION : BASE_MODEL_VERSION,
+    model: BASE_MODEL_VERSION,
     features: FEATURE_VERSION,
     basis: shoe.o,
   });
@@ -15278,7 +15578,6 @@ function renderPrediction() {
       rate: pct(record.rate, 2),
       coups: record.coups.toLocaleString(),
       z: Math.abs(record.z).toFixed(0),
-      rule: t("rule.name.combined"),
     });
   }
 
@@ -15326,12 +15625,11 @@ function renderPrediction() {
   if (!p.informed || p.moved < 0.0002) why.push(t("ai.whyThin", { n: p.n }));
   else why.push(t("ai.whyMoved", { n: p.n, delta: (p.moved * 100).toFixed(2) }));
 
-  why.push(t("ai.patternRule"));
-  // Which reading of the pattern the side came from, where it came from one:
-  // its name, and no count -- the reading followed is the one that has been
-  // luckiest in this shoe, and its record there would read as an accuracy.
-  const following = usingNetwork() ? null : shoePattern(openShoe().o).following;
-  if (following) why.push(t("ai.patternNow", { pattern: t("pattern." + following) }));
+  why.push(t("ai.panelRule"));
+  // Which member of the panel the side came from: its name. Its record in
+  // this shoe is on the panel below, beside every other member's.
+  const following = ledger().followed;
+  if (following) why.push(t("ai.panelNow", { member: memberName(following) }));
   // The last line carries emphasis on the two figures the rule turns on.
   $("aiWhy").innerHTML = why.join(" ");
   $("aiDisclaimer").textContent = t("ai.disclaimer");
@@ -15385,7 +15683,7 @@ function deltaChip(delta) {
  * same numbers twice under a different heading tells a reader nothing they did
  * not already have two inches higher up.
  *
- * A result is a different thing from a probability. `replayPicks` settles a
+ * A result is a different thing from a probability. `panelReplay` settles a
  * wager on every coup this table has produced, recomputing the pick each time
  * from the coups before it only, and this shows what that adds up to: units
  * won or lost, how many coups were actually bet, the record, the worst the
@@ -15436,6 +15734,8 @@ function learned() {
     value.trusted = false;
     value.reason = "record";
   }
+  // Left off the panel of every AI where what it learned may be a misreading.
+  value.excluded = record.implausible || shape.long;
   value.record = record;
   value.shape = shape;
   learnCache = { revision, table: state.active, value };
@@ -15458,16 +15758,12 @@ function ledger() {
   const o = observed();
   const deff = Number.isFinite(o.inflate) ? Math.max(1, o.inflate ** 2) : 1;
   const sequences = shoes().map((s) => s.o).filter(Boolean);
-  let value;
-  if (l.trusted) {
-    // The network is judged from the mark; the screen may count less of it.
-    value = from === ledgerFrom() ? l.model
-      : learners.for(state.active ?? "").settle(sequences, { deff, from }).model;
-  } else {
-    // The shoe's pattern, coup by coup; the picks over the shoe in progress
-    // come back too, for the board.
-    value = replayPicks(sequences, { deff, from, keepFrom: shoeStart() });
-  }
+  // Every AI on one panel, coup by coup, the network among them where the
+  // record is one it may learn from -- its picks are the walk `learned()`
+  // made. The picks over the shoe in progress come back too, for the board,
+  // and the pick for the coup to come with the member it is from.
+  const net = l.excluded ? null : { picks: l.picks, next: l.nextPick };
+  const value = panelReplay(sequences, { deff, from, keepFrom: shoeStart(), net, open: openShoe().o });
   ledgerCache = { revision, table: state.active, from, value };
   return value;
 }
@@ -15483,10 +15779,7 @@ function ledger() {
 function shoeCalls() {
   const n = openShoe().o.length;
   if (!n) return null;
-  const start = shoeStart();
-  const picks = learned().trusted
-    ? learners.for(state.active ?? "").picksBetween(start, start + n)
-    : ledger().picks;
+  const picks = ledger().picks;
   return typeof picks === "string" && picks.length === n ? picks : null;
 }
 
@@ -15768,45 +16061,40 @@ function renderVerification() {
 
 function renderLearned() {
   const l = learned();
+  const r = ledger();
   const rows = $("learnRows"), verdict = $("learnVerdict");
   $("learnTrained").textContent = l.decided
     ? t("learn.trained", { n: l.decided.toLocaleString() }) : "";
   rows.innerHTML = "";
 
-  if (!l.model.bets) {
+  if (!r.faced) {
     verdict.className = "aiverdict";
     verdict.textContent = t("learn.waiting");
     return;
   }
 
-  const signed = (x) => (x >= 0 ? "+" : "\u2212") + Math.abs(x).toFixed(2);
-  const net = l.trusted;
-  const ruleName = t("rule.name.combined");
-  for (const [key, book, picked] of [
-    [t("learn.model"), l.model, net],
-    [t("rule.label.combined"), l.base, !net],
-  ]) {
-    const row = el("div", "aifact" + (picked ? " picked" : ""));
-    row.appendChild(el("span", "k", key));
-    const v = el("span", "v" + (book.units < 0 ? " neg" : ""),
-      pct(book.winRate, 2));
-    v.appendChild(el("small", null, signed(book.units) + t("ai.unit")));
+  // Every member that has called a coup on this table, best record in this
+  // shoe first -- the order the pick is chosen in -- with the one followed
+  // for the coup to come marked. The figure is the member's win rate over
+  // every coup it called on this table; the small print its record in this
+  // shoe, which is what the choice is made on.
+  const members = r.members.filter((m) => m.calls || m.call)
+    .sort((x, y) => y.score - x.score || PANEL.indexOf(x.key) - PANEL.indexOf(y.key));
+  for (const m of members) {
+    const row = el("div", "aifact" + (m.key === r.followed ? " picked" : ""));
+    row.appendChild(el("span", "k", memberName(m.key)));
+    const v = el("span", "v", m.calls ? pct(m.hits / m.calls, 1) : "\u2014");
+    v.appendChild(el("small", null, t("learn.shoeRecord", { hits: m.shoeHits, calls: m.shoeCalls })));
     row.appendChild(v);
     rows.appendChild(row);
   }
-  const split = el("div", "aifact");
-  split.appendChild(el("span", "k", t("learn.split")));
-  split.appendChild(el("span", "v", l.split.toLocaleString()));
-  rows.appendChild(split);
 
-  const z = l.z.toFixed(2);
-  verdict.className = "aiverdict" + (net ? " on" : "");
-  verdict.innerHTML =
-    l.reason === "record" ? t("learn.record", { rule: ruleName })
-    : l.reason === "ahead" ? t("learn.usingModel", { lead: signed(l.lead), z })
-    : l.reason === "noise" ? t("learn.noise", { z, bar: l.bar.toFixed(2), rule: ruleName })
-    : l.reason === "tooFew" ? t("learn.tooFew", { n: l.split.toLocaleString(), rule: ruleName })
-    : t("learn.behind", { rule: ruleName });
+  const now = r.members.find((m) => m.key === r.followed);
+  verdict.className = "aiverdict" + (now ? " on" : "");
+  verdict.innerHTML = (now
+    ? t("learn.following", { member: memberName(now.key), hits: now.shoeHits, calls: now.shoeCalls })
+    : t("learn.waiting"))
+    + (l.excluded ? " " + t("learn.record") : "");
 }
 
 /** The interval options carry a number, so their labels are built not stored. */
