@@ -10899,6 +10899,14 @@ class LiveWatcher {
      */
     this.lastSeen = null;
     /**
+     * The last board read long enough to be known again anywhere (see
+     * `MOVED_MIN`), kept past the short readings that follow it: a lock
+     * moved off the board, or a transient over it, reads a few marks or
+     * none, and `lastSeen` is then those -- too short to say what to look
+     * for, on the looks that most need to know (see `_stillShown`).
+     */
+    this.longSeen = null;
+    /**
      * Whether the board being followed has shown itself to be a road: two
      * columns or more, or a column watched gaining a mark. Only such a board
      * is protected from what else is in the strip -- see `OPENING_MARKS`.
@@ -11126,6 +11134,7 @@ class LiveWatcher {
     this.memoryAt = 0;
     this._unfollow();
     this.lastSeen = null;
+    this.longSeen = null;
     this.bounds = null;
     this.empties = 0;
     this.cleared = false;
@@ -11421,8 +11430,36 @@ class LiveWatcher {
         boards = [back.board];
         bounds = back.bounds;
         stayed = true;
-        this.region = this.memory = grownToHold(this.region, back.board.box, Math.max(8, Math.round(back.board.diameter || 0)), w, h);
-        this.memoryAt = Date.now();
+        this._followAgain(back, w, h);
+      }
+    }
+
+    // And a lock that reads a mark or two where it was reading a whole board
+    // is a lock in the wrong place too, before it is a new shoe. A new shoe
+    // comes after a strip watched going empty, and a shoe of fifty coups does
+    // not become one of one otherwise -- yet on an owner's table (Solaire),
+    // fifty-three coups in, the reader read one coup for the rest of the
+    // sitting, three looks of it closed the shoe, and the plate stood in
+    // plain sight the whole time: the window had moved for a few looks and
+    // the re-check moved the lock with it, and when the window came back the
+    // lock stayed, over the roads and off the plate. The whole frame, the
+    // place the board was, and the strip's ruling found afresh are asked for
+    // the board before the reading counts (see `_stillShown`).
+    //
+    // Whether or not the mark or two read "carries on" from the board: one
+    // mark of the right colour at the right place is the first coup of a
+    // fifty-coup reading as often as not, and `stayed` took it for the board
+    // still there.
+    const lost = following && boards.length && this.longSeen
+      && boards[0].sequence.length <= Math.max(RESTART_DEPTH, this.longSeen.sequence.length / 2)
+      && boards[0].sequence.length < this.longSeen.sequence.length - BLINK_SLACK;
+    if (lost && this.region && this.pinned !== "manual") {
+      const back = this._stillShown(frame, w, h);
+      if (back) {
+        boards = [back.board];
+        bounds = back.bounds;
+        stayed = true;
+        this._followAgain(back, w, h);
       }
     }
 
@@ -11653,6 +11690,7 @@ class LiveWatcher {
     this.lastFill = board.cells.length ? board.cells.map((c) => c.fill).sort((a, b) => a - b)[board.cells.length >> 1] : 0;
     this.lastRead = board.sequence;
     this.lastSeen = { sequence: board.sequence, box: board.box, diameter: board.diameter };
+    if (board.sequence.length >= MOVED_MIN) this.longSeen = this.lastSeen;
     this.bounds = bounds;
     this.lastBoard = { ...board, frameWidth: w, frameHeight: h };
     this.lastReadAt = Date.now();
@@ -11842,16 +11880,67 @@ class LiveWatcher {
    * and that board reads as this one exactly.
    */
   _stillShown(frame, w, h) {
-    const seen = this.lastSeen;
+    const last = this.lastSeen;
+    const seen = last && last.sequence.length >= MOVED_MIN ? last : this.longSeen;
     if (!seen || seen.sequence.length < MOVED_MIN || this.surface === "monitor") return null;
     if (this.empties >= CLEAR_PATIENCE && this.samples % RECHECK_EVERY !== 0) return null;
     const was = seen.sequence;
     const short = was.slice(0, Math.max(MOVED_MIN, was.length - BLINK_SLACK));
+    const found = (got) => {
+      const board = got.boards.find((b) => b.sequence.startsWith(short));
+      if (board) board.shown = true;
+      return board || null;
+    };
+    // The whole frame, cold.
     const full = detectBoards(frame, { minCells: COLD_CELLS });
-    const board = full.boards.find((b) => b.sequence.startsWith(short));
-    if (!board) return null;
-    board.shown = true;
-    return { board, bounds: full.bounds };
+    let board = found(full);
+    if (board) return { board, bounds: full.bounds };
+    // A cold look misses a plate it reads inside a lock -- the discs' letters
+    // leave them hollow, and at the size an owner's table (Solaire) shares
+    // its strip the whole frame showed nothing where the lock read forty-seven.
+    // So the place the board was, read as the lock reads: a lock moved off
+    // the board and left there leaves the board where it was.
+    const pad = Math.max(8, Math.round(2 * (seen.diameter || 8)));
+    const place = { x: Math.max(0, Math.round(seen.box.x - pad)), y: Math.max(0, Math.round(seen.box.y - pad)) };
+    place.w = Math.min(w, Math.round(seen.box.x2 + pad)) - place.x;
+    place.h = Math.min(h, Math.round(seen.box.y2 + pad)) - place.y;
+    for (const pitch of [this.grid ? this.grid.pitch : 0, 0]) {
+      board = found(detectBoards(frame, { region: place, minCells: LOCKED_CELLS, pitch }));
+      if (board) return { board, bounds: null };
+    }
+    // And the strip's ruling, found afresh, read inside the lock it gives:
+    // the window moved and the board with it.
+    const grid = findStrip(frame, w, h);
+    if (grid) {
+      const lock = gridLock(grid, w, h);
+      for (const pitch of [grid.pitch, 0]) {
+        const got = detectBoards(frame, { region: lock, minCells: LOCKED_CELLS, pitch });
+        board = found(got);
+        if (board) return { board, bounds: got.bounds, grid };
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Follow the board `_stillShown` found again: the lock is grown to hold
+   * it where it is -- or, found by the strip's ruling afresh, pinned to
+   * that ruling, as a lock is taken at the start.
+   */
+  _followAgain(back, w, h) {
+    const pad = Math.max(8, Math.round(back.board.diameter || 0));
+    if (back.grid) {
+      this.grid = back.grid;
+      this.gridMisses = 0;
+      this.pinned = "grid";
+      this.gridBox = gridLock(back.grid, w, h);
+      this.region = grownToHold(this.gridBox, back.board.box, pad, w, h);
+    } else {
+      this.region = grownToHold(this.region, back.board.box, pad, w, h);
+    }
+    this.memory = this.region;
+    this.memoryAt = Date.now();
+    if (back.bounds === null) this.bounds = null;
   }
 
   /**
