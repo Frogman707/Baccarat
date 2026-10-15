@@ -228,6 +228,11 @@ body.simple #aiLedger .aifact{border-bottom:none}
 .warn > span{flex:1 1 100%}
 .warn .btn{padding:5px 12px; font-size:12.5px}
 .warn .btn.ghost{color:var(--ink-2)}
+/* A reading held for the person (see `review.js` and `admitReading`): what it
+   would write, why it is held, and the two ways out. */
+.warn.review > div{flex:1 1 100%}
+.warn.review .small{font-size:12px; color:var(--ink-2)}
+.livehealth{margin:8px 0 0; font-size:11.5px; color:var(--ink-3); line-height:1.5}
 
 /* ── live surface ───────────────────────────────────────────────────── */
 .livebox{border:2px dashed var(--line-2); border-radius:12px; background:var(--surface-2);
@@ -1069,8 +1074,10 @@ body.open > #gate{display:none}
         <div id="liveBinding" class="warn" hidden></div>
         <div id="liveSurface" class="warn" hidden></div>
         <div id="liveWarn" class="warn" hidden></div>
+        <div id="liveReview" class="warn review" role="alert" hidden></div>
         <div id="liveManual" class="warn" hidden></div>
         <div id="liveLog" class="livelog" data-full-only></div>
+        <p id="liveHealth" class="small livehealth" data-full-only></p>
       </div>
 
       <div id="liveError" hidden></div>
@@ -1363,6 +1370,7 @@ body.open > #gate{display:none}
         <div class="actions" style="margin-top:0">
           <button class="btn" id="exportCsv">CSV</button>
           <button class="btn" id="exportJson">JSON</button>
+          <button class="btn ghost" id="exportJournal" data-i18n="tools.exportJournal"></button>
           <button class="btn ghost" id="resetAllBtn" data-i18n="tools.resetAll"></button>
         </div>
         <p class="note"><span data-i18n="tools.ingestNote"></span>
@@ -2438,10 +2446,10 @@ const S = {
      the last quarter of the shoe. */
   "cards.h": { ko: "카드 카운트", en: "Card count", "zh-Hant": "算牌", "zh-Hans": "算牌" },
   "cards.sub": {
-    ko: "화면 판독기는 결과만 읽고 카드는 읽지 못합니다. 판이 기록된 뒤 그 판의 카드를 넣으면, 아직 안 나온 카드의 구성으로 다음 판의 확률을 정확히 계산합니다. 8덱에서는 모든 카드를 세어도 뱅커나 플레이어가 유리해지는 판은 368판에 1판꼴이고 전부 슈의 마지막 1/4에 있습니다 — 그런 판에는 추천이 카드를 따릅니다.",
-    en: "The screen reader reads the results, never the cards. Type each coup's cards once it is recorded and the next coup's probabilities are computed exactly from the cards still unseen. Counting every card of an 8-deck shoe puts Banker or Player ahead on about 1 coup in 368, all of them in the shoe's last quarter; on such a coup the pick follows the cards.",
-    "zh-Hant": "畫面判讀器只讀結果，不讀牌。每局記錄後輸入該局的牌，就會依尚未出現的牌精確計算下一局的機率。8 副牌即使每張都算，莊或閒佔優的局約 368 局才有 1 局，而且全在牌靴最後四分之一 — 遇到那種局，推薦會跟牌。",
-    "zh-Hans": "画面判读器只读结果，不读牌。每局记录后输入该局的牌，就会依尚未出现的牌精确计算下一局的概率。8 副牌即使每张都算，庄或闲占优的局约 368 局才有 1 局，而且全在牌靴最后四分之一 — 遇到那种局，推荐会跟牌。",
+    ko: "화면 판독기는 결과만 읽고 카드는 읽지 못합니다. 판이 기록된 뒤 그 판의 카드를 넣으면, 아직 안 나온 카드의 구성으로 다음 판의 확률을 정확히 계산합니다 — 슈의 모든 판에 카드가 있을 때만 계산합니다. 8덱에서는 모든 카드를 세어도 뱅커나 플레이어가 유리해지는 판은 368판에 1판꼴이고 전부 슈의 마지막 1/4에 있습니다 — 그런 판에는 추천이 카드를 따릅니다.",
+    en: "The screen reader reads the results, never the cards. Type each coup's cards once it is recorded and the next coup's probabilities are computed exactly from the cards still unseen — only while every coup of the shoe has its cards. Counting every card of an 8-deck shoe puts Banker or Player ahead on about 1 coup in 368, all of them in the shoe's last quarter; on such a coup the pick follows the cards.",
+    "zh-Hant": "畫面判讀器只讀結果，不讀牌。每局記錄後輸入該局的牌，就會依尚未出現的牌精確計算下一局的機率 — 僅在本靴每局都有牌時計算。8 副牌即使每張都算，莊或閒佔優的局約 368 局才有 1 局，而且全在牌靴最後四分之一 — 遇到那種局，推薦會跟牌。",
+    "zh-Hans": "画面判读器只读结果，不读牌。每局记录后输入该局的牌，就会依尚未出现的牌精确计算下一局的概率 — 仅在本靴每局都有牌时计算。8 副牌即使每张都算，庄或闲占优的局约 368 局才有 1 局，而且全在牌靴最后四分之一 — 遇到那种局，推荐会跟牌。",
   },
   "cards.for": { ko: "{n}번째 판({side})의 카드:", en: "Cards of coup {n} ({side}):", "zh-Hant": "第 {n} 局（{side}）的牌：", "zh-Hans": "第 {n} 局（{side}）的牌：" },
   "cards.noCoup": {
@@ -2485,13 +2493,16 @@ const S = {
   "cards.probs": { ko: "카드 기준 다음 판", en: "Next coup from the cards", "zh-Hant": "依牌的下一局", "zh-Hans": "依牌的下一局" },
   "cards.evs": { ko: "배팅 기댓값", en: "Wager expectation", "zh-Hant": "下注期望值", "zh-Hans": "下注期望值" },
   "cards.none": {
-    ko: "아직 넣은 카드가 없습니다 — 새 슈 그대로입니다.", en: "No cards entered yet: the shoe reads as fresh.",
-    "zh-Hant": "尚未輸入任何牌 — 視為新靴。", "zh-Hans": "尚未输入任何牌 — 视为新靴。",
+    ko: "아직 넣은 카드가 없어 카드로 계산하지 않습니다 — 결과만으로는 남은 카드를 알 수 없습니다.",
+    en: "No cards entered yet, so nothing is worked out from cards: results alone do not say which cards are left.",
+    "zh-Hant": "尚未輸入任何牌，因此不以牌計算 — 只憑結果無法得知剩餘的牌。",
+    "zh-Hans": "尚未输入任何牌，因此不以牌计算 — 只凭结果无法得知剩余的牌。",
   },
   "cards.incomplete": {
-    ko: "카드가 없는 판이 {n}개라 이 카운트는 참고만 하세요 — 추천에는 쓰지 않습니다.",
-    en: "{n} [n|coup has|coups have] no cards, so this count is for reference only; the pick does not use it.",
-    "zh-Hant": "有 {n} 局沒有牌，此算牌僅供參考 — 推薦不採用。", "zh-Hans": "有 {n} 局没有牌，此算牌仅供参考 — 推荐不采用。",
+    ko: "카드가 없는 판이 {n}개라 남은 카드를 알 수 없어 계산하지 않습니다 — 추천에도 쓰지 않습니다.",
+    en: "{n} [n|coup has|coups have] no cards, so the cards left are unknown and nothing is worked out from them; the pick does not use them.",
+    "zh-Hant": "有 {n} 局沒有牌，無法得知剩餘的牌，因此不計算 — 推薦也不採用。",
+    "zh-Hans": "有 {n} 局没有牌，无法得知剩余的牌，因此不计算 — 推荐也不采用。",
   },
   "cards.noEdge": {
     ko: "지금은 어느 배팅도 유리하지 않습니다 — 추천은 이번 슈 패턴을 따릅니다.",
@@ -3180,6 +3191,81 @@ const S = {
   "tools.textSkipped": { ko: " (알 수 없는 문자 {n}개는 건너뜀)", en: " ({n} unrecognised characters skipped)", "zh-Hant": "（略過 {n} 個無法辨識的字元）", "zh-Hans": "（跳过 {n} 个无法识别的字符）" },
   "tools.textLoaded": { ko: "{n}판을 새 슈로 불러왔습니다.", en: "Loaded {n} [n|coup|coups] as a new shoe.", "zh-Hant": "已將 {n} 局載入為新牌靴。", "zh-Hans": "已将 {n} 局载入为新牌靴。" },
   "tools.exportH": { ko: "데이터 내보내기", en: "Export the data", "zh-Hant": "匯出資料", "zh-Hans": "导出数据" },
+  "tools.exportJournal": {
+    ko: "판독 이력", en: "Reader journal", "zh-Hant": "判讀紀錄", "zh-Hans": "判读记录",
+  },
+  "review.h": { ko: "판독 확인 필요", en: "Check this reading", "zh-Hant": "請確認此判讀", "zh-Hans": "请确认此判读" },
+  "review.grow": {
+    ko: "새 판 {n}개: {sides}", en: "{n} new [n|coup|coups]: {sides}",
+    "zh-Hant": "新的 {n} 局：{sides}", "zh-Hans": "新的 {n} 局：{sides}",
+  },
+  "review.mend": {
+    ko: "저장된 기록과 화면이 다릅니다 — 기록 {was} → 화면 {now}",
+    en: "The record and the screen differ — record {was} → screen {now}",
+    "zh-Hant": "已存的紀錄與畫面不同 — 紀錄 {was} → 畫面 {now}",
+    "zh-Hans": "已存的记录与画面不同 — 记录 {was} → 画面 {now}",
+  },
+  "review.newShoe": {
+    ko: "새 슈로 보입니다 ({n}판 읽음)", en: "This looks like a new shoe ({n} [n|coup|coups] read)",
+    "zh-Hant": "看起來是新的牌靴（已讀 {n} 局）", "zh-Hans": "看起来是新的牌靴（已读 {n} 局）",
+  },
+  "review.resume": {
+    ko: "전에 떠난 슈로 돌아온 것으로 보입니다 ({n}판)", en: "This looks like a shoe left earlier, taken up again ({n} [n|coup|coups])",
+    "zh-Hant": "看起來回到了先前離開的牌靴（{n} 局）", "zh-Hans": "看起来回到了先前离开的牌靴（{n} 局）",
+  },
+  "review.why": { ko: "이유: {list}", en: "Why: {list}", "zh-Hant": "原因：{list}", "zh-Hans": "原因：{list}" },
+  "review.d.classification": {
+    ko: "새 칸의 색 판별 신뢰도 {v}%", en: "the new marks' colour read at {v}% confidence",
+    "zh-Hant": "新格子的顏色判別信心 {v}%", "zh-Hans": "新格子的颜色判别信心 {v}%",
+  },
+  "review.d.detection": {
+    ko: "칸 위치(격자) 신뢰도 {v}%", en: "the board's grid fitted at {v}%",
+    "zh-Hant": "格子位置（網格）信心 {v}%", "zh-Hans": "格子位置（网格）信心 {v}%",
+  },
+  "review.d.consistency": {
+    ko: "화면 일관성 {v}% (화면이 오락가락함)", en: "the screen agreed with itself {v}% of the time",
+    "zh-Hant": "畫面一致性 {v}%（畫面反覆變動）", "zh-Hans": "画面一致性 {v}%（画面反复变动）",
+  },
+  "review.d.road": {
+    ko: "본매(빅로드)에서 한 번에 {n}판을 읽음 — 본매는 같은 그림이 두 순서로 읽힐 수 있고 타이가 빠질 수 있음",
+    en: "{n} [n|coup|coups] read at once off a big road, which can draw two orders alike and lose its ties",
+    "zh-Hant": "一次從大路讀出 {n} 局 — 大路的同一圖形可能有兩種順序，且可能漏掉和局",
+    "zh-Hans": "一次从大路读出 {n} 局 — 大路的同一图形可能有两种顺序，且可能漏掉和局",
+  },
+  "review.d.conflict": {
+    ko: "이미 저장된 기록을 바꾸게 됨", en: "it would change coups already recorded",
+    "zh-Hant": "會改動已存的紀錄", "zh-Hans": "会改动已存的记录",
+  },
+  "review.k.classification": { ko: "칸 색", en: "colour", "zh-Hant": "顏色", "zh-Hans": "颜色" },
+  "review.k.detection": { ko: "격자", en: "grid", "zh-Hant": "網格", "zh-Hans": "网格" },
+  "review.k.consistency": { ko: "화면 일관성", en: "screen agreement", "zh-Hant": "畫面一致性", "zh-Hans": "画面一致性" },
+  "review.k.road": { ko: "본매에서 한꺼번에", en: "big road at once", "zh-Hant": "大路一次讀多局", "zh-Hans": "大路一次读多局" },
+  "review.k.conflict": { ko: "기록과 충돌", en: "conflict with the record", "zh-Hant": "與紀錄衝突", "zh-Hans": "与记录冲突" },
+  "review.note": {
+    ko: "확인하기 전에는 기록·학습·AI 예측 어디에도 넣지 않습니다.",
+    en: "Until you confirm it, it goes into nothing: not the record, the learning, or the AI's prediction.",
+    "zh-Hant": "確認之前，不會寫入紀錄、學習或 AI 預測。", "zh-Hans": "确认之前，不会写入记录、学习或 AI 预测。",
+  },
+  "review.confirm": { ko: "화면대로 기록", en: "Record what the screen shows", "zh-Hant": "依畫面記錄", "zh-Hans": "依画面记录" },
+  "review.dismiss": { ko: "기록 그대로 두기", en: "Keep the record as it is", "zh-Hant": "保留現有紀錄", "zh-Hans": "保留现有记录" },
+  "review.stale": {
+    ko: "그사이 기록이 바뀌어 이 판독은 적용하지 않았습니다.", en: "The record changed in the meantime, so this reading was not applied.",
+    "zh-Hant": "紀錄在此期間已變更，因此未套用此判讀。", "zh-Hans": "记录在此期间已变更，因此未套用此判读。",
+  },
+  "review.predictionHeld": {
+    ko: "판독 확인을 기다리는 중입니다 — 확인할 때까지 AI 예측을 하지 않습니다.",
+    en: "Waiting for a reading to be checked; no prediction is made until it is.",
+    "zh-Hant": "正在等待確認判讀 — 確認之前不做 AI 預測。", "zh-Hans": "正在等待确认判读 — 确认之前不做 AI 预测。",
+  },
+  "review.logHeld": { ko: "판독 보류 — {why}", en: "Reading held — {why}", "zh-Hant": "判讀暫緩 — {why}", "zh-Hans": "判读暂缓 — {why}" },
+  "review.logConfirmed": { ko: "확인된 판독을 기록했습니다", en: "Recorded the reading you confirmed", "zh-Hant": "已記錄確認的判讀", "zh-Hans": "已记录确认的判读" },
+  "review.logDismissed": { ko: "판독을 버리고 기록을 그대로 두었습니다", en: "Dropped the reading and kept the record", "zh-Hant": "已捨棄判讀並保留紀錄", "zh-Hans": "已舍弃判读并保留记录" },
+  "review.health": {
+    ko: "판독 점검 — 반영 {seen}회 · 보류 {held}회 ({why}) · 확인 {confirmed} · 버림 {dismissed} · 판독기가 고친 판 {fixed} · 사람이 고친 판 {edits}",
+    en: "Reader check: {seen} [seen|reading|readings] acted on · {held} held ({why}) · {confirmed} confirmed · {dismissed} dropped · {fixed} fixed by the reader · {edits} by hand",
+    "zh-Hant": "判讀檢查 — 採用 {seen} 次 · 暫緩 {held} 次（{why}）· 確認 {confirmed} · 捨棄 {dismissed} · 判讀器修正 {fixed} · 人工修正 {edits}",
+    "zh-Hans": "判读检查 — 采用 {seen} 次 · 暂缓 {held} 次（{why}）· 确认 {confirmed} · 舍弃 {dismissed} · 判读器修正 {fixed} · 人工修正 {edits}",
+  },
   "tools.resetAll": { ko: "전부 지우기", en: "Clear everything", "zh-Hant": "全部清除", "zh-Hans": "全部清除" },
   "tools.resetAllConfirm": {
     ko: "테이블 {tables}개에 모은 {coups}판을 전부 지웁니다. 되돌릴 수 없습니다 — 남겨야 할 것이 있으면 먼저 내보내세요. 계속할까요?",
@@ -4279,11 +4365,21 @@ function alignCardItems(c, was, now) {
  *   seen       cards shown, `unseen` what the pack still hides
  *   comp       the unseen composition by point value
  *   overdrawn  more cards of a value typed than the pack holds: a typo somewhere
- *   probs      the next coup's exact distribution, where there is one
+ *   known      the unseen composition is known: every coup has its cards,
+ *              and there is at least one
+ *   probs      the next coup's exact distribution, where it is known
  *   ev         the expectation of each wager from it
  *   best       the better of the two main wagers, `edge` its expectation
- *   override   the count names the side: every coup has its cards, some
- *              cards have been seen, and the best main wager is ahead
+ *   override   the count names the side: the composition is known and the
+ *              best main wager is ahead
+ *
+ * Nothing is solved where the composition is not known. A shoe with no cards
+ * typed, or with a coup whose cards are missing, has had cards dealt out of
+ * it that nobody wrote down: solved anyway, it was solved as if they were
+ * still in the pack -- a fresh shoe at the eightieth coup -- and the panel
+ * showed "the next coup from the cards" for a pack that was not there. The
+ * results alone cannot say which cards are left, so where the cards are not
+ * all there, there is no count to show.
  */
 function shoeCount(shoe, { commission = BANKER_COMMISSION } = {}) {
   const items = cardItems(shoe);
@@ -4300,15 +4396,16 @@ function shoeCount(shoe, { commission = BANKER_COMMISSION } = {}) {
     }
   }
   const missing = items.length - entered;
-  const probs = overdrawn ? null : exactProbabilities(comp);
+  const complete = missing === 0;
+  const known = complete && entered > 0 && !overdrawn;
+  const probs = known ? exactProbabilities(comp) : null;
   const ev = probs ? wagerEdges(probs, commission) : null;
   const best = ev ? (ev.B >= ev.P ? "B" : "P") : null;
   const edge = ev ? Math.max(ev.B, ev.P) : null;
-  const complete = missing === 0;
   return {
     coups: items.length, entered, missing, seen, unseen: CARD_PACK - seen, comp, overdrawn,
-    probs, ev, best, edge, complete,
-    override: complete && entered > 0 && ev !== null && edge > 0,
+    known, probs, ev, best, edge, complete,
+    override: known && ev !== null && edge > 0,
   };
 }
 
@@ -6697,6 +6794,9 @@ function detectBoards(imageData, { region = null, minCells = 8, whole = null, pi
     markFrameCut(board, H);
     if (opensLikeARoad(board)) boards.push(board);
   }
+  // How sure each reading is, kept beside it (see `assessBoard`). Nothing
+  // below reads it: the boards are found, ranked and read exactly as before.
+  for (const board of boards) assessBoard(board, codes, w, h, x0, y0, data, W);
 
   // Mark size only means something relative to the other boards on the same
   // screen, so it is applied once they are all known.
@@ -6775,6 +6875,147 @@ function detectBoards(imageData, { region = null, minCells = 8, whole = null, pi
     bounds: unionBox(stripBoards(boards)),
     diameter: boards.length ? boards[0].diameter : 0,
   };
+}
+
+/* ------------------------------------------------------------- confidence
+ *
+ * How sure a reading is, measured three ways and kept apart, so that the page
+ * can refuse to write down what it is not sure of and say which of the three
+ * it was (the third, whether frames agree, is the watcher's: see `live.js`).
+ *
+ * Classification, cell by cell: is this mark one side's colour, plainly?
+ * Two things say so. Its purity -- of the pixels in its disc that are a
+ * mark's colour at all, the share that are its own side's; a letter printed
+ * across it and the ground around it are no side's and do not count, nor, on
+ * a cell carrying a tie's stroke, the stroke. And its hue's margin -- how far
+ * the middle of its colour sits from the nearest edge of its side's window
+ * in `markHue`, in degrees: a blue at the edge of the tie's green, or a red
+ * turning to the panel's brown, is the one that a little more glare or a
+ * different screen reads as the other side.
+ *
+ * Detection, board by board: are these cells where a road's cells are? A
+ * road is a lattice, so the cells are fitted to one -- a column and a row
+ * each, a pitch across and down -- and how far the worst tenth of them sit
+ * off it, in pitches, says how well they fit; and the share of marks the size
+ * of the rest says whether some are specks or blocks that passed for marks.
+ *
+ * Measured, never acted on here: the detector reads exactly what it read
+ * before these were added.
+ */
+
+/** A purity this far above an even split, and a hue margin of this many degrees, count in full. */
+const PURITY_FULL = 0.9, HUE_MARGIN_FULL = 8;
+/** Cells off their lattice by this many pitches (the worst tenth of them) fit not at all. */
+const FIT_TOLERANCE = 0.3;
+
+const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
+const OUTCOME_CODE = { B: BANKER, P: PLAYER, T: TIE };
+
+/** The hue of a pixel, in degrees. */
+function hueOf(r, g, b) {
+  const max = Math.max(r, g, b), d = max - Math.min(r, g, b);
+  if (!d) return 0;
+  let h;
+  if (max === r) h = ((g - b) / d) % 6;
+  else if (max === g) h = (b - r) / d + 2;
+  else h = (r - g) / d + 4;
+  return (h * 60 + 360) % 360;
+}
+
+/** How many degrees a hue is inside its side's window (`markHue`), at its nearest edge. */
+function hueMargin(code, h) {
+  if (code === BANKER) { const hh = h >= 180 ? h - 360 : h; return Math.min(hh + 24, 22 - hh); }
+  if (code === TIE) return Math.min(h - 80, 186 - h);
+  if (code === PLAYER) return Math.min(h - 186, 266 - h);
+  return 0;
+}
+
+/** Least-squares line through (xs, ys): [intercept, slope], or the mean and no slope. */
+function lineFit(xs, ys) {
+  const n = xs.length;
+  const mx = xs.reduce((a, v) => a + v, 0) / n, my = ys.reduce((a, v) => a + v, 0) / n;
+  let sxx = 0, sxy = 0;
+  for (let i = 0; i < n; i += 1) { sxx += (xs[i] - mx) ** 2; sxy += (xs[i] - mx) * (ys[i] - my); }
+  if (!sxx) return [my, 0];
+  const slope = sxy / sxx;
+  return [my - slope * mx, slope];
+}
+
+/**
+ * Mark each cell of `board` with how sure its side is (`conf`, from `purity`
+ * and `hueMargin`), and the board with how sure its cells are
+ * (`confidence`). `codes` are the region's pixel classes, `data` the frame's.
+ */
+function assessBoard(board, codes, w, h, x0, y0, data, W) {
+  const R = Math.max(2, 0.5 * board.diameter), R2 = R * R;
+  const confs = [];
+  for (const c of board.cells) {
+    const code = OUTCOME_CODE[c.outcome];
+    const count = [0, 0, 0, 0];
+    const hues = [];
+    for (let y = Math.ceil(c.cy - R); y <= Math.floor(c.cy + R); y += 1) {
+      const ly = y - y0;
+      if (ly < 0 || ly >= h) continue;
+      for (let x = Math.ceil(c.cx - R); x <= Math.floor(c.cx + R); x += 1) {
+        const lx = x - x0;
+        if (lx < 0 || lx >= w) continue;
+        const dx = x - c.cx, dy = y - c.cy;
+        if (dx * dx + dy * dy > R2) continue;
+        const k = codes[ly * w + lx];
+        count[k] += 1;
+        if (k === code && hues.length < 512) {
+          const q = (y * W + x) * 4;
+          hues.push(hueOf(data[q], data[q + 1], data[q + 2]));
+        }
+      }
+    }
+    const strokes = c.ties && code !== TIE ? count[TIE] : 0;
+    const marked = count[BANKER] + count[PLAYER] + count[TIE] - strokes;
+    const purity = marked ? count[code] / marked : 0;
+    // The middle of a red's hues is taken across 0 degrees, where its window wraps.
+    const middle = median(code === BANKER ? hues.map((v) => (v >= 180 ? v - 360 : v)) : hues);
+    const margin = hues.length ? hueMargin(code, middle < 0 ? middle + 360 : middle) : 0;
+    c.purity = Math.round(purity * 1000) / 1000;
+    c.hueMargin = Math.round(margin * 10) / 10;
+    c.conf = Math.round(Math.min(clamp01((purity - 0.5) / (PURITY_FULL - 0.5)),
+                                 clamp01(margin / HUE_MARGIN_FULL)) * 1000) / 1000;
+    confs.push(c.conf);
+  }
+
+  const cells = board.cells, n = cells.length;
+  const [ax, bx] = lineFit(cells.map((c) => c.col), cells.map((c) => c.cx));
+  const [ay, by] = lineFit(cells.map((c) => c.row), cells.map((c) => c.cy));
+  const pitch = bx > 0 && by > 0 ? (bx + by) / 2 : Math.max(bx, by) || board.diameter * 1.15;
+  const off = cells.map((c) => Math.hypot(c.cx - (ax + bx * c.col), c.cy - (ay + by * c.row)) / pitch)
+    .sort((a, b) => a - b);
+  const worst = off[Math.min(n - 1, Math.floor(n * 0.9))] || 0;
+  const fit = clamp01(1 - worst / FIT_TOLERANCE);
+  const typical = median(cells.map((c) => c.r));
+  const sized = typical ? cells.filter((c) => c.r >= typical * 0.7 && c.r <= typical * 1.4).length / n : 0;
+  const sizes = clamp01((sized - 0.6) / 0.35);
+  const round3 = (v) => Math.round(v * 1000) / 1000;
+  board.confidence = {
+    classification: {
+      min: round3(confs.length ? Math.min(...confs) : 0),
+      mean: round3(confs.length ? confs.reduce((a, v) => a + v, 0) / confs.length : 0),
+    },
+    detection: round3(Math.min(fit, sizes)),
+    fit: round3(fit),
+    sizes: round3(sizes),
+    pitch: Math.round(pitch * 10) / 10,
+  };
+  return board.confidence;
+}
+
+/** How sure the cells from `from` on are of their sides: the least sure of them, or 1 for none. */
+function cellsConfidence(board, from = 0, to = Infinity) {
+  if (!board || !board.cells) return 0;
+  // A bead plate's cells are its coups in order; a big road's are not, so for
+  // one of those every cell is asked.
+  const cells = board.kind === "bead" ? board.cells.slice(from, to) : board.cells;
+  let least = 1;
+  for (const c of cells) least = Math.min(least, typeof c.conf === "number" ? c.conf : 0);
+  return least;
 }
 
 /**
@@ -11195,9 +11436,31 @@ function renamePredictions(log, from, to) {
 
 
 
+
 /** Consecutive identical readings required before a change is accepted. */
 const CONFIRM_GROWTH = 2;
 const CONFIRM_RESET = 3;
+/**
+ * Readings kept to say whether the screen agrees with itself (see
+ * `screenConsistency`): twelve seconds at the reader's usual pace.
+ */
+const CONSISTENCY_WINDOW = 8;
+
+/**
+ * How far the readings since `reading` was first seen agree with it: the share
+ * of them that are it, an earlier state of it (a board half drawn, a mark
+ * blinking off) or a later one (the table dealing on). 1 where nothing has
+ * contradicted it. A screen that says one thing, then another, then the first
+ * again is not one whose reading should be written down without a person
+ * looking: that is what this measures, apart from how sure each mark's colour
+ * is (`detect.js`) -- a flicker between two clean boards is clean mark by mark.
+ */
+function screenConsistency(recent, reading) {
+  const first = recent.indexOf(reading);
+  const since = first < 0 ? [reading] : recent.slice(first);
+  const fits = since.filter((r) => r === reading || reading.startsWith(r) || r.startsWith(reading)).length;
+  return { consistency: fits / since.length, contradicted: since.length - fits };
+}
 /**
  * Empty samples inside the locked strip before the shoe is called finished.
  *
@@ -11644,6 +11907,7 @@ class LiveWatcher {
     this.cleared = false;    // the strip went empty: the next reading is a new shoe
     this.candidate = null;
     this.repeats = 0;
+    this.recent = [];        // the last readings, for `screenConsistency`
     this.lastBoard = null;
     this.lastReadAt = 0;
     this.reads = 0;
@@ -11867,6 +12131,7 @@ class LiveWatcher {
     this.cleared = false;
     this.candidate = null;
     this.repeats = 0;
+    this.recent = [];
   }
 
   /**
@@ -12384,6 +12649,9 @@ class LiveWatcher {
         // asking whether anything exists, and it resumes once the remembered
         // strip's hold expires. Slower, and right.
         this.cleared = true;
+        // What the strip showed before it went empty says nothing about the
+        // next shoe's coups, for or against.
+        this.recent = [];
         // `lastBox` stays. A shoe refills where the last one was, so the box
         // just read is what tells the new shoe's first mark apart from the
         // neighbouring table's board -- and with the lock now spanning the
@@ -12425,6 +12693,10 @@ class LiveWatcher {
 
     if (board.sequence === this.candidate) this.repeats += 1;
     else { this.candidate = board.sequence; this.repeats = 1; }
+    this.recent.push(board.sequence);
+    if (this.recent.length > CONSISTENCY_WINDOW) this.recent.shift();
+    const agreement = screenConsistency(this.recent, board.sequence);
+    this.lastBoard.consistency = agreement.consistency;
 
     // Lock on once a reading has held still. The locked region is the whole
     // strip, not just the board being read: the derived roads fill in as the
@@ -12473,7 +12745,7 @@ class LiveWatcher {
                                            { up: this.pinned !== "grid", across: this.pinned !== "grid" });
     }
 
-    this.onRead(board.sequence, this.lastBoard, this.repeats, { afterClear });
+    this.onRead(board.sequence, this.lastBoard, this.repeats, { afterClear, ...agreement });
     if (afterClear && this.repeats >= CONFIRM_GROWTH) this.cleared = false;
     this._emit();
   }
@@ -12984,6 +13256,78 @@ function scrolledInto(shoe, reading, kind) {
   return null;
 }
 
+/** How many coups past the shoe in progress `roadCarriedOn` looks for. */
+const ROAD_NEW = 3;
+
+/** A big road's marks as {"col,row": side and ties}, with how many ties in all. */
+function roadPicture(cells) {
+  const at = new Map();
+  let ties = 0;
+  for (const c of cells) {
+    at.set(`${c.col},${c.row}`, `${c.outcome}${c.ties || 0}`);
+    ties += c.ties || 0;
+  }
+  return { at, ties };
+}
+
+/** The big road `seq` draws, six rows deep, as `roadPicture` has a screen's. */
+function drawnRoad(seq) {
+  const road = new BigRoad();
+  for (const o of seq) road.add(o);
+  const ties = new Map(road.tieCells(6).map(([r, c, n]) => [`${c},${r}`, n]));
+  const cells = [];
+  placeColumns(road.columns, 6).forEach((column, i) => column.forEach(([row, col]) => {
+    cells.push({ col, row, outcome: road.columns[i][0], ties: ties.get(`${col},${row}`) || 0 });
+  }));
+  // A tie dealt before any coup, on a board with no ring yet to write it on.
+  if (!cells.length && road.leadingTies) cells.push({ col: 0, row: 0, outcome: "T", ties: 0 });
+  return roadPicture(cells);
+}
+
+/**
+ * The shoe in progress carried on, where the big road on screen draws it so
+ * but reads otherwise -- or null.
+ *
+ * A big road does not always draw one shoe. Where a dragon's tail lies along
+ * the foot beside a column of its own side that has come down to it, the tail
+ * may stop where that column begins or run on through it: seven Bankers, two
+ * Players and seven Bankers draw the very marks nine, two and five do, and
+ * `roadSequence` has to take one of them. Read cold there is no telling. Read
+ * as the shoe is dealt there is: the record holds how the board came to be
+ * drawn. Measured on a drawn road, the reading switched to the other one the
+ * moment the second column reached the tail -- a shoe that was not the one in
+ * progress, eight coups from its start -- and the reader sat behind its
+ * warning about some other board for the rest of the shoe. So where a big
+ * road's reading does not carry the shoe on, the shoe and every way of up to
+ * `ROAD_NEW` more coups is drawn, and one that draws exactly the marks and
+ * ties on screen is the reading. More than one, or none, and it is left to
+ * what the reading says.
+ */
+function roadCarriedOn(shoe, board) {
+  if (!board || board.kind === "bead" || !shoe || board.nRows > 6) return null;
+  if (sharePrefix(shoe, board.sequence)) return null;
+  const screen = roadPicture(board.cells);
+  const now = drawnRoad(shoe);
+  const cells = screen.at.size - now.at.size, ties = screen.ties - now.ties;
+  if (cells < 0 || ties < 0 || cells + ties > ROAD_NEW) return null;
+  for (const [key, mark] of now.at) {
+    if (!screen.at.has(key) || screen.at.get(key)[0] !== mark[0]) return null;
+  }
+  const found = [];
+  const extend = (more, sides, left) => {
+    if (!sides && !left) {
+      const drawn = drawnRoad(shoe + more);
+      if (drawn.at.size === screen.at.size
+          && [...drawn.at].every(([key, mark]) => screen.at.get(key) === mark)) found.push(shoe + more);
+      return;
+    }
+    if (left) extend(more + "T", sides, left - 1);
+    if (sides) for (const o of "BP") extend(more + o, sides - 1, left);
+  };
+  extend("", cells, ties);
+  return found.length === 1 ? found[0] : null;
+}
+
 /** How many coups at the end of a shoe a steadier reading may correct. */
 const TAIL_FIX = 3;
 
@@ -13290,6 +13634,233 @@ function drawStrip(ctx, source, bounds, board) {
     }
   }
   ctx.restore();
+}
+
+/* ═══ review.js ═══ */
+/* Whether a reading may be written down without a person looking at it.
+ *
+ * The reader commits what the screen shows once frames agree on it (see
+ * `live.js`), and for a clean screen that is right: the coup is plainly there,
+ * and nobody wants to press a button every coup. What it must not do is write
+ * down what it is not sure of. Three measures say how sure a reading is, and
+ * they are kept apart because they fail apart:
+ *
+ *   classification  the newest marks: is each one plainly one side's colour
+ *                   (`conf` per cell, `detect.js`)?
+ *   detection       the board: do its cells sit on a lattice, the size of one
+ *                   another (`confidence.detection`, `detect.js`)?
+ *   consistency     the screen: has it said the same thing since it first said
+ *                   this, or flickered between this and something else
+ *                   (`screenConsistency`, `live.js`)?
+ *
+ * And two questions that are not measures: whether a big road is being read
+ * many coups at once (`REVIEW_ROAD_AT_ONCE`), and whether the reading would
+ * change coups the record already holds. The reader may still put right a coup it
+ * wrote itself a few looks ago -- an ask's flash it took for a coup, the end
+ * of a plate it caught half drawn; that is what it was built to do -- but a
+ * coup that has stood longer, or one a person typed, is not rewritten on the
+ * screen's word alone.
+ *
+ * A reading that fails any of these is held: shown to the person with what it
+ * would write and why it is held, written only if they say so, and in the
+ * meantime kept out of the record -- so out of the learning, the gates and the
+ * prediction, which read nothing else.
+ *
+ * The bars are where every clean reading on file clears them with room: on
+ * the twelve real screenshots read whole, no cell's `conf` below 0.97 and no
+ * plate's detection below 0.94 (see `scripts/measure_recognition.mjs`).
+ */
+
+
+/** The least sure of the newest marks, the board's lattice, the screen's agreement. */
+const REVIEW_CLASSIFICATION = 0.5;
+const REVIEW_DETECTION = 0.5;
+const REVIEW_CONSISTENCY = 0.67;
+
+/**
+ * Most coups a big road's reading may write at once without a person. A big
+ * road does not always draw one shoe (see `roadCarriedOn` in `live.js`), and
+ * its ties are strokes across rings that a screen can lose; on the twelve
+ * real screenshots, degraded seventeen ways, all eight readings that came off
+ * a big road -- each where the bead plate beside it could no longer be read
+ * -- were wrong. Followed a coup or two at a time, the record says which shoe
+ * the road draws; read many coups at once, nothing does.
+ */
+const REVIEW_ROAD_AT_ONCE = 3;
+
+/** How many leading coups two shoes agree on. */
+function agreeLength(a, b) {
+  let n = 0;
+  while (n < a.length && n < b.length && a[n] === b[n]) n += 1;
+  return n;
+}
+
+/**
+ * Why a reading may not be written without a person, as `[{ kind, value }]`;
+ * empty when it may. `last` is how many of the board's marks are new or
+ * changed by it -- only those are asked how sure their colour is, the rest
+ * having been written already -- and `consistency` is the watcher's.
+ *
+ * A board with no measures on it (read by an older build, or drawn by a
+ * test) is not held for the want of them.
+ */
+function readingDoubts(board, { last = Infinity, consistency = 1 } = {}) {
+  const doubts = [];
+  const measured = board && board.confidence;
+  if (!measured) return doubts;
+  const n = board.sequence ? board.sequence.length : 0;
+  const from = Math.max(0, n - Math.min(n, last));
+  const classification = last > 0 ? cellsConfidence(board, from, n) : 1;
+  if (classification < REVIEW_CLASSIFICATION) doubts.push({ kind: "classification", value: classification });
+  if (measured.detection < REVIEW_DETECTION) doubts.push({ kind: "detection", value: measured.detection });
+  if (typeof consistency === "number" && consistency < REVIEW_CONSISTENCY) {
+    doubts.push({ kind: "consistency", value: consistency });
+  }
+  if (board.kind === "bigroad" && Math.min(n, last) > REVIEW_ROAD_AT_ONCE) {
+    doubts.push({ kind: "road", value: 0, n: Math.min(n, last) });
+  }
+  return doubts;
+}
+
+/** The three measures of a reading, rounded for the journal: newest marks, board, screen. */
+function readingMeasures(board, { last = Infinity, consistency = 1 } = {}) {
+  const round = (v) => (typeof v === "number" ? Math.round(v * 1000) / 1000 : null);
+  const n = board && board.sequence ? board.sequence.length : 0;
+  const from = Math.max(0, n - Math.min(n, last));
+  return {
+    c: round(board && board.confidence && last > 0 ? cellsConfidence(board, from, n) : 1),
+    d: round(board && board.confidence ? board.confidence.detection : null),
+    k: round(consistency),
+  };
+}
+
+/* ═══ journal.js ═══ */
+/* What the reader saw, what the record became, and every change to it -- apart.
+ *
+ * The corpus (`store.js`) is the record: each shoe's coups as they stand now.
+ * It does not say how they came to stand that way, and a record corrected in
+ * place -- a misread end put right, a coup taken back, a shoe someone undid --
+ * no longer holds the coup it corrected. This keeps the rest, beside the
+ * corpus and under a key of its own, so the corpus, and every older build that
+ * reads it, are untouched:
+ *
+ *   seen    what the screen showed when the reader acted on it or held it:
+ *           the reading as read, the board it came off, and the three
+ *           measures of how sure it was (`review.js`)
+ *   edit    a change to coups already kept, by the reader or by a person: the
+ *           shoe before and after, and why
+ *   review  a reading held for a person, and what they decided
+ *
+ * Bounded -- `JOURNAL_KEPT` entries, the oldest dropped first -- and best
+ * effort: a journal that cannot be written is never a reason for the reader to
+ * stop. Totals by kind and reason are kept apart from the entries and never
+ * dropped, so the page can say how often the reader has been unsure, and how
+ * often the record was corrected, since it was first used. Two tabs writing it
+ * at once are merged, entry by entry. Exported on its own, as JSON.
+ */
+
+const JOURNAL_KEY = "baccarat.journal.v1";
+const JOURNAL_KEPT = 1000;
+const JOURNAL_FLUSH_MS = 1500;
+
+function journalStorage() {
+  try { return globalThis.localStorage || null; } catch { return null; }
+}
+
+function readJournal(storage) {
+  let raw = null;
+  try { raw = storage ? JSON.parse(storage.getItem(JOURNAL_KEY) || "null") : null; } catch { raw = null; }
+  const entries = raw && Array.isArray(raw.entries)
+    ? raw.entries.filter((e) => e && typeof e === "object" && typeof e.id === "string"
+                               && typeof e.k === "string" && Number.isFinite(e.t))
+    : [];
+  const totals = raw && raw.totals && typeof raw.totals === "object" && !Array.isArray(raw.totals)
+    ? raw.totals : {};
+  return { entries, totals };
+}
+
+/** `into` plus `delta`, both `{ kind: { n, by: { reason: n } } }`. */
+function addTotals(into, delta) {
+  const out = JSON.parse(JSON.stringify(into || {}));
+  for (const [kind, d] of Object.entries(delta)) {
+    const t = out[kind] && typeof out[kind] === "object" ? out[kind] : { n: 0, by: {} };
+    t.n = (Number(t.n) || 0) + d.n;
+    t.by = t.by && typeof t.by === "object" ? t.by : {};
+    for (const [reason, n] of Object.entries(d.by)) t.by[reason] = (Number(t.by[reason]) || 0) + n;
+    out[kind] = t;
+  }
+  return out;
+}
+
+class Journal {
+  constructor({ storage = journalStorage(), now = () => Date.now(), timers = globalThis } = {}) {
+    this.storage = storage;
+    this.now = now;
+    this.timers = timers;
+    const stored = readJournal(storage);
+    this.entries = stored.entries;
+    this.totals = stored.totals;
+    this.unsaved = {};          // totals added since the last write
+    this.timer = null;
+    this.serial = 0;
+  }
+
+  /** Note `kind` with `fields`; `reason` is what its total is counted under. */
+  add(kind, fields = {}, reason = fields.why || fields.decision || fields.did || "-") {
+    const t = this.now();
+    const entry = { id: `${t.toString(36)}.${(this.serial++).toString(36)}.${Math.random().toString(36).slice(2, 7)}`,
+                    k: kind, t, ...fields };
+    this.entries.push(entry);
+    if (this.entries.length > JOURNAL_KEPT) this.entries.splice(0, this.entries.length - JOURNAL_KEPT);
+    for (const totals of [this.totals, this.unsaved]) {
+      const k = totals[kind] || (totals[kind] = { n: 0, by: {} });
+      k.n += 1;
+      k.by[reason] = (k.by[reason] || 0) + 1;
+    }
+    this.schedule();
+    return entry;
+  }
+
+  /** The total for `kind`, or for one reason under it. */
+  count(kind, reason = null) {
+    const k = this.totals[kind];
+    if (!k) return 0;
+    return reason === null ? Number(k.n) || 0 : Number(k.by && k.by[reason]) || 0;
+  }
+
+  schedule() {
+    if (this.timer || !this.storage) return;
+    this.timer = this.timers.setTimeout(() => { this.timer = null; this.flush(); }, JOURNAL_FLUSH_MS);
+  }
+
+  /** Write now: merged with whatever another tab wrote since, entry by entry. */
+  flush() {
+    if (this.timer) { this.timers.clearTimeout(this.timer); this.timer = null; }
+    if (!this.storage) return false;
+    const stored = readJournal(this.storage);
+    const byId = new Map(stored.entries.map((e) => [e.id, e]));
+    for (const e of this.entries) byId.set(e.id, e);
+    let entries = [...byId.values()].sort((a, b) => a.t - b.t || (a.id < b.id ? -1 : 1));
+    if (entries.length > JOURNAL_KEPT) entries = entries.slice(entries.length - JOURNAL_KEPT);
+    const totals = addTotals(stored.totals, this.unsaved);
+    for (let keep = entries.length; ; keep = Math.floor(keep / 2)) {
+      try {
+        this.storage.setItem(JOURNAL_KEY, JSON.stringify({ v: 1, totals, entries: entries.slice(entries.length - keep) }));
+        this.entries = entries.slice(entries.length - keep);
+        this.totals = totals;
+        this.unsaved = {};
+        return true;
+      } catch {
+        if (keep <= 1) return false;     // no room at all: the journal waits, the reader does not
+      }
+    }
+  }
+
+  /** Everything, as the file a person saves. */
+  toJSON() {
+    return { kind: "baccarat-reader-journal", v: 1, exported_at: new Date(this.now()).toISOString(),
+             totals: this.totals, entries: this.entries };
+  }
 }
 
 /* ═══ store.js ═══ */
@@ -15206,6 +15777,8 @@ function startGate({ onOpen = () => {}, onLock = () => {} } = {}) {
 
 
 
+
+
 const $ = (id) => document.getElementById(id);
 const el = (tag, cls, text) => {
   const n = document.createElement(tag);
@@ -15628,6 +16201,8 @@ function addOutcomes(seq) {
   if (!seq) return;
   const name = chosenTable();
   const shoe = currentShoe(name);
+  journal.add("edit", { by: "user", why: "typed", table: name || "", shoe: shoe.id,
+                        at: shoe.o.length, added: seq });
   shoe.o += seq;
   commitTo(name, [shoe.id]);
 }
@@ -15638,6 +16213,8 @@ function undo() {
   for (let i = list.length - 1; i >= 0; i--) {
     if (list[i].o.length) {
       const was = list[i].o;
+      journal.add("edit", { by: "user", why: "undo", table: name || "", shoe: list[i].id,
+                            before: was, after: was.slice(0, -1) });
       list[i].o = was.slice(0, -1);
       setCards(list[i], alignCardItems(list[i].c || "", was, list[i].o));
       list[i].closed = false;
@@ -15714,7 +16291,174 @@ function liveLog(text, kind) {
   while (box.children.length > 40) box.lastChild.remove();
 }
 
-function onLiveRead(seq, board, repeats, { afterClear = false } = {}) {
+/* ---------------------------------------------------------------- review
+ *
+ * A reading the reader is not sure of, or one that would rewrite coups the
+ * record already holds, is not written: it is held, shown with what it would
+ * write and why, and written only once the person says so (`review.js`).
+ * Until then it is in nothing -- the record, the learning, the gates -- and
+ * no prediction is made for the coup after it. Everything the reader saw and
+ * did, and every change to the record, goes to the journal (`journal.js`).
+ */
+
+const journal = new Journal();
+/** The reading held for a person, if one is. */
+let held = null;
+/** The last one they left alone, so it is not asked again as it stands. */
+let dismissed = null;
+
+/** A table binding as the journal keeps it: the name, or "" for the unsaved sheet. */
+const journalTable = (into) => readingTable(into, state.tables, chosenTable()) || "";
+
+/**
+ * Whether a reading may be written now. `change` says what it would do:
+ *
+ *   action    what kind of write (grow, mend, newShoe, ...)
+ *   into      the reader's binding (see `liveTable`)
+ *   shoeId    the shoe it changes, or null for a new one
+ *   before    that shoe as it stands, `after` as the reading has it
+ *   last      how many of the board's marks the write adds or changes
+ *   conflict  it rewrites coups the reader did not write a moment ago
+ *   apply     the write, refusing (false) where the record has moved on
+ *
+ * True: write it, and it is in the journal as seen. False: it is held.
+ */
+function admitReading(board, extra, change) {
+  const consistency = extra && typeof extra.consistency === "number" ? extra.consistency : 1;
+  const doubts = readingDoubts(board, { last: change.last, consistency });
+  if (change.conflict) doubts.push({ kind: "conflict", value: 0 });
+  const measures = readingMeasures(board, { last: change.last, consistency });
+  const seen = {
+    table: journalTable(change.into), shoe: change.shoeId, did: change.action,
+    board: board.kind, seq: board.sequence, at: change.before.length, conf: measures,
+  };
+  if (!doubts.length) {
+    journal.add("seen", seen);
+    if (held && held.table === seen.table) settleHeld("superseded");
+    return true;
+  }
+  const sig = [change.action, change.shoeId, change.before, change.after].join("\u0001");
+  if (dismissed && dismissed.sig === sig) return false;      // asked, and answered
+  if (held && held.sig === sig) {
+    held.reads += 1;
+    held.doubts = doubts;
+    held.conf = measures;
+    renderReview();
+    return false;
+  }
+  if (held) settleHeld("superseded");
+  held = { ...change, sig, doubts, conf: measures, reads: 1, table: seen.table, board: board.kind };
+  journal.add("seen", { ...seen, held: doubts.map((d) => d.kind) }, change.action + ":held");
+  journal.add("review", { decision: "held", table: seen.table, shoe: change.shoeId, did: change.action,
+                          before: change.before, after: change.after,
+                          doubts: doubts.map((d) => d.kind), conf: measures });
+  liveLog(t("review.logHeld", { why: doubtList(doubts) }), "warn");
+  renderReview();
+  render();
+  return false;
+}
+
+/** Close the held reading as `decision`, and say so in the journal. */
+function settleHeld(decision) {
+  if (!held) return;
+  const h = held;
+  held = null;
+  journal.add("review", { decision, table: h.table, shoe: h.shoeId, did: h.action,
+                          before: h.before, after: h.after, doubts: h.doubts.map((d) => d.kind) });
+  renderReview();
+}
+
+/** The person says the screen is right: write what was held, if the record still stands as it did. */
+function confirmHeld() {
+  if (!held) return;
+  const h = held;
+  const written = h.apply();
+  settleHeld(written ? "confirmed" : "stale");
+  if (written && h.rewrites) {
+    journal.add("edit", { by: "user", why: "reviewConfirm", table: h.table, shoe: h.shoeId,
+                          before: h.before, after: h.after });
+  }
+  liveLog(t(written ? "review.logConfirmed" : "review.stale"), written ? "new" : "warn");
+  render();
+}
+
+/** The person keeps the record as it is: the held reading is dropped, and not asked again as it stands. */
+function dismissHeld() {
+  if (!held) return;
+  dismissed = { sig: held.sig };
+  settleHeld("dismissed");
+  liveLog(t("review.logDismissed"));
+  render();
+}
+
+/**
+ * How the reader has done, from the journal's totals: readings acted on, held
+ * and why, what the person decided, and how often the record was corrected --
+ * by the reader putting its own newest coups right, or by a person. The full
+ * view's, under the reader's log, with the journal's export beside it.
+ */
+function renderReaderHealth() {
+  const box = $("liveHealth");
+  if (!box) return;
+  const by = (kind, reason) => journal.count(kind, reason);
+  const heldFor = ["classification", "detection", "consistency", "road", "conflict"]
+    .map((k) => [k, journal.entries.filter((e) => e.k === "review" && e.decision === "held"
+                                               && (e.doubts || []).includes(k)).length]);
+  box.textContent = t("review.health", {
+    seen: journal.count("seen"),
+    held: by("review", "held"),
+    confirmed: by("review", "confirmed"), dismissed: by("review", "dismissed"),
+    fixed: by("edit", "mend") + by("edit", "takeBack") + by("edit", "takeBackOpening") + by("edit", "resume"),
+    edits: by("edit", "undo") + by("edit", "swapShorter") + by("edit", "reviewConfirm"),
+    why: heldFor.filter(([, n]) => n).map(([k, n]) => `${t("review.k." + k)} ${n}`).join(" \u00b7 ") || "\u2014",
+  });
+}
+
+/** Whether the held reading is about the table on screen, whose prediction it holds. */
+function heldHere() {
+  return !!held && held.table === (chosenTable() || "");
+}
+
+const DOUBT_KEYS = { classification: "review.d.classification", detection: "review.d.detection",
+                     consistency: "review.d.consistency", road: "review.d.road", conflict: "review.d.conflict" };
+function doubtList(doubts) {
+  return doubts.map((d) => t(DOUBT_KEYS[d.kind], { v: Math.round(d.value * 100), n: d.n })).join(" \u00b7 ");
+}
+
+/** The held reading, where the reader is: what it would write, why it is held, and the two ways out. */
+function renderReview() {
+  const box = $("liveReview");
+  if (!box) return;
+  if (!held) { box.hidden = true; box.innerHTML = ""; return; }
+  box.hidden = false;
+  box.innerHTML = "";
+  const h = held;
+  const tail = (o) => (o.length > 12 ? "\u2026" : "") + [...o.slice(-12)].map(side).join(" ");
+  const added = h.after.slice(agreeLength(h.before, h.after));
+  const what = h.action === "grow" || h.action === "closedGrow"
+    ? t("review.grow", { n: added.length, sides: [...added].map(side).join(" ") })
+    : h.action === "newShoe" || h.action === "tableChange"
+      ? t("review.newShoe", { n: h.after.length })
+      : h.action === "resume" ? t("review.resume", { n: h.after.length })
+      : t("review.mend", { was: tail(h.before) || "\u2014", now: tail(h.after) || "\u2014" });
+  const head = el("div");
+  head.appendChild(el("b", null, t("review.h")));
+  head.appendChild(document.createTextNode(" \u2014 " + what));
+  box.appendChild(head);
+  box.appendChild(el("div", "small", t("review.why", { list: doubtList(h.doubts) })));
+  box.appendChild(el("div", "small", t("review.note")));
+  const yes = el("button", "btn", t("review.confirm"));
+  yes.dataset.act = "reviewConfirm";
+  yes.onclick = confirmHeld;
+  const no = el("button", "btn ghost", t("review.dismiss"));
+  no.dataset.act = "reviewDismiss";
+  no.onclick = dismissHeld;
+  box.appendChild(yes);
+  box.appendChild(no);
+}
+
+function onLiveRead(seq, board, repeats, extra = {}) {
+  const { afterClear = false } = extra;
   // Whatever the selector says now, this reading came off the table the
   // reader was started on -- or onto the unsaved sheet, if that was none. The
   // binding itself is handed to the writers, which resolve it when they write:
@@ -15738,7 +16482,7 @@ function onLiveRead(seq, board, repeats, { afterClear = false } = {}) {
   // not one cut short by a covered mark (see `beadPlaces`).
   const closed = current ? null : shoeBefore(table);
   if (closed && closed.o.length > SAME_OPENING_DEPTH) {
-    const onScreen = scrolledInto(closed.o, seq, board.kind) || seq;
+    const onScreen = scrolledInto(closed.o, seq, board.kind) || roadCarriedOn(closed.o, board) || seq;
     const was = diagnose(closed.o, onScreen);
     const mend = was === "reset" && differsAtTheEnd(closed.o, onScreen, board.kind);
     const opening = was === "hold" && !board.holed && (afterClear
@@ -15746,12 +16490,24 @@ function onLiveRead(seq, board, repeats, { afterClear = false } = {}) {
     if (was === "same" || was === "grow" || mend || (was === "hold" && !opening)) {
       liveHolds = 0;
       if ((was === "grow" && repeats >= CONFIRM_GROWTH) || (mend && repeats >= CONFIRM_RESET)) {
-        const added = onScreen.length - closed.o.length;
-        setCards(closed, alignCardItems(closed.c || "", closed.o, onScreen));
-        closed.o = onScreen;
-        commitTo(table, [closed.id]);
-        liveLog(mend ? t("live.logMended", { total: onScreen.length })
-          : t("live.logClosedShoe", { n: added, total: onScreen.length }));
+        const before = closed.o, at = agreeLength(before, onScreen);
+        const write = () => {
+          const added = onScreen.length - closed.o.length;
+          setCards(closed, alignCardItems(closed.c || "", closed.o, onScreen));
+          closed.o = onScreen;
+          commitTo(table, [closed.id]);
+          if (mend) {
+            journal.add("edit", { by: "reader", why: "mend", table: journalTable(into), shoe: closed.id,
+                                  before, after: onScreen });
+          }
+          liveLog(mend ? t("live.logMended", { total: onScreen.length })
+            : t("live.logClosedShoe", { n: added, total: onScreen.length }));
+        };
+        if (admitReading(board, extra, {
+          action: mend ? "closedMend" : "closedGrow", into, shoeId: closed.id, before, after: onScreen,
+          last: onScreen.length - at, conflict: mend && !freshOwn(closed, at), rewrites: mend,
+          apply: () => { if (closed.o !== before) return false; write(); return true; },
+        })) write();
       }
       return;
     }
@@ -15761,8 +16517,9 @@ function onLiveRead(seq, board, repeats, { afterClear = false } = {}) {
     && liveWrote.reads <= TAKE_BACK_READS;
   // A bead plate that has filled and moved along shows the shoe in progress
   // with its start off screen: it is that shoe, and the coups past its end
-  // are new (see `scrolledInto`).
-  seq = scrolledInto(current, seq, board.kind) || seq;
+  // are new (see `scrolledInto`). And a big road can draw the shoe in
+  // progress carried on while reading as another (see `roadCarriedOn`).
+  seq = scrolledInto(current, seq, board.kind) || roadCarriedOn(current, board) || seq;
   const verdict = diagnose(current, seq);
   // And one that differs from the shoe in progress only in its last coup or
   // three is that shoe with its end misread, once or now (see
@@ -15808,8 +16565,15 @@ function onLiveRead(seq, board, repeats, { afterClear = false } = {}) {
   // to be the whole of. A table's next shoe of a coup or two opens the way the
   // shoe left behind did as often as not, and measured in the page, grown
   // into the whole of that shoe's plate, it held the shoe's first thirty
-  // coups a second time and lost its own.
-  const back = !mended && (verdict === "reset" || verdict === "grow")
+  // coups a second time and lost its own. But a plate that carries the shoe
+  // in progress on by a coup or three is that shoe being dealt, whatever
+  // closed shoe it also begins like: a plate the owner comes back to is there
+  // whole, many coups past what the other table had. Measured on a dealt
+  // session: two shoes in a row opened with the same nine coups, and at the
+  // second's ninth the reader took it for the first come back half drawn,
+  // reopened that, and filed the second's first eight as a shoe of their own.
+  const back = !mended && (verdict === "reset"
+      || (verdict === "grow" && seq.length - current.length > SAME_OPENING_DEPTH))
     ? shoeReturnedTo(seq, table, board.kind, verdict === "grow" ? current.length : 0) : null;
 
   // And where it is the same shoe after all, the log -- which said the shoe
@@ -15846,10 +16610,27 @@ function onLiveRead(seq, board, repeats, { afterClear = false } = {}) {
     liveHolds = 0;
     setLiveWarn(null);
     if (repeats >= CONFIRM_RESET) {
-      const was = back.shoe.o.length;
-      resumeShoe(back.shoe, back.seq, into);
-      noteWrite(into, back.seq.length > was);
-      liveLog(t("live.logBackToShoe", { was, total: back.seq.length }), "new");
+      const was = back.shoe.o.length, before = back.shoe.o, at = agreeLength(before, back.seq);
+      // Carrying the shoe on is growth; reading its end differently is not.
+      const rewrites = at < before.length;
+      const write = () => {
+        resumeShoe(back.shoe, back.seq, into);
+        noteWrite(into, back.seq.length > was);
+        if (rewrites) {
+          journal.add("edit", { by: "reader", why: "resume", table: journalTable(into), shoe: back.shoe.id,
+                                before, after: back.seq });
+        }
+        liveLog(t("live.logBackToShoe", { was, total: back.seq.length }), "new");
+      };
+      if (admitReading(board, extra, {
+        action: "resume", into, shoeId: back.shoe.id, before, after: back.seq,
+        last: back.seq.length - at, conflict: rewrites, rewrites,
+        apply: () => {
+          if (back.shoe.o !== before || !shoes(readingTable(into, state.tables, chosenTable())).includes(back.shoe)) return false;
+          write();
+          return true;
+        },
+      })) write();
     }
     return;
   }
@@ -15861,9 +16642,18 @@ function onLiveRead(seq, board, repeats, { afterClear = false } = {}) {
     // kept. Until then it is not a hold either: nothing is cut off.
     liveHolds = 0;
     if (repeats >= CONFIRM_RESET) {
-      replaceCurrentShoe(seq, into);
-      noteWrite(into, false);
-      liveLog(t("live.logTakenBack", { n: current.length, total: seq.length }));
+      const write = () => {
+        replaceCurrentShoe(seq, into);
+        noteWrite(into, false);
+        journal.add("edit", { by: "reader", why: "takeBack", table: journalTable(into), shoe: open.id,
+                              before: current, after: seq });
+        liveLog(t("live.logTakenBack", { n: current.length, total: seq.length }));
+      };
+      if (admitReading(board, extra, {
+        action: "takeBack", into, shoeId: open.id, before: current, after: seq, last: 0,
+        conflict: !freshOwn(open, seq.length), rewrites: true,
+        apply: () => { if (openShoe(table).o !== current) return false; write(); return true; },
+      })) write();
     }
     return;
   }
@@ -15876,6 +16666,9 @@ function onLiveRead(seq, board, repeats, { afterClear = false } = {}) {
         {
           label: t("live.shortSwap", { n: seq.length }),
           run: () => {
+            journal.add("edit", { by: "user", why: "swapShorter", table: journalTable(into),
+                                  shoe: openShoe(readingTable(into, state.tables, chosenTable())).id,
+                                  before: openShoe(readingTable(into, state.tables, chosenTable())).o, after: seq });
             replaceCurrentShoe(seq, into);
             liveHolds = 0;
             setLiveWarn(null);
@@ -15890,11 +16683,23 @@ function onLiveRead(seq, board, repeats, { afterClear = false } = {}) {
   setLiveWarn(road);
 
   if (mended) {
-    // Seen three times running, as a reset is: it rewrites coups already kept.
+    // Seen three times running, as a reset is: it rewrites coups already kept
+    // -- on the screen's word only where the reader wrote them itself a few
+    // looks ago (`freshOwn`); anything older waits for the person.
     if (repeats >= CONFIRM_RESET) {
-      replaceCurrentShoe(seq, into);
-      noteWrite(into, false);
-      liveLog(t("live.logMended", { total: seq.length }));
+      const at = agreeLength(current, seq);
+      const write = () => {
+        replaceCurrentShoe(seq, into);
+        noteWrite(into, false);
+        journal.add("edit", { by: "reader", why: "mend", table: journalTable(into), shoe: open.id,
+                              before: current, after: seq });
+        liveLog(t("live.logMended", { total: seq.length }));
+      };
+      if (admitReading(board, extra, {
+        action: "mend", into, shoeId: open.id, before: current, after: seq,
+        last: seq.length - at, conflict: !freshOwn(open, at), rewrites: true,
+        apply: () => { if (openShoe(table).o !== current) return false; write(); return true; },
+      })) write();
     }
     return;
   }
@@ -15907,12 +16712,18 @@ function onLiveRead(seq, board, repeats, { afterClear = false } = {}) {
 
   if (verdict === "grow" && repeats >= CONFIRM_GROWTH) {
     const added = seq.length - current.length;
-    replaceCurrentShoe(seq, into);
-    noteWrite(into, true);
-    liveLog(t("live.logGrow", {
-      n: added, total: seq.length,
-      sides: [...seq.slice(current.length)].map(side).join(" "),
-    }));
+    const write = () => {
+      replaceCurrentShoe(seq, into);
+      noteWrite(into, true);
+      liveLog(t("live.logGrow", {
+        n: added, total: seq.length,
+        sides: [...seq.slice(current.length)].map(side).join(" "),
+      }));
+    };
+    if (admitReading(board, extra, {
+      action: "grow", into, shoeId: open.id, before: current, after: seq, last: added,
+      apply: () => { if (openShoe(table).o !== current) return false; write(); return true; },
+    })) write();
   } else if ((restart || reopened || verdict === "reset") && repeats >= enough) {
     // A new shoe starts at one coup. A reading that shares nothing with the
     // shoe in progress and arrives already dozens deep, on a strip nobody
@@ -15945,10 +16756,16 @@ function onLiveRead(seq, board, repeats, { afterClear = false } = {}) {
     if (!restart && seq.length > RESTART_DEPTH) {
       const tableChange = board.kind === "bead";
       if (tableChange && repeats >= TABLE_CHANGE_LOOKS) {
-        loadAsNewShoe(seq, into);
-        noteWrite(into, true);
-        setLiveWarn(null);
-        liveLog(t("live.logTableChange", { n: seq.length }), "new");
+        const write = () => {
+          loadAsNewShoe(seq, into);
+          noteWrite(into, true);
+          setLiveWarn(null);
+          liveLog(t("live.logTableChange", { n: seq.length }), "new");
+        };
+        if (admitReading(board, extra, {
+          action: "tableChange", into, shoeId: null, before: current, after: seq, last: seq.length,
+          apply: () => { if (openShoe(table).o !== current) return false; write(); return true; },
+        })) write();
         return;
       }
       setLiveWarn(
@@ -15978,9 +16795,15 @@ function onLiveRead(seq, board, repeats, { afterClear = false } = {}) {
         }]);
       return;
     }
-    loadAsNewShoe(seq, into);
-    noteWrite(into, true);
-    liveLog(t("live.logNewShoe", { n: seq.length }), "new");
+    const write = () => {
+      loadAsNewShoe(seq, into);
+      noteWrite(into, true);
+      liveLog(t("live.logNewShoe", { n: seq.length }), "new");
+    };
+    if (admitReading(board, extra, {
+      action: "newShoe", into, shoeId: null, before: current, after: seq, last: seq.length,
+      apply: () => { if (openShoe(table).o !== current) return false; write(); return true; },
+    })) write();
   }
 }
 
@@ -16085,10 +16908,26 @@ function shoeBefore(name) {
   return last.o ? null : list[list.length - 2] || null;
 }
 
-/** Remember the shoe as the reader has just written it. See `liveWrote`. */
+/**
+ * Remember the shoe as the reader has just written it. See `liveWrote`.
+ * `from` is where what this write changed starts: the coups from there on are
+ * the reader's own newest, which it may still put right (see `freshOwn`).
+ */
 function noteWrite(into, added) {
   const shoe = openShoe(readingTable(into, state.tables, chosenTable()));
-  liveWrote = { id: shoe.id, o: shoe.o, added, reads: 0 };
+  const before = liveWrote && liveWrote.id === shoe.id ? liveWrote.o : "";
+  liveWrote = { id: shoe.id, o: shoe.o, added, reads: 0, from: agreeLength(before, shoe.o) };
+}
+
+/**
+ * Whether the coups of `shoe` from `at` on are the reader's own, written a few
+ * looks ago and untouched since -- the only coups it may rewrite on the
+ * screen's word (see `review.js`). Anything else the record holds is changed
+ * only once a person says so.
+ */
+function freshOwn(shoe, at) {
+  return !!liveWrote && !!shoe && liveWrote.id === shoe.id && liveWrote.o === shoe.o
+    && liveWrote.reads <= TAKE_BACK_READS && at >= (liveWrote.from || 0);
 }
 
 /**
@@ -16102,6 +16941,8 @@ function takeBackOpening() {
   const shoe = openShoe(readingTable(into, state.tables, chosenTable()));
   if (!liveWrote || !liveWrote.added || liveWrote.id !== shoe.id || liveWrote.o !== shoe.o
       || shoe.o.length !== 1 || liveWrote.reads > TAKE_BACK_READS) return false;
+  journal.add("edit", { by: "reader", why: "takeBackOpening", table: journalTable(into), shoe: shoe.id,
+                        before: shoe.o, after: "" });
   replaceCurrentShoe("", into);
   noteWrite(into, false);
   liveLog(t("live.logTakenBack", { n: 1, total: 0 }));
@@ -16298,7 +17139,13 @@ function onLiveState(st) {
   // none of its paragraphs had anything to open.
   if (flipped) foldExplanations();
 
-  if (st.error || !st.active) liveWrote = null;
+  if (st.error || !st.active) {
+    liveWrote = null;
+    // A held reading is the screen's, and with the screen gone nobody can
+    // check it against anything: it is dropped, and the journal says so.
+    if (held) { settleHeld("stopped"); render(); }
+    dismissed = null;
+  }
   if (st.error) { liveTable = null; renderLiveBinding(); renderLiveError(st.error, st.source); return; }
   if (!st.active) { liveTable = null; renderLiveBinding(); renderLiveSources(); return; }
 
@@ -16695,7 +17542,7 @@ function notStarted() {
 }
 
 /** The prediction panel before anything has started: zeros, and what starts it. */
-function renderPredictionIdle() {
+function renderPredictionIdle(message = null) {
   const bars = $("aiBars");
   bars.innerHTML = "";
   for (const code of ["P", "B", "T"]) {
@@ -16720,7 +17567,7 @@ function renderPredictionIdle() {
   $("cardsBlock").hidden = true;
   // Worded for the way in this device has: a phone has no screen to share.
   const cameraOnly = !LiveWatcher.screenSupported && LiveWatcher.cameraSupported;
-  $("aiEstimate").textContent = t(cameraOnly ? "ai.idleStartCamera" : "ai.idleStart");
+  $("aiEstimate").textContent = message || t(cameraOnly ? "ai.idleStartCamera" : "ai.idleStart");
 }
 
 function renderPrediction() {
@@ -16731,6 +17578,19 @@ function renderPrediction() {
   // Nothing is logged either: the record holds what the panel showed.
   if (notStarted()) {
     renderPredictionIdle();
+    renderBetOutcome();
+    renderLearned();
+    renderAudit();
+    renderVerification();
+    $("aiDisclaimer").textContent = t("ai.disclaimer");
+    return;
+  }
+  // A reading held for the person (see `admitReading`): the record is behind
+  // the screen, or disagrees with it, until they say which is right, and a
+  // pick made from it would be for a coup other than the one about to be
+  // dealt. So none is made, and none is logged.
+  if (heldHere()) {
+    renderPredictionIdle(t("review.predictionHeld"));
     renderBetOutcome();
     renderLearned();
     renderAudit();
@@ -17748,7 +18608,7 @@ function renderAll() {
  */
 function render() {
   for (const draw of [
-    renderHeader, renderLiveBinding, renderPrediction, renderKpis, renderScale,
+    renderHeader, renderLiveBinding, renderReview, renderReaderHealth, renderPrediction, renderKpis, renderScale,
     renderStake, renderPlan, renderLastResult, renderBoard, renderShoes,
     renderMilestones, renderIntegrityAvailability, renderAlerts,
     // Some of the folded paragraphs are written by the renders above, and a
@@ -19461,6 +20321,13 @@ function bindTextPaste() {
 }
 
 
+/** The journal, as the file a person saves (see `journal.js`). */
+function exportJournal() {
+  journal.flush();
+  const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
+  download(`baccarat-journal-${stamp}.json`, JSON.stringify(journal, null, 2));
+}
+
 function bindControls() {
   $("shoeMore").onclick = () => { shoeLimit += SHOE_PAGE; render(); };
   $("notifyBtn").onclick = toggleNotify;
@@ -19640,6 +20507,9 @@ function bindControls() {
     if (!rows.length) { $("exportNote").textContent = t("tools.exportEmpty"); return; }
     download(`baccarat-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(rows, null, 1));
   };
+  $("exportJournal").onclick = exportJournal;
+  // A tab closed with journal entries still waiting to be written writes them first.
+  addEventListener("pagehide", () => journal.flush());
 
   // Emptying a table is not deleting it. A table that went wrong -- a shoe read
   // off the wrong board, a session that turned out to be free play -- wants its
@@ -19655,6 +20525,7 @@ function bindControls() {
       return;
     }
     const ids = shoes(name).map((s) => s.id);
+    journal.add("edit", { by: "user", why: "clearTable", table: name, shoes: ids.length, coups });
     // The reader goes on, from nothing: what the screen shows next is read
     // as this table's first shoe, the way a reader just started reads it.
     // Stopping it here, as deleting the table does, left the owner's casino
@@ -19682,6 +20553,8 @@ function bindControls() {
     if (!state.active || !state.tables[state.active]) return;   // nothing to delete
     if (!confirm(t("tools.resetConfirm", { table: state.active }))) return;
     const ids = shoes().map((s) => s.id);
+    journal.add("edit", { by: "user", why: "deleteTable", table: state.active, shoes: ids.length,
+                          coups: tableCoups(state.active) });
     if (liveTable === state.active) { live.stop(); liveLog(t("live.logStopped")); }
     // Its record of what was predicted goes with it. Keeping the log of a
     // table whose coups are gone would leave figures nothing can be checked
