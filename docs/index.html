@@ -453,6 +453,10 @@ table.stake tr:last-child td{border-bottom:none}
 #learnRows .aifact{padding:6px 0}
 #learnRows .aifact:last-child{border-bottom:none}
 #learnRows .aifact.picked .k{color:var(--ink); font-weight:600}
+/* The money gate's table: the verify table's type, every row on screen. */
+.auditrows{max-height:none; overflow-x:auto}
+.auditrows tr.picked td{color:var(--ink); font-weight:600}
+.auditrows td.neg{color:var(--banker)} .auditrows td.up,.auditrows tr.picked td.up{color:var(--tie)}
 .aiwarn{font-size:11.5px; line-height:1.55; margin:10px 0 0; padding:9px 11px;
         border-radius:8px; border:1px solid var(--banker); color:var(--ink-2);
         background:color-mix(in srgb, var(--banker) 7%, transparent)}
@@ -1147,6 +1151,17 @@ body.open > #gate{display:none}
     <div class="aigrid" data-full-only id="learnRows"></div>
     <p class="aiverdict" data-full-only id="learnVerdict"></p>
 
+    <!-- The server's retraining question, asked in the page after every coup:
+         does any picker's record make money past what luck gives an honest
+         table watched that often? See `audited`. -->
+    <div class="obshead" data-full-only>
+      <span class="blabel" data-i18n="audit.h"></span>
+      <span class="obssub" id="auditSub"></span>
+    </div>
+    <p class="ainote foldable" data-full-only style="margin-top:0" data-i18n="audit.sub"></p>
+    <div id="auditRows" class="verifyrows auditrows" data-full-only></div>
+    <p class="aiverdict" data-full-only id="auditVerdict"></p>
+
     <div class="obshead" data-full-only>
       <span class="blabel" data-i18n="verify.h"></span>
       <span class="obssub" id="verifyCount"></span>
@@ -1611,6 +1626,77 @@ const S = {
     "zh-Hant": "<b>採用{rule}。</b>兩者僅在 {n} 局上分歧 — 要判斷孰優需要 200 局。",
     "zh-Hans": "<b>采用{rule}。</b>两者仅在 {n} 局上分歧 — 要判断孰优需要 200 局。",
   },
+  "learn.gated": {
+    ko: "<b>지금 추천은 수익 관문을 넘은 추천기({picker})가 정합니다.</b> 학습 모델과 통합 추천의 비교는 그대로 계속되며, 그 추천기가 관문 아래로 내려오면 이 비교로 돌아갑니다.",
+    en: "<b>The pick is now made by the picker past the money gate ({picker}).</b> The network and the combined pick go on being compared, and the pick goes back to that comparison the coup the picker falls back under its line.",
+    "zh-Hant": "<b>目前由通過獲利關卡的推薦器（{picker}）決定推薦。</b>神經網路與綜合推薦的比較照常進行；該推薦器一旦回落到線下，就回到這項比較。",
+    "zh-Hans": "<b>目前由通过获利关卡的推荐器（{picker}）决定推荐。</b>神经网络与综合推荐的比较照常进行；该推荐器一旦回落到线下，就回到这项比较。",
+  },
+  /* ------------------------------------------------------- the money gate */
+  "audit.h": {
+    ko: "자동 재평가 · 수익 관문", en: "Re-judged every coup · the money gate",
+    "zh-Hant": "自動重新評估 · 獲利關卡", "zh-Hans": "自动重新评估 · 获利关卡",
+  },
+  "audit.sub": {
+    ko: "서버의 재학습 판정과 같은 질문을 이 페이지가 판마다 스스로 던집니다. 추천기 다섯(통합 추천, 학습 모델, 지난 1·2·3판을 보는 마르코프)을 각각, 그 판 이전의 기록만으로 고른 쪽에 매번 1유닛씩 걸었다면 얼마가 됐는지로 채점합니다. 뱅커 배팅과 플레이어 배팅은 따로 채점합니다 — 한쪽에서 번 돈을 다른 쪽에서 잃을 수 있기 때문입니다. 판마다 다시 보면 운만으로도 가끔 앞서 보이므로, 정직한 테이블에서 이 열 개 기록 중 하나라도 닿을 확률이 판마다 확인해도 2.5% 이하인 선(로빈스 혼합 경계)을 넘어야 통과입니다. 통과한 추천기가 생기면 추천과 장부가 그것을 따르고(지금 쓰던 추천기가 통과했으면 그대로, 아니면 표의 순서대로 먼저 통과한 것), 통과한 쪽을 고른 판에만 '배팅 권장'과 켈리가 붙으며, 선 아래로 내려오는 판에 바로 놓습니다. 따로 실행할 것은 없습니다 — 판이 들어오면 저절로 다시 판정합니다.",
+    en: "The question the server's retraining asks, asked by this page itself after every coup. Each of five pickers -- the combined pick, the network, and Markov chains looking back one, two and three coups -- is scored on what a unit on every side it named, from the coups before it only, would have come to. Its Banker bets and its Player bets are scored apart, because what one side makes the other can lose. Looked at that often, some record seems ahead by luck now and then, so passing means crossing a line (Robbins' mixture boundary) that any of these ten records reaches on an honest table with chance 2.5% at most, however often it is looked at. Once one has, the pick and the bet results follow its picker -- the one already followed if it passed, else the first past in the table's order -- a pick on the side that passed says worth backing and carries a Kelly stake, and the picker is let go the coup it falls back under the line. Nothing needs starting: it is judged again as each coup comes in.",
+    "zh-Hant": "伺服器重新訓練時問的問題，本頁在每一局後自己再問一次。五個推薦器（綜合推薦、神經網路、看前 1・2・3 局的馬可夫）各自以「只用該局之前的紀錄選邊、每局押 1 單位」會得到多少來評分。押莊與押閒分開評分 — 一邊賺的錢可能在另一邊賠掉。每局都重看，光靠運氣也會偶爾看似領先，所以必須越過一條線（Robbins 混合邊界）才算通過：在誠實的牌桌上，這十份紀錄中任何一份即使每局都檢查，碰到這條線的機率也不超過 2.5%。一旦有推薦器通過，推薦與帳本就跟隨它（目前使用的若已通過就照舊，否則依表中順序取先通過者），只有選到已通過那一邊的局才標「建議下注」並給出凱利；它回落到線下的那一局就放下。不需要另外執行 — 每進一局就自動重新判定。",
+    "zh-Hans": "服务器重新训练时问的问题，本页在每一局后自己再问一次。五个推荐器（综合推荐、神经网络、看前 1・2・3 局的马尔可夫）各自以「只用该局之前的记录选边、每局押 1 单位」会得到多少来评分。押庄与押闲分开评分 — 一边赚的钱可能在另一边赔掉。每局都重看，光靠运气也会偶尔看似领先，所以必须越过一条线（Robbins 混合边界）才算通过：在诚实的牌桌上，这十份记录中任何一份即使每局都检查，碰到这条线的概率也不超过 2.5%。一旦有推荐器通过，推荐与账本就跟随它（目前使用的若已通过就照旧，否则依表中顺序取先通过者），只有选到已通过那一边的局才标「建议下注」并给出凯利；它回落到线下的那一局就放下。不需要另外运行 — 每进一局就自动重新判定。",
+  },
+  "audit.state": {
+    ko: "추천기 {n}개 · 각 {bets}배팅 · 판마다 재판정",
+    en: "{n} [n|picker|pickers] · {bets} [bets|bet|bets] each · judged again every coup",
+    "zh-Hant": "{n} 個推薦器 · 各 {bets} 注 · 每局重新判定",
+    "zh-Hans": "{n} 个推荐器 · 各 {bets} 注 · 每局重新判定",
+  },
+  "audit.colPicker": { ko: "추천기", en: "Picker", "zh-Hant": "推薦器", "zh-Hans": "推荐器" },
+  "audit.colUnits": { ko: "손익", en: "Units", "zh-Hant": "損益", "zh-Hans": "损益" },
+  "audit.colPerBet": { ko: "배팅당", en: "Per bet", "zh-Hant": "每注", "zh-Hans": "每注" },
+  "audit.colB": { ko: "뱅커 · 선까지", en: "Banker · to line", "zh-Hant": "押莊 · 距線", "zh-Hans": "押庄 · 距线" },
+  "audit.colP": { ko: "플레이어 · 선까지", en: "Player · to line", "zh-Hant": "押閒 · 距線", "zh-Hans": "押闲 · 距线" },
+  "audit.passed": { ko: "통과", en: "past it", "zh-Hant": "通過", "zh-Hans": "通过" },
+  "audit.fewBets": {
+    ko: "{n}회 더", en: "{n} more", "zh-Hant": "還差 {n} 注", "zh-Hans": "还差 {n} 注",
+  },
+  "audit.sides.B": { ko: "뱅커 배팅", en: "its Banker bets", "zh-Hant": "押莊", "zh-Hans": "押庄" },
+  "audit.sides.P": { ko: "플레이어 배팅", en: "its Player bets", "zh-Hant": "押閒", "zh-Hans": "押闲" },
+  "audit.sides.both": {
+    ko: "뱅커·플레이어 배팅 모두", en: "its Banker and its Player bets",
+    "zh-Hant": "押莊與押閒", "zh-Hans": "押庄与押闲",
+  },
+  "audit.loSide": {
+    ko: "{side} 배팅당 {lo}", en: "{lo} a bet on {side}", "zh-Hant": "押{side}每注 {lo}", "zh-Hans": "押{side}每注 {lo}",
+  },
+  "audit.short": {
+    ko: "−{need}", en: "−{need}", "zh-Hant": "−{need}", "zh-Hans": "−{need}",
+  },
+  "audit.markov": {
+    ko: "마르코프 {k}판", en: "Markov, {k} back", "zh-Hant": "馬可夫 {k} 局", "zh-Hans": "马尔可夫 {k} 局",
+  },
+  "audit.open": {
+    ko: "<b>수익 관문 통과: {picker} — {sides}.</b> 정직한 테이블이라면 추천기 다섯의 뱅커·플레이어 기록 열 개 중 어느 하나라도 이 선에 닿을 확률은 판마다 확인해도 {alpha} 이하입니다. 지금부터 추천과 장부는 이 추천기를 따르고, 통과한 쪽을 고른 판에만 '배팅 권장'과 켈리가 붙습니다. 운의 몫을 빼고 남는 값은 {lo}이며, 켈리는 이 값으로 계산합니다. 지난 기록으로 내린 판정이라 앞으로도 이긴다는 보장은 없습니다.",
+    en: "<b>Past the money gate: {picker}, on {sides}.</b> On an honest table the chance that any of the five pickers' ten records -- Banker bets and Player bets apart -- reaches its line, looked at after every coup, is {alpha} at most. The pick and the bet results now follow this picker, and a pick on a side that passed is the one that says worth backing and carries a Kelly stake. With the line's worth of luck taken out the record is {lo}, and the Kelly stake is worked out on that. It is a judgement on the record so far; it does not promise the next coups.",
+    "zh-Hant": "<b>通過獲利關卡：{picker} — {sides}。</b>在誠實的牌桌上，五個推薦器的押莊・押閒十份紀錄中任何一份即使每局都檢查，碰到這條線的機率也不超過 {alpha}。從現在起，推薦與帳本跟隨這個推薦器，只有選到已通過那一邊的局才會標「建議下注」並給出凱利。扣除運氣的部分後剩下 {lo}，凱利以此計算。這是依過去紀錄做的判定，不保證之後也會贏。",
+    "zh-Hans": "<b>通过获利关卡：{picker} — {sides}。</b>在诚实的牌桌上，五个推荐器的押庄・押闲十份记录中任何一份即使每局都检查，碰到这条线的概率也不超过 {alpha}。从现在起，推荐与账本跟随这个推荐器，只有选到已通过那一边的局才会标「建议下注」并给出凯利。扣除运气的部分后剩下 {lo}，凯利以此计算。这是依过去记录做的判定，不保证之后也会赢。",
+  },
+  "audit.shut": {
+    ko: "<b>통과한 추천기 없음.</b> 어느 추천기도 운으로는 닿기 어려운 선을 넘지 못했습니다 — 가장 가까운 것({picker}의 {side} 배팅)도 {need}유닛 모자랍니다. 공정하게 섞인 테이블이라면 이것이 정상이며, 배지는 '배팅 권장 안 함'으로 남습니다.",
+    en: "<b>No picker past the gate.</b> None has crossed the line luck seldom reaches -- the nearest ({picker}, betting {side}) is {need} short. On a fairly shuffled table that is what is expected, and the badge stays at not worth backing.",
+    "zh-Hant": "<b>沒有推薦器通過。</b>沒有一個越過運氣難以碰到的線 — 最接近的（{picker}押{side}）也還差 {need} 單位。洗牌公正的牌桌本來就是如此，標籤維持「不建議下注」。",
+    "zh-Hans": "<b>没有推荐器通过。</b>没有一个越过运气难以碰到的线 — 最接近的（{picker}押{side}）也还差 {need} 单位。洗牌公正的牌桌本来就是如此，标签维持「不建议下注」。",
+  },
+  "audit.tooFew": {
+    ko: "<b>아직 판정 전.</b> 배팅 기록이 가장 긴 쪽도 {n}회뿐입니다 — 추천기의 뱅커 배팅과 플레이어 배팅은 각각 {floor}회부터 판정합니다.",
+    en: "<b>Not judged yet.</b> The longest record is {n} [n|bet|bets] -- a picker's Banker bets and its Player bets are each judged from {floor} on.",
+    "zh-Hant": "<b>尚未判定。</b>紀錄最長的一邊也只有 {n} 注 — 推薦器的押莊與押閒各自從 {floor} 注起才判定。",
+    "zh-Hans": "<b>尚未判定。</b>记录最长的一边也只有 {n} 注 — 推荐器的押庄与押闲各自从 {floor} 注起才判定。",
+  },
+  "audit.record": {
+    ko: "<b>관문 닫힘.</b> 이 테이블의 기록이 8덱 바카라의 모양이 아니라(타이 비율이나 슈 길이), 어떤 추천기가 이겨도 판독 오류를 배운 것일 수 있어 따르지 않습니다.",
+    en: "<b>Gate shut.</b> This table's record is not the shape 8-deck baccarat produces (its tie rate or its shoe lengths), so a picker winning on it may have learned a misreading, and none is followed.",
+    "zh-Hant": "<b>關卡關閉。</b>本桌紀錄不是 8 副牌百家樂會有的樣子（和局比例或牌靴長度），任何推薦器在此贏錢都可能是學到了判讀錯誤，因此不跟隨。",
+    "zh-Hans": "<b>关卡关闭。</b>本桌记录不是 8 副牌百家乐会有的样子（和局比例或牌靴长度），任何推荐器在此赢钱都可能是学到了判读错误，因此不跟随。",
+  },
   "verify.h": {
     ko: "실제 추천 성적", en: "What was actually recommended",
     "zh-Hant": "實際推薦成績", "zh-Hans": "实际推荐成绩",
@@ -2012,10 +2098,10 @@ const S = {
     "zh-Hans": "以每手下注额计算，本金仅用于换算百分比。手数为每小时手数 × 每天小时 × 每月天数。平均值随手数线性增长，区间只随平方根增长，所以手数越多，运气的比重越小 — 只是变小，不会消失。",
   },
   "stake.kellyNone": {
-    ko: "<b>켈리 기준 배팅: 0.</b> {side}의 기댓값이 판당 {ev}라서, 원금을 가장 빨리 불리는 배팅 비율은 0입니다 — 기댓값이 마이너스인 판에서는 얼마를 걸든 걸수록 원금이 줄어듭니다. 0이 아닌 값은 카드 카운트가 앞서는 판이나, 이 테이블 기록이 손익분기를 확실히 넘었을 때만 나옵니다.",
-    en: "<b>Kelly stake: 0.</b> {side} is at {ev} a hand, so the share of the bankroll that grows it fastest is nothing -- on a wager that is behind, any stake shrinks it. It turns positive only on a coup the card count puts ahead, or once this table's record has clearly cleared the break-even line.",
-    "zh-Hant": "<b>凱利下注：0。</b>{side}每手期望值為 {ev}，讓本金成長最快的下注比例是 0 — 期望值為負的一手，押多少都會讓本金縮水。只有在牌點計數領先的那一手，或本桌紀錄明確越過損益平衡線時，才會出現非 0 的值。",
-    "zh-Hans": "<b>凯利下注：0。</b>{side}每手期望值为 {ev}，让本金增长最快的下注比例是 0 — 期望值为负的一手，押多少都会让本金缩水。只有在牌点计数领先的那一手，或本桌记录明确越过盈亏平衡线时，才会出现非 0 的值。",
+    ko: "<b>켈리 기준 배팅: 0.</b> {side}의 기댓값이 판당 {ev}라서, 원금을 가장 빨리 불리는 배팅 비율은 0입니다 — 기댓값이 마이너스인 판에서는 얼마를 걸든 걸수록 원금이 줄어듭니다. 0이 아닌 값은 카드 카운트가 앞서는 판, 이 테이블 기록이 손익분기를 확실히 넘었을 때, 또는 추천기가 수익 관문을 넘었을 때만 나옵니다.",
+    en: "<b>Kelly stake: 0.</b> {side} is at {ev} a hand, so the share of the bankroll that grows it fastest is nothing -- on a wager that is behind, any stake shrinks it. It turns positive only on a coup the card count puts ahead, once this table's record has clearly cleared the break-even line, or once a picker is past the money gate.",
+    "zh-Hant": "<b>凱利下注：0。</b>{side}每手期望值為 {ev}，讓本金成長最快的下注比例是 0 — 期望值為負的一手，押多少都會讓本金縮水。只有在牌點計數領先的那一手、本桌紀錄明確越過損益平衡線時，或推薦器通過獲利關卡時，才會出現非 0 的值。",
+    "zh-Hans": "<b>凯利下注：0。</b>{side}每手期望值为 {ev}，让本金增长最快的下注比例是 0 — 期望值为负的一手，押多少都会让本金缩水。只有在牌点计数领先的那一手、本桌记录明确越过盈亏平衡线时，或推荐器通过获利关卡时，才会出现非 0 的值。",
   },
   "stake.kellyUncleared": {
     ko: "<b>켈리 기준 배팅: 0.</b> 지금 추정으로는 {side}의 기댓값이 판당 {ev}이지만, 이 테이블 기록이 아직 운과 구별되지 않아('배팅 권장' 배지와 같은 기준) 0으로 둡니다. 운으로 생긴 우위 위에서 켈리를 계산하면 그 운에 원금을 거는 셈입니다.",
@@ -2034,6 +2120,18 @@ const S = {
     en: "<b>Kelly stake: {full} of the bankroll.</b> This table's record puts {side} ahead by {ev} a hand. That is an estimate and the real edge may be smaller, so half Kelly, {half}, is the stake to use: three quarters of the growth for half the swing.",
     "zh-Hant": "<b>凱利下注：本金的 {full}。</b>依本桌紀錄估計{side}每手領先 {ev}。這是估計值，實際優勢可能更小，建議用半凱利 {half} — 保留四分之三的成長，波動只有一半。",
     "zh-Hans": "<b>凯利下注：本金的 {full}。</b>按本桌记录估计{side}每手领先 {ev}。这是估计值，实际优势可能更小，建议用半凯利 {half} — 保留四分之三的增长，波动只有一半。",
+  },
+  "stake.kellyGate": {
+    ko: "<b>켈리 기준 배팅: 원금의 {full}.</b> 이 테이블에서 {picker}의 {side} 배팅 기록이 수익 관문을 넘었습니다 — 판당 {ev}를 벌었고, 운으로 생길 수 있는 몫을 빼도 {lo}가 남습니다. 켈리는 남는 값 {lo}로 계산했습니다. 그래도 지난 기록에서 나온 값이니 반 켈리 {half}를 권합니다 — 성장의 4분의 3을 지키면서 흔들림은 절반입니다.",
+    en: "<b>Kelly stake: {full} of the bankroll.</b> On this table the record of {picker} betting {side} is past the money gate: it has made {ev} a coup, and {lo} with the share luck could have made taken out. Kelly is worked out on what is left, {lo}. It is still a figure from the record so far, so half Kelly, {half}, is the stake to use: three quarters of the growth for half the swing.",
+    "zh-Hant": "<b>凱利下注：本金的 {full}。</b>本桌「{picker}」押{side}的紀錄已通過獲利關卡 — 每局賺了 {ev}，扣除運氣可能造成的部分後仍有 {lo}。凱利以剩下的 {lo} 計算。這仍是來自過去紀錄的數字，建議用半凱利 {half} — 保留四分之三的成長，波動只有一半。",
+    "zh-Hans": "<b>凯利下注：本金的 {full}。</b>本桌「{picker}」押{side}的记录已通过获利关卡 — 每局赚了 {ev}，扣除运气可能造成的部分后仍有 {lo}。凯利以剩下的 {lo} 计算。这仍是来自过去记录的数字，建议用半凯利 {half} — 保留四分之三的增长，波动只有一半。",
+  },
+  "stake.kellyGateSide": {
+    ko: "<b>켈리 기준 배팅: 0.</b> 지금 추천은 수익 관문을 넘은 {picker}의 것이지만, 이 판에 고른 {side} 배팅 기록은 아직 관문까지 {need}유닛 모자라 0으로 둡니다. 관문을 넘은 쪽을 고르는 판에만 0이 아닌 값이 나옵니다.",
+    en: "<b>Kelly stake: 0.</b> The pick comes from {picker}, which is past the money gate, but its record on {side}, the side picked here, is still {need} short of its line, so it stays at nothing. A stake comes only on a coup it picks the side that passed.",
+    "zh-Hant": "<b>凱利下注：0。</b>目前的推薦來自已通過獲利關卡的{picker}，但這一局選的押{side}紀錄距關卡還差 {need} 單位，所以維持 0。只有選到已通過那一邊的局才會出現非 0 的值。",
+    "zh-Hans": "<b>凯利下注：0。</b>目前的推荐来自已通过获利关卡的{picker}，但这一局选的押{side}记录距关卡还差 {need} 单位，所以维持 0。只有选到已通过那一边的局才会出现非 0 的值。",
   },
   "stake.kellyAmount": {
     ko: "위의 총 투자 원금으로는 켈리 {full}, 반 켈리 {half}입니다.",
@@ -2067,10 +2165,10 @@ const S = {
     "zh-Hans": "浏览器通知已开启 — 按下即关闭",
   },
   "alert.notifyOff": {
-    ko: "브라우저 알림 꺼짐 — 누르면 켭니다 (카드 +EV · 학습 모델 채택 · 셔플 이상 때, 다른 창을 보고 있을 때만)",
-    en: "Browser alerts off -- press to turn them on (a card-count +EV coup, the learned model taking over, a flagged shuffle; only while you are looking at another window)",
-    "zh-Hant": "瀏覽器通知已關閉 — 按下即開啟（牌點計數 +EV、學習模型接手、洗牌異常；僅在你看著其他視窗時）",
-    "zh-Hans": "浏览器通知已关闭 — 按下即开启（牌点计数 +EV、学习模型接手、洗牌异常；仅在你看着其他窗口时）",
+    ko: "브라우저 알림 꺼짐 — 누르면 켭니다 (카드 +EV · 학습 모델 채택 · 수익 관문 통과 · 셔플 이상 때, 다른 창을 보고 있을 때만)",
+    en: "Browser alerts off -- press to turn them on (a card-count +EV coup, the learned model taking over, a picker past the money gate, a flagged shuffle; only while you are looking at another window)",
+    "zh-Hant": "瀏覽器通知已關閉 — 按下即開啟（牌點計數 +EV、學習模型接手、推薦器通過獲利關卡、洗牌異常；僅在你看著其他視窗時）",
+    "zh-Hans": "浏览器通知已关闭 — 按下即开启（牌点计数 +EV、学习模型接手、推荐器通过获利关卡、洗牌异常；仅在你看着其他窗口时）",
   },
   "alert.denied": {
     ko: "이 브라우저에서 이 페이지의 알림이 막혀 있습니다. 주소창 왼쪽의 사이트 설정에서 알림을 허용하면 켤 수 있습니다.",
@@ -2083,6 +2181,13 @@ const S = {
   "alert.tag.table": { ko: "테이블 우위", en: "Table edge", "zh-Hant": "本桌優勢", "zh-Hans": "本桌优势" },
   "alert.tag.model": { ko: "학습 모델", en: "Learned model", "zh-Hant": "學習模型", "zh-Hans": "学习模型" },
   "alert.tag.shuffle": { ko: "셔플 이상", en: "Shuffle flag", "zh-Hant": "洗牌異常", "zh-Hans": "洗牌异常" },
+  "alert.tag.gate": { ko: "수익 관문", en: "Money gate", "zh-Hant": "獲利關卡", "zh-Hans": "获利关卡" },
+  "alert.gate": {
+    ko: "{picker}의 기록이 수익 관문을 넘었습니다({sides}) — 지금부터 추천이 이 추천기를 따르고, 통과한 쪽을 고른 판에는 배지가 '배팅 권장'으로 바뀝니다. 정직한 테이블이 운으로 넘을 확률이 2.5% 이하인 선이지만, 지난 기록이라 앞으로도 이긴다는 보장은 없습니다.",
+    en: "The record of {picker} is past the money gate, on {sides} -- the pick now follows it, and says worth backing on a coup it picks a side that passed. An honest table crosses that line by luck with chance 2.5% at most, but it is a record of what has been, and does not promise what comes next.",
+    "zh-Hant": "「{picker}」的紀錄已通過獲利關卡（{sides}）— 從現在起推薦跟隨它，選到已通過那一邊的局，標籤會改為「建議下注」。誠實牌桌靠運氣越過這條線的機率不超過 2.5%，但這是過去的紀錄，不保證之後也會贏。",
+    "zh-Hans": "「{picker}」的记录已通过获利关卡（{sides}）— 从现在起推荐跟随它，选到已通过那一边的局，标签会改为「建议下注」。诚实牌桌靠运气越过这条线的概率不超过 2.5%，但这是过去的记录，不保证之后也会赢。",
+  },
   "alert.cards": {
     ko: "카드 카운트가 다음 판 {side} 배팅을 {ev} 앞선다고 계산했습니다(입력한 카드로 계산한 정확한 값). 켈리 기준 배팅은 원금의 {kelly}입니다.",
     en: "The card count puts {side} ahead by {ev} on the next coup, worked exactly from the cards typed. The Kelly stake is {kelly} of the bankroll.",
@@ -2553,6 +2658,27 @@ const S = {
     "zh-Hant": "本桌實測", "zh-Hans": "本桌实测",
   },
   "ai.perCoup": { ko: "판당", en: "per coup", "zh-Hant": "每局", "zh-Hans": "每局" },
+  "ai.perCoupGate": {
+    ko: "판당 · 기록에서 운의 몫을 뺀 값", en: "a coup, on the record less its luck",
+    "zh-Hant": "每局 · 紀錄扣除運氣後", "zh-Hans": "每局 · 记录扣除运气后",
+  },
+  "ai.conf.gate": { ko: "관문 통과", en: "Past the gate", "zh-Hant": "通過關卡", "zh-Hans": "通过关卡" },
+  "ai.confGateSub": {
+    ko: "기록상 판당 {ev}", en: "{ev} a coup on the record",
+    "zh-Hant": "紀錄上每局 {ev}", "zh-Hans": "记录上每局 {ev}",
+  },
+  "ai.gateNow": {
+    ko: "이 추천을 낸 추천기는 수익 관문을 넘었습니다 — <b>{picker}</b>의 {side} 배팅: {bets}회에 {units}유닛, 정직한 테이블이 운으로 닿을 확률이 {alpha} 이하인 선({line}유닛) 위.",
+    en: "The picker making this pick is past the money gate -- <b>{picker}</b>, betting {side}: {units} [units|unit|units] over {bets} [bets|bet|bets], above the line ({line}) an honest table reaches by luck with chance {alpha} at most.",
+    "zh-Hant": "提出這個推薦的推薦器已通過獲利關卡 — <b>{picker}</b>押{side}：{bets} 注累計 {units} 單位，在誠實牌桌靠運氣碰到機率不超過 {alpha} 的線（{line} 單位）之上。",
+    "zh-Hans": "提出这个推荐的推荐器已通过获利关卡 — <b>{picker}</b>押{side}：{bets} 注累计 {units} 单位，在诚实牌桌靠运气碰到概率不超过 {alpha} 的线（{line} 单位）之上。",
+  },
+  "ai.betWhyGate": {
+    ko: "지금 추천은 수익 관문을 넘은 {picker}의 것이지만, 이 판에 고른 {side} 배팅 기록은 아직 관문까지 {need}유닛 모자랍니다.",
+    en: "The pick comes from {picker}, which is past the money gate -- but its record on {side}, the side picked here, is still {need} short of its line.",
+    "zh-Hant": "目前的推薦來自已通過獲利關卡的{picker}，但這一局選的押{side}紀錄距關卡還差 {need} 單位。",
+    "zh-Hans": "目前的推荐来自已通过获利关卡的{picker}，但这一局选的押{side}记录距关卡还差 {need} 单位。",
+  },
 
   /* ---------------------------------------------------------- state tiles */
   "state.h": { ko: "현재 상태", en: "Where this table stands", "zh-Hant": "目前狀態", "zh-Hans": "当前状态" },
@@ -8832,7 +8958,11 @@ function replayPicks(sequences, {
   // did rather than only what every pick before it added up to.
   let last = null;
   let units = 0, peak = 0, drawdown = 0, best = 0, worst = 0;
-  let bankerBets = 0, playerBets = 0;
+  let bankerBets = 0, playerBets = 0, bankerUnits = 0, playerUnits = 0;
+  // And the same bets from the first coup, wherever settling starts: the
+  // money gate judges the whole record (audit.js), and the walk is the same.
+  const all = { bets: 0, wins: 0, losses: 0, units: 0,
+                bankerBets: 0, bankerUnits: 0, playerBets: 0, playerUnits: 0 };
 
   for (const [k, seq] of sequences.entries()) {
     // The side the shoe's own pattern names before each coup: a sequence
@@ -8852,6 +8982,14 @@ function replayPicks(sequences, {
       const settling = seen >= from;
       seen += 1;
       if (settling) coups += 1;
+      if (outcome !== "T") {
+        const paid = outcome !== pick ? -1 : pick === "B" ? 1 - commission : 1;
+        all.bets += 1;
+        if (paid > 0) all.wins += 1; else all.losses += 1;
+        all.units += paid;
+        if (pick === "B") { all.bankerBets += 1; all.bankerUnits += paid; }
+        else { all.playerBets += 1; all.playerUnits += paid; }
+      }
 
       if (!settling) {
         // not ours to settle, but still ours to learn from
@@ -8871,6 +9009,7 @@ function replayPicks(sequences, {
           paid = -1;
           units -= 1;
         }
+        if (pick === "B") bankerUnits += paid; else playerUnits += paid;
         last = { pick, outcome, kind: paid > 0 ? "win" : "lose", paid, units };
         peak = Math.max(peak, units);
         drawdown = Math.min(drawdown, units - peak);
@@ -8890,10 +9029,11 @@ function replayPicks(sequences, {
     last,
     from, trained: Math.min(from, seen), faced: seen,
     coups, bets, wins, losses, pushes, units, drawdown, best, worst,
-    bankerBets, playerBets,
+    bankerBets, playerBets, bankerUnits, playerUnits,
     winRate: bets ? wins / bets : 0,
     perBet: bets ? units / bets : 0,
     picks: kept,
+    all,
   };
 }
 
@@ -9941,6 +10081,392 @@ function verdict(model, base, split = 0) {
       : model.units <= base.units ? "behind"
       : "noise",
   };
+}
+
+/* ═══ audit.js ═══ */
+/* The money gate: does anything the page picks with make money?
+ *
+ * The page has several pickers. The pattern rule reads the shoe in progress;
+ * the network (learn.js) retrains on every coup; and three counting models
+ * here -- Markov chains looking back one, two and three decided coups -- keep
+ * counting what followed each run of outcomes on this table, shoe after shoe.
+ * Each of them picks every coup from the coups before it only, so each has a
+ * record that is out of sample by construction.
+ *
+ * The question asked of those records is the one the server's retraining
+ * loop asks of its candidates, and it is asked the way the page asks all of
+ * its questions: after every coup. A line drawn for one look is crossed by
+ * luck sooner or later on most honest tables watched that way, so the line
+ * here is Robbins' mixture boundary (`mixtureBoundary`) -- crossed, at any
+ * point however often it is looked at, with chance at most `alpha` on a table
+ * where the picker's true return is zero or less. Every honest baccarat table
+ * is one of those: the commission puts every pick a little under water. And
+ * five pickers, each with its Banker bets and its Player bets judged apart,
+ * are ten chances, so each record is held to a tenth of `alpha`.
+ *
+ * A picker whose winnings have crossed its line has made money beyond what
+ * luck gives an honest table watched this closely: "GO". The page then backs
+ * it (see `audited` in app.js). On a fairly shuffled shoe the expectation is
+ * that no line is ever crossed, and the panel says so in those words.
+ */
+
+
+
+
+/** The chance, over the life of a table, that any picker crosses by luck. */
+const AUDIT_ALPHA = 0.025;
+/** Where the boundary is tightest, in bets: the page's other gates' choice. */
+const AUDIT_RHO = 200;
+/** Bets before a picker's record is asked anything: below this a crossing is
+ *  a handful of coups, and the page's other gates wait as long. */
+const AUDIT_FLOOR = 200;
+/** The Markov chains, by how many decided coups they look back. */
+const MARKOV_ORDERS = [1, 2, 3];
+/** The pickers, in the order the panel lists them. */
+const AUDIT_PICKERS = ["rule", "net", "m1", "m2", "m3"];
+/** How the prediction log names a pick a promoted picker made. */
+const gateModelVersion = (name) => `gate-1:${name}`;
+
+/**
+ * A Markov chain over a table's decided outcomes, looking back up to `k`
+ * decided coups, walked once.
+ *
+ * Before each coup it takes the run of the shoe in progress -- its last `k`
+ * decided outcomes, fewer early in a shoe: a chain does not reach back across
+ * a shuffle -- and asks what followed that run everywhere on the table so
+ * far, naming the side with the better expectation (`SIDE_CROSSOVER`). A run
+ * never seen before is asked of its own last few outcomes instead, down to
+ * none at all, which is the table's whole count. So every coup is named, and
+ * a chain's record is one bet a decided coup, as the other pickers' are.
+ * Only then is the coup counted, under every run it ends. A tie decides
+ * nothing and is not counted.
+ *
+ * Runs are kept as numbers: `j` outcomes, Banker a 1 and Player a 0, the
+ * newest lowest, under a leading 1 -- so "" is 1, "P" 2, "B" 3, "BP" 6 -- and
+ * every run up to `k` long is below 2^(k+1). `counts` holds Banker then
+ * Player for each, and is what the walk ended with, for `markovNext`.
+ */
+function markovRun(sequences, k, { prior = 1 } = {}) {
+  const counts = new Float64Array(2 << (k + 1));
+  const picks = [];
+  const keep = (1 << k) - 1;
+  for (const seq of sequences) {
+    let bits = 0, len = 0;
+    for (const o of seq) {
+      picks.push(chainSide(counts, bits, len, prior));
+      if (o === "B" || o === "P") {
+        const at = o === "B" ? 0 : 1;
+        for (let j = 0; j <= len; j += 1) counts[runSlot(j, bits) + at] += 1;
+        bits = ((bits << 1) | (o === "B" ? 1 : 0)) & keep;
+        len = Math.min(k, len + 1);
+      }
+    }
+  }
+  return { picks: picks.join(""), counts, k, prior };
+}
+
+/** Where the counts of the last `j` outcomes of `bits` start: see `markovRun`. */
+const runSlot = (j, bits) => ((1 << j) | (bits & ((1 << j) - 1))) << 1;
+
+/** The side the longest run seen before names: see `markovRun`. */
+function chainSide(counts, bits, len, prior) {
+  for (let j = len; j >= 0; j -= 1) {
+    const key = runSlot(j, bits);
+    const b = counts[key], p = counts[key + 1];
+    if (b + p > 0 || j === 0) return (b + prior) / (b + p + 2 * prior) > SIDE_CROSSOVER ? "B" : "P";
+  }
+  return "B";
+}
+
+/** The chain's pick for the coup about to be dealt in `open`. */
+function markovNext(model, open) {
+  let bits = 0, len = 0;
+  const keep = (1 << model.k) - 1;
+  for (const o of open) {
+    if (o !== "B" && o !== "P") continue;
+    bits = ((bits << 1) | (o === "B" ? 1 : 0)) & keep;
+    len = Math.min(model.k, len + 1);
+  }
+  return chainSide(model.counts, bits, len, model.prior);
+}
+
+/**
+ * A picker's picks with the cards' side put first, where typed cards put a
+ * wager ahead -- as the page itself does before any picker (`cardSides`).
+ */
+function withCardSides(sequences, picks, cards, { commission = BANKER_COMMISSION } = {}) {
+  if (!cards || !cards.some((c) => c)) return picks;
+  let out = "", at = 0;
+  for (const [k, seq] of sequences.entries()) {
+    const counted = cards[k] ? cardSides(seq, cards[k], { commission }) : null;
+    for (let i = 0; i < seq.length; i += 1, at += 1) {
+      out += counted && counted[i] !== "-" ? counted[i] : picks[at];
+    }
+  }
+  return out;
+}
+
+/**
+ * Settle a string of picks against the coups they were made for, in the
+ * shape `replayPicks` returns, so the bet-results block can draw either.
+ *
+ * Coups before `from` are not settled; picks from `keepFrom` on come back as
+ * a string, for the board. A pick of "-" is no bet; a tie returns the stake.
+ */
+function settlePicks(sequences, picks, {
+  commission = BANKER_COMMISSION, from = 0, keepFrom = null,
+} = {}) {
+  let seen = 0, coups = 0, bets = 0, wins = 0, losses = 0, pushes = 0;
+  let units = 0, peak = 0, drawdown = 0, best = 0, worst = 0;
+  let bankerBets = 0, playerBets = 0, bankerUnits = 0, playerUnits = 0;
+  let last = null, kept = keepFrom === null ? null : "";
+  for (const seq of sequences) {
+    // A shoe wholly before both is only counted past: the bet results count
+    // one shoe by default, and walking a table's thousand to reach it is not
+    // free at every coup.
+    if (seen + seq.length <= from && (kept === null || seen + seq.length <= keepFrom)) {
+      seen += seq.length;
+      continue;
+    }
+    for (let i = 0; i < seq.length; i += 1) {
+      const pick = picks[seen], outcome = seq[i];
+      if (kept !== null && seen >= keepFrom) kept += pick;
+      const settling = seen >= from;
+      seen += 1;
+      if (!settling) continue;
+      coups += 1;
+      if (pick !== "B" && pick !== "P") continue;
+      if (outcome === "T") {
+        pushes += 1;
+        last = { pick, outcome, kind: "push", paid: 0, units };
+        continue;
+      }
+      bets += 1;
+      if (pick === "B") bankerBets += 1; else playerBets += 1;
+      let paid;
+      if (outcome === pick) { wins += 1; paid = pick === "B" ? 1 - commission : 1; }
+      else { losses += 1; paid = -1; }
+      units += paid;
+      if (pick === "B") bankerUnits += paid; else playerUnits += paid;
+      last = { pick, outcome, kind: paid > 0 ? "win" : "lose", paid, units };
+      peak = Math.max(peak, units);
+      drawdown = Math.min(drawdown, units - peak);
+      best = Math.max(best, units);
+      worst = Math.min(worst, units);
+    }
+  }
+  return {
+    last, from, trained: Math.min(from, seen), faced: seen,
+    coups, bets, wins, losses, pushes, units, drawdown, best, worst,
+    bankerBets, playerBets, bankerUnits, playerUnits,
+    winRate: bets ? wins / bets : 0,
+    perBet: bets ? units / bets : 0,
+    picks: kept,
+  };
+}
+
+/**
+ * The gate itself, over every picker's whole record.
+ *
+ * `pickers` maps a name to its picks over `sequences`. A picker's bets on
+ * Banker and its bets on Player are two records, each held to the mixture
+ * boundary at `alpha` over the number of records -- two a picker -- because
+ * the badge says a pick is worth backing, and a picker whose Banker picks
+ * make money can still lose on its Player picks: a Banker-heavy table does
+ * exactly that to a picker that names both. A side passes when its picker has
+ * made `floor` bets or more on it and their winnings are on or past its line;
+ * a picker passes when either side does.
+ *
+ * Per side, `need` is how many units short of the line it stands, and `lo`
+ * what its record says per bet once the line's worth of luck is taken out:
+ * the boundary holds for winnings less what the bets were worth, whatever
+ * that was, so with the same confidence those bets were worth at least `lo`
+ * each on average.
+ */
+function moneyGate(sequences, pickers, {
+  alpha = AUDIT_ALPHA, rho = AUDIT_RHO, floor = AUDIT_FLOOR, commission = BANKER_COMMISSION,
+} = {}) {
+  const books = Object.keys(pickers)
+    .map((name) => bookOf(name, settlePicks(sequences, pickers[name], { commission })));
+  return judgeBooks(books, { alpha, rho, floor });
+}
+
+/** A settled record as the gate reads it: see `moneyGate`. */
+function bookOf(name, r) {
+  return {
+    name, bets: r.bets, wins: r.wins, losses: r.losses, units: r.units,
+    bB: r.bankerBets, uB: r.bankerUnits, bP: r.playerBets, uP: r.playerUnits,
+  };
+}
+
+function judgeBooks(books, { alpha, rho, floor }) {
+  const each = alpha / Math.max(1, 2 * books.length);
+  const judge = (bets, units) => {
+    const line = bets ? mixtureBoundary(bets, each, rho) : Infinity;
+    return {
+      bets, units, perBet: bets ? units / bets : 0,
+      line, need: Math.max(0, line - units), lo: bets ? (units - line) / bets : -1,
+      pass: bets >= floor && units >= line,
+    };
+  };
+  const rows = books.map(({ name, bets, wins, losses, units, bB, uB, bP, uP }) => {
+    const sides = { B: judge(bB, uB), P: judge(bP, uP) };
+    return {
+      name, bets, wins, losses, units, perBet: bets ? units / bets : 0,
+      sides, pass: sides.B.pass || sides.P.pass,
+    };
+  });
+  const passing = rows.filter((r) => r.pass);
+  const most = rows.reduce((m, r) => Math.max(m, r.sides.B.bets, r.sides.P.bets), 0);
+  return {
+    rows, alpha, each, floor,
+    decision: passing.length ? "GO" : most < floor ? "tooFew" : "NO-GO",
+    passing: passing.map((r) => r.name),
+  };
+}
+
+const CODE_B = 66, CODE_P = 80, CODE_T = 84, CODE_NONE = 45;      // "B" "P" "T" "-"
+
+/**
+ * The gate over a table as the page holds it, kept between coups.
+ *
+ * The same answer as `moneyGate` given the rule's picks, the network's and
+ * the three chains', each with the cards' side first (`withCardSides`; the
+ * rule's have it already, from `replayPicks`) -- and the same chains as
+ * `markovRun`'s. But the page asks after every coup, of tables meant to reach
+ * two thousand shoes, where five walks over the whole record cost fifty
+ * milliseconds a coup. Every picker here picks a coup from the coups before
+ * it, so what a finished shoe added never changes while that shoe and the
+ * ones before it do not: those are walked once and kept, and a coup costs a
+ * walk of the shoe it is in. A record that changed further back -- a shoe
+ * undone into, another file imported -- is walked again from the start.
+ *
+ * The rule is the exception, and is settled whole: its picks lean on the
+ * table's clustering, which every coup moves (`replayPicks`). The page has
+ * that walk already, for the bet results.
+ */
+class Auditor {
+  constructor({ prior = 1, commission = BANKER_COMMISSION } = {}) {
+    this.prior = prior;
+    this.commission = commission;
+    this.restarts = 0;
+    this.restart();
+  }
+
+  restart() {
+    this.closed = [];                          // finished shoes walked, with their cards
+    this.at = 0;                               // and their coups
+    this.counts = MARKOV_ORDERS.map((k) => new Float64Array(2 << (k + 1)));
+    this.books = AUDIT_PICKERS.slice(1)
+      .map((name) => ({ name, bets: 0, wins: 0, losses: 0, units: 0, bB: 0, uB: 0, bP: 0, uP: 0 }));
+    this.codes = MARKOV_ORDERS.map(() => new Uint8Array(1024));
+  }
+
+  /**
+   * `rule` is the rule's picks over `sequences`, or `ruleBook` their
+   * settlement from the first coup where the caller has it (`replayPicks`
+   * returns it as `all`); `net(from, to)` the network's picks for those
+   * coups; `cards` the shoes' cards strings, where any were typed.
+   * Returns the gate (`moneyGate`'s), the chains' counts for `markovNext`, and
+   * `picks(name)`, a picker's picks over the whole record as they were
+   * settled.
+   */
+  audit(sequences, {
+    rule = null, ruleBook = null, net, cards = null,
+    alpha = AUDIT_ALPHA, rho = AUDIT_RHO, floor = AUDIT_FLOOR,
+  } = {}) {
+    const last = sequences.length - 1;
+    const cardsOf = (s) => (cards && cards[s]) || "";
+    let kept = 0;
+    while (kept < this.closed.length && kept < last && this.closed[kept].o === sequences[kept]
+           && this.closed[kept].c === cardsOf(kept)) kept += 1;
+    if (kept < this.closed.length) { this.restart(); this.restarts += 1; }
+    for (let s = this.closed.length; s < last; s += 1) {
+      const seq = sequences[s];
+      this.grow(this.at + seq.length);
+      this.walk(seq, cardsOf(s), net(this.at, this.at + seq.length),
+                this.counts, this.books, this.codes, this.at);
+      this.closed.push({ o: seq, c: cardsOf(s) });
+      this.at += seq.length;
+    }
+    // The shoe at the end may still be growing, or be taken back: walked
+    // from a copy of what came before it, every time.
+    const counts = this.counts.map((c) => c.slice());
+    const books = this.books.map((b) => ({ ...b }));
+    const tail = last >= 0 ? sequences[last] : "";
+    const codes = MARKOV_ORDERS.map(() => new Uint8Array(tail.length));
+    if (tail) {
+      this.walk(tail, cardsOf(last), net(this.at, this.at + tail.length), counts, books, codes, 0);
+    }
+
+    const r = ruleBook || settlePicks(sequences, rule, { commission: this.commission });
+    const gate = judgeBooks([bookOf("rule", r), ...books], { alpha, rho, floor });
+    const at = this.at, closedCodes = this.codes, prior = this.prior;
+    return {
+      ...gate,
+      chains: MARKOV_ORDERS.map((k, m) => ({ k, prior, counts: counts[m] })),
+      picks(name) {
+        if (name === "rule") return rule;
+        const m = MARKOV_ORDERS.findIndex((k) => "m" + k === name);
+        if (m < 0) return null;
+        const all = new Uint8Array(at + codes[m].length);
+        all.set(closedCodes[m].subarray(0, at));
+        all.set(codes[m], at);
+        return new TextDecoder().decode(all);
+      },
+    };
+  }
+
+  grow(n) {
+    if (this.codes[0].length >= n) return;
+    const size = Math.max(n, this.codes[0].length * 2);
+    this.codes = this.codes.map((c) => {
+      const bigger = new Uint8Array(size);
+      bigger.set(c);
+      return bigger;
+    });
+  }
+
+  /** One shoe, settled for the network and the chains, and counted into the chains. */
+  walk(seq, shoeCards, netPicks, counts, books, codes, offset) {
+    const counted = shoeCards ? cardSides(seq, shoeCards, { commission: this.commission }) : null;
+    const win = 1 - this.commission, prior = this.prior;
+    const chains = MARKOV_ORDERS.length;
+    const bits = new Int32Array(chains), lens = new Int32Array(chains);
+    for (let i = 0; i < seq.length; i += 1) {
+      const o = seq.charCodeAt(i);
+      const card = counted ? counted.charCodeAt(i) : CODE_NONE;
+      for (let m = -1; m < chains; m += 1) {
+        let pick;
+        if (card !== CODE_NONE) pick = card;
+        else if (m < 0) pick = netPicks.charCodeAt(i);
+        else pick = chainSide(counts[m], bits[m], lens[m], prior) === "B" ? CODE_B : CODE_P;
+        if (m >= 0) codes[m][offset + i] = pick;
+        if ((pick !== CODE_B && pick !== CODE_P) || o === CODE_T) continue;
+        const book = books[m + 1];
+        const paid = pick !== o ? -1 : pick === CODE_B ? win : 1;
+        book.bets += 1;
+        if (paid > 0) book.wins += 1; else book.losses += 1;
+        book.units += paid;
+        if (pick === CODE_B) { book.bB += 1; book.uB += paid; } else { book.bP += 1; book.uP += paid; }
+      }
+      if (o !== CODE_B && o !== CODE_P) continue;
+      const slot = o === CODE_B ? 0 : 1, bit = o === CODE_B ? 1 : 0;
+      for (let m = 0; m < chains; m += 1) {
+        const c = counts[m], b = bits[m], len = lens[m];
+        for (let j = 0; j <= len; j += 1) c[runSlot(j, b) + slot] += 1;
+        bits[m] = ((b << 1) | bit) & ((1 << MARKOV_ORDERS[m]) - 1);
+        lens[m] = Math.min(MARKOV_ORDERS[m], len + 1);
+      }
+    }
+  }
+}
+
+/** The gate over a table walked once, from nothing: see `Auditor`. */
+function auditTable(sequences, { rule, net, cards = null, ...options } = {}) {
+  return new Auditor(options).audit(sequences, {
+    rule, net: (from, to) => net.slice(from, to), cards, ...options,
+  });
 }
 
 /* ═══ verify.js ═══ */
@@ -14673,6 +15199,7 @@ function startGate({ onOpen = () => {}, onLock = () => {} } = {}) {
 
 
 
+
 // Named, and spelled out: the page is served as one concatenated scope, where
 // a namespace import has nothing to be a namespace of.
 
@@ -15890,25 +16417,45 @@ function invalidate() {
   observedCache = null;
   shoeCache = null;
   countCache = null;
+  auditCache = null;
 }
 
 /**
- * The pick actually shown: the network's where it has earned it, and
- * otherwise the shoe's pattern -- the side named by whichever reading of it
- * has called the shoe being dealt best so far, the estimate's side where none
- * names one. One way of picking, with nothing to choose: the streak, the chop
- * and always Banker, which were ways of their own until 2026-10-13, are
- * readings of the pattern (see `PATTERNS`, and what it costs). A way a device
- * chose then, kept under `baccarat.pickRule.v1`, is not read.
+ * Who names the side for the coup to come.
+ *
+ * The cards first, on the rare coup where they put a wager ahead: the one
+ * thing read here that is known rather than guessed (`cardCount`). Then a
+ * picker whose record has made money past the money gate's line (`audited`),
+ * where one has. Then the network, where it has earned the wheel from the
+ * pattern; and otherwise the shoe's pattern -- the side named by whichever
+ * reading of it has called the shoe being dealt best so far, the estimate's
+ * side where none names one.
+ *
+ * "cards", "rule" (the pattern), "net", or a chain the gate opened for --
+ * "m1", "m2", "m3" (see audit.js).
+ */
+function pickedBy() {
+  if (cardCount().override) return "cards";
+  const a = audited();
+  if (a.promoted && (a.promoted === "rule" || a.next)) return a.promoted;
+  return usingNetwork() ? "net" : "rule";
+}
+
+/**
+ * The pick actually shown, from whoever `pickedBy` says names it. One way of
+ * picking, with nothing to choose: the streak, the chop and always Banker,
+ * which were ways of their own until 2026-10-13, are readings of the pattern
+ * (see `PATTERNS`, and what it costs). A way a device chose then, kept under
+ * `baccarat.pickRule.v1`, is not read.
  */
 function recommended(p) {
-  // The cards first, on the rare coup where they put a wager ahead: the one
-  // thing read here that is known rather than guessed (`cardCount`).
-  const count = cardCount();
-  if (count.override) return count.best;
-  if (usingNetwork()) return learned().nextPick;
-  // The shoe's pattern, or the likelier side where it names nothing yet.
-  return shoePattern(openShoe().o).pick(winPick(p.q));
+  switch (pickedBy()) {
+    case "cards": return cardCount().best;
+    case "net": return learned().nextPick;
+    // The shoe's pattern, or the likelier side where it names nothing yet.
+    case "rule": return shoePattern(openShoe().o).pick(winPick(p.q));
+    default: return audited().next;
+  }
 }
 
 /**
@@ -15917,9 +16464,11 @@ function recommended(p) {
  * The cards' own, exact, where they put the side ahead on this coup; else
  * this table's estimate, where its record has cleared the side's break-even
  * line by more than luck gives an honest table read after every coup (see
- * `backingCleared`). The badge beside the pick says this, and the Kelly stake
- * is worked out on it, so a stake is never offered beside a badge that says
- * hold, and never on chances other than the ones that made it a bet.
+ * `backingCleared`); else the record of the picker the money gate opened for,
+ * where it is the one naming the side and its bets on that side are past
+ * their line (`audited`). The badge beside the pick says this, and the Kelly
+ * stake is worked out on it, so a stake is never offered beside a badge that
+ * says hold, and never on chances other than the ones that made it a bet.
  */
 function backing(p, chosen) {
   const count = cardCount();
@@ -15928,8 +16477,27 @@ function backing(p, chosen) {
     return { worth: true, source: "cards", q: B / (B + P), tieP: T, ev: count.ev[chosen] };
   }
   const ev = edges(p.q, p.tie)[chosen];
-  const cleared = ev > 0 && !!p.cleared[chosen];
-  return { worth: cleared, source: cleared ? "table" : null, q: p.q, tieP: p.tie, ev };
+  if (ev > 0 && p.cleared[chosen]) return { worth: true, source: "table", q: p.q, tieP: p.tie, ev };
+  const a = audited();
+  if (a.promoted && pickedBy() === a.promoted) {
+    const record = a.row.sides[chosen];
+    if (!record.pass) {
+      // Followed, for its other side: this one has not made its case.
+      return { worth: false, source: null, q: p.q, tieP: p.tie, ev,
+               held: { picker: a.promoted, record } };
+    }
+    // What the picker's bets on this side came to, and what is left of that
+    // once the line's worth of luck is taken out (`lo`, see `moneyGate`). The
+    // Kelly stake is worked out on the second, so it is never sized on the
+    // luck: the chances below are the side's that would pay exactly that.
+    const lo = Math.max(0, record.lo);
+    const q = chosen === "B" ? (1 + lo) / (2 - BANKER_COMMISSION) : (1 - lo) / 2;
+    return {
+      worth: true, source: "gate", picker: a.promoted, record, q, tieP: p.tie,
+      ev: record.perBet * (1 - p.tie), lo: lo * (1 - p.tie),
+    };
+  }
+  return { worth: false, source: null, q: p.q, tieP: p.tie, ev };
 }
 
 /** Whether the network makes the pick: where it has earned it. */
@@ -16032,7 +16600,7 @@ function logPrediction(p, chosen, worthBacking) {
   const shoe = openShoe(name);
   if (!shoe.id) return;
 
-  const usingNet = usingNetwork();
+  const by = pickedBy();
   const wrote = recordPrediction(predictionLog, name, {
     shoe: shoe.id,
     index: shoe.o.length,
@@ -16042,8 +16610,9 @@ function logPrediction(p, chosen, worthBacking) {
     pick: chosen,
     backed: worthBacking,
     confidence: sureOf(p, chosen).score,
-    model: cardCount().override ? COUNT_MODEL_VERSION
-      : usingNet ? NET_MODEL_VERSION : BASE_MODEL_VERSION,
+    model: by === "cards" ? COUNT_MODEL_VERSION
+      : by === audited().promoted ? gateModelVersion(by)
+      : by === "net" ? NET_MODEL_VERSION : BASE_MODEL_VERSION,
     features: FEATURE_VERSION,
     basis: shoe.o,
   });
@@ -16164,6 +16733,7 @@ function renderPrediction() {
     renderPredictionIdle();
     renderBetOutcome();
     renderLearned();
+    renderAudit();
     renderVerification();
     $("aiDisclaimer").textContent = t("ai.disclaimer");
     return;
@@ -16245,9 +16815,14 @@ function renderPrediction() {
   badge.className = "betbadge " + (worthBacking ? "go" : "hold");
 
   const betWhy = $("aiBetWhy");
-  betWhy.hidden = worthBacking || !(evChosen > 0);
+  betWhy.hidden = worthBacking || !(evChosen > 0 || back.held);
   if (betWhy.hidden) betWhy.innerHTML = "";
-  else {
+  else if (back.held) {
+    betWhy.innerHTML = t("ai.betWhyGate", {
+      picker: pickerName(back.held.picker), side: side(chosen),
+      need: back.held.record.need.toFixed(2),
+    });
+  } else {
     // The chosen side's own share of the decided coups, and the share that
     // would clear its line at this count.
     const need = chosen === "B" ? p.cleared.bankerAbove : 1 - p.cleared.bankerBelow;
@@ -16287,15 +16862,29 @@ function renderPrediction() {
       })
     : t("ai.estimateFresh");
 
+  // A picker past the money gate names its side from what came before in the
+  // shoe, which the estimate's share does not see: its own record is the
+  // expectation and the confidence of that pick, and the estimate's would
+  // put "behind" and "low" beside a badge that says worth backing.
+  const gated = back.source === "gate";
   const facts = [
-    { k: t("ai.ev"), v: pct(evChosen, 3), sub: t("ai.perCoup"), neg: evChosen < 0 },
+    // The figure the record vouches for -- what is left of its winnings once
+    // the line's worth of luck is taken out, the one Kelly is sized on -- and
+    // not what it happened to make, which is the larger by the luck in it.
+    gated
+      ? { k: t("ai.ev"), v: pct(back.lo, 3), sub: t("ai.perCoupGate") }
+      : { k: t("ai.ev"), v: pct(evChosen, 3), sub: t("ai.perCoup"), neg: evChosen < 0 },
     // Confidence is `|q - crossover| / se`, and neither term is a setting: one
     // is what the table produced, the other is how much of it there is. So
     // "low" on its own is a dead end -- it says the reading is weak without
     // saying what would make it strong. The distance to "high" is the only
     // useful thing to put beside it, and on a fair table that distance is
     // honestly infinite, because there is nothing there to become sure of.
-    { k: t("ai.confidence"), v: t("ai.conf." + sureOf(p, chosen).level), sub: confidenceDistance(o, chosen) },
+    gated
+      ? { k: t("ai.confidence"), v: t("ai.conf.gate"),
+          sub: t("ai.confGateSub", { ev: signedPct(back.ev, 2) }) }
+      : { k: t("ai.confidence"), v: t("ai.conf." + sureOf(p, chosen).level),
+          sub: confidenceDistance(o, chosen) },
     // These two are the full view's. The guest's keeps the expectation and the
     // confidence -- the two that answer whether this is a bet -- and the margin
     // is what the confidence is made of, in the plain word beside it.
@@ -16316,6 +16905,7 @@ function renderPrediction() {
 
   renderBetOutcome();
   renderLearned();
+  renderAudit();
   renderVerification();
   renderCards(count);
 
@@ -16327,9 +16917,18 @@ function renderPrediction() {
   // Which reading of the pattern the side came from, where it came from one:
   // its name, and no count -- the reading followed is the one that has been
   // luckiest in this shoe, and its record there would read as an accuracy.
-  const following = usingNetwork() || counted ? null : shoePattern(openShoe().o).following;
+  const by = pickedBy();
+  const following = by === "rule" ? shoePattern(openShoe().o).following : null;
   if (following) why.push(t("ai.patternNow", { pattern: t("pattern." + following) }));
   if (counted) why.push(t("ai.cardsNow", { side: side(chosen), edge: signedPct(count.edge) }));
+  if (gated) {
+    const r = back.record;
+    why.push(t("ai.gateNow", {
+      picker: pickerName(back.picker), side: side(chosen), bets: r.bets.toLocaleString(),
+      units: (r.units >= 0 ? "+" : "\u2212") + Math.abs(r.units).toFixed(2),
+      line: r.line.toFixed(2), alpha: pct(AUDIT_ALPHA, 1),
+    }));
+  }
   // The last line carries emphasis on the two figures the rule turns on.
   $("aiWhy").innerHTML = why.join(" ");
   $("aiDisclaimer").textContent = t("ai.disclaimer");
@@ -16555,6 +17154,104 @@ function learned() {
   return value;
 }
 
+/* -------------------------------------------------------- the money gate */
+
+/**
+ * A gate per table, kept between coups as the network's walk is, and for the
+ * same reason (see `Auditor`, and `LearnerShelf` for why two).
+ */
+const auditors = new Map();                 // insertion order is recency
+const AUDITORS_KEPT = 2;
+
+function auditorFor(name) {
+  const key = String(name);
+  let held = auditors.get(key);
+  if (held) auditors.delete(key);
+  else held = new Auditor();
+  auditors.set(key, held);
+  while (auditors.size > AUDITORS_KEPT) auditors.delete(auditors.keys().next().value);
+  return held;
+}
+
+let auditCache = null;
+
+/**
+ * Every picker's record on this table held to the money gate, and the picker
+ * the page backs because of it -- the server's retraining loop, asked here
+ * after every coup instead of on a schedule, with nothing to start.
+ *
+ * Five pickers: the pattern rule, the network, and three Markov chains that
+ * count what has followed each run of the last few outcomes on this table
+ * (audit.js). Each picks every coup from the coups before it. A picker whose
+ * winnings have crossed its line has made money past what luck gives an
+ * honest table watched after every coup -- on a fairly shuffled shoe that is
+ * expected never to happen, and the panel says so -- and it is then the one
+ * followed. Its Banker bets and its Player bets are judged apart, and the
+ * badge says a pick is worth backing only on the side whose record passed:
+ * a picker can make money on one side and lose it on the other.
+ *
+ * The one followed already keeps the wheel when it is past the gate; else
+ * the first past it in the panel's order. Never whichever is best at this
+ * coup: records a coup apart swap places by luck, and the bet results settle
+ * whichever is followed, so every swap would rewrite them. A picker whose
+ * record falls back under the line gives the wheel up on the coup it does.
+ *
+ * A record that cannot be baccarat opens nothing: a picker that wins on a
+ * strip counted twice has learned the misreading, as the network would have
+ * (see `learned`).
+ */
+function audited() {
+  if (auditCache && auditCache.revision === revision && auditCache.table === state.active) {
+    return auditCache.value;
+  }
+  // First: it brings the network's walk up to the coup on screen.
+  const l = learned();
+  const o = observed();
+  const deff = Number.isFinite(o.inflate) ? Math.max(1, o.inflate ** 2) : 1;
+  const dealt = shoes().filter((s) => s.o);
+  const sequences = dealt.map((s) => s.o);
+  const cards = dealt.map((s) => s.c || "");
+  // The rule's walk, as the bet results would settle it -- and its record
+  // from the first coup, which is what the gate judges (`replayPicks`).
+  const replay = replayPicks(sequences, { deff, from: shownFrom(), keepFrom: shoeStart(), cards });
+  const learner = learners.for(state.active ?? "");
+  const gate = auditorFor(state.active ?? "").audit(sequences, {
+    ruleBook: replay.all, cards,
+    net: (from, to) => learner.picksBetween(from, to),
+  });
+  const sound = !(l.record.implausible || l.shape.long);
+  const current = l.trusted && l.nextPick ? "net" : "rule";
+  const passing = sound ? gate.passing : [];
+  const promoted = passing.includes(current) ? current : passing[0] ?? null;
+  const chain = gate.chains.find((c) => "m" + c.k === promoted);
+  const value = {
+    gate, replay, sequences, cards, sound, current, promoted,
+    row: promoted ? gate.rows.find((r) => r.name === promoted) : null,
+    // The promoted picker's side for the coup to come.
+    next: promoted === "net" ? l.nextPick : chain ? markovNext(chain, openShoe().o) : null,
+  };
+  auditCache = { revision, table: state.active, value };
+  return value;
+}
+
+/** A picker's name as the panels say it. */
+function pickerName(name) {
+  if (name === "rule") return t("rule.label.combined");
+  if (name === "net") return t("learn.model");
+  return t("audit.markov", { k: name.slice(1) });
+}
+
+/** The sides of a picker's record past the gate, as the panels say them. */
+function sidesName(sides) {
+  return sides.length === 2 ? t("audit.sides.both") : t("audit.sides." + sides[0]);
+}
+
+/** Whose picks the bet results settle: the one making them (`pickedBy`, the cards aside). */
+function settledBy() {
+  const a = audited();
+  return a.promoted ?? (learned().trusted ? "net" : "rule");
+}
+
 function ledger() {
   const from = shownFrom();
   if (ledgerCache && ledgerCache.revision === revision && ledgerCache.table === state.active
@@ -16568,20 +17265,24 @@ function ledger() {
   // the coup would be recorded as a loss because the rule being settled had
   // picked Player.
   const l = learned();
+  const a = audited();
+  const by = settledBy();
   const o = observed();
   const deff = Number.isFinite(o.inflate) ? Math.max(1, o.inflate ** 2) : 1;
-  const dealt = shoes().filter((s) => s.o);
-  const sequences = dealt.map((s) => s.o);
-  const cards = dealt.map((s) => s.c || "");
   let value;
-  if (l.trusted) {
+  if (by === "net") {
     // The network is judged from the mark; the screen may count less of it.
     value = from === ledgerFrom() ? l.model
-      : learners.for(state.active ?? "").settle(sequences, { deff, from, cards }).model;
-  } else {
+      : learners.for(state.active ?? "").settle(a.sequences, { deff, from, cards: a.cards }).model;
+  } else if (by === "rule") {
     // The shoe's pattern, coup by coup -- its cards first where they name a
     // side; the picks over the shoe in progress come back too, for the board.
-    value = replayPicks(sequences, { deff, from, keepFrom: shoeStart(), cards });
+    // The gate walked it from here already, unless the count moved since.
+    value = a.replay.from === from ? a.replay
+      : replayPicks(a.sequences, { deff, from, keepFrom: shoeStart(), cards: a.cards });
+  } else {
+    // The chain the gate opened for, and its picks over the shoe in progress.
+    value = settlePicks(a.sequences, a.gate.picks(by), { from, keepFrom: shoeStart() });
   }
   ledgerCache = { revision, table: state.active, from, value };
   return value;
@@ -16599,7 +17300,7 @@ function shoeCalls() {
   const n = openShoe().o.length;
   if (!n) return null;
   const start = shoeStart();
-  const picks = learned().trusted
+  const picks = settledBy() === "net"
     ? learners.for(state.active ?? "").picksBetween(start, start + n)
     : ledger().picks;
   return typeof picks === "string" && picks.length === n ? picks : null;
@@ -16897,9 +17598,12 @@ function renderLearned() {
   const signed = (x) => (x >= 0 ? "+" : "\u2212") + Math.abs(x).toFixed(2);
   const net = l.trusted;
   const ruleName = t("rule.name.combined");
+  // Whichever the bet results settle, which a picker past the money gate can
+  // make neither of these two.
+  const by = settledBy();
   for (const [key, book, picked] of [
-    [t("learn.model"), l.model, net],
-    [t("rule.label.combined"), l.base, !net],
+    [t("learn.model"), l.model, by === "net"],
+    [t("rule.label.combined"), l.base, by === "rule"],
   ]) {
     const row = el("div", "aifact" + (picked ? " picked" : ""));
     row.appendChild(el("span", "k", key));
@@ -16915,13 +17619,101 @@ function renderLearned() {
   rows.appendChild(split);
 
   const z = l.z.toFixed(2);
-  verdict.className = "aiverdict" + (net ? " on" : "");
-  verdict.innerHTML =
+  // Said here only where the gate takes the pick from the one these two
+  // decide on: past the gate itself, that one is still the one followed.
+  const a = audited();
+  const gated = a.promoted && a.promoted !== a.current ? a.promoted : null;
+  const compared =
     l.reason === "record" ? t("learn.record", { rule: ruleName })
     : l.reason === "ahead" ? t("learn.usingModel", { lead: signed(l.lead), z })
     : l.reason === "noise" ? t("learn.noise", { z, bar: l.bar.toFixed(2), rule: ruleName })
     : l.reason === "tooFew" ? t("learn.tooFew", { n: l.split.toLocaleString(), rule: ruleName })
     : t("learn.behind", { rule: ruleName });
+  verdict.className = "aiverdict" + (net || gated ? " on" : "");
+  // Where the gate has the pick, the comparison's own first sentence -- which
+  // of the two it would use -- is not what happens, and goes; what it found
+  // stays, after the sentence that says who does pick.
+  verdict.innerHTML = gated
+    ? t("learn.gated", { picker: pickerName(gated) }) + " " + compared.replace(/^<b>.*?<\/b>\s*/, "")
+    : compared;
+}
+
+/**
+ * The money gate: every picker's record beside its line, and which of them,
+ * if any, the page follows because of it (`audited`). On a fairly shuffled
+ * shoe no line is expected ever to be crossed, and the verdict says so --
+ * the panel's usual state is "nothing passed", and that is the honest one.
+ */
+function renderAudit() {
+  const a = audited();
+  const { gate } = a;
+  const host = $("auditRows"), verdict = $("auditVerdict");
+  // Every picker bets every decided coup -- the rule and the chains always
+  // name a side, the cards' side is everyone's -- so the count is the table's.
+  const bets = gate.rows.reduce((m, r) => Math.max(m, r.bets), 0);
+  $("auditSub").textContent = t("audit.state", {
+    n: AUDIT_PICKERS.length, bets: bets.toLocaleString(),
+  });
+  host.innerHTML = "";
+  const signed = (x) => (x >= 0 ? "+" : "\u2212") + Math.abs(x).toFixed(2);
+  const table = el("table");
+  const head = el("tr");
+  for (const key of ["audit.colPicker", "audit.colUnits", "audit.colPerBet", "audit.colB", "audit.colP"]) {
+    head.appendChild(el("th", null, t(key)));
+  }
+  table.appendChild(head);
+  const by = settledBy();
+  // Where a side's record stands against its line: past it, short of the
+  // bets it is first judged at, or short of the line by so many units.
+  const standing = (r) => (r.pass ? t("audit.passed")
+    : r.bets < gate.floor ? t("audit.fewBets", { n: (gate.floor - r.bets).toLocaleString() })
+    : t("audit.short", { need: r.need.toFixed(2) }));
+  for (const r of gate.rows) {
+    const tr = el("tr", [r.pass ? "pass" : "", r.name === by ? "picked" : ""].join(" ").trim() || null);
+    tr.dataset.picker = r.name;
+    tr.appendChild(el("td", null, pickerName(r.name)));
+    tr.appendChild(el("td", r.units < 0 ? "neg" : null, signed(r.units)));
+    tr.appendChild(el("td", r.perBet < 0 ? "neg" : null,
+                      r.bets ? signed(r.perBet * 100) + "%" : "\u2014"));
+    for (const s of ["B", "P"]) {
+      const cell = el("td", r.sides[s].pass ? "up" : null, standing(r.sides[s]));
+      cell.dataset.side = s;
+      tr.appendChild(cell);
+    }
+    table.appendChild(tr);
+  }
+  host.appendChild(table);
+
+  const alpha = pct(AUDIT_ALPHA, 1);
+  verdict.className = "aiverdict" + (a.promoted ? " on" : "");
+  if (!a.sound) {
+    verdict.innerHTML = t("audit.record");
+  } else if (a.promoted) {
+    const sides = ["B", "P"].filter((s) => a.row.sides[s].pass);
+    verdict.innerHTML = t("audit.open", {
+      picker: pickerName(a.promoted), sides: sidesName(sides), alpha,
+      lo: sides.map((s) => t("audit.loSide", {
+        side: side(s), lo: signedPct(Math.max(0, a.row.sides[s].lo), 2),
+      })).join(", "),
+    });
+  } else if (gate.decision === "tooFew") {
+    const most = gate.rows.reduce((m, r) => Math.max(m, r.sides.B.bets, r.sides.P.bets), 0);
+    verdict.innerHTML = t("audit.tooFew", {
+      n: most.toLocaleString(), floor: gate.floor.toLocaleString(),
+    });
+  } else {
+    // The side nearest its line, among those judged at all.
+    let near = null;
+    for (const r of gate.rows) {
+      for (const s of ["B", "P"]) {
+        const x = r.sides[s];
+        if (x.bets >= gate.floor && (!near || x.need < near.need)) near = { ...x, name: r.name, s };
+      }
+    }
+    verdict.innerHTML = t("audit.shut", {
+      picker: pickerName(near.name), side: side(near.s), need: near.need.toFixed(2),
+    });
+  }
 }
 
 /** The interval options carry a number, so their labels are built not stored. */
@@ -17252,17 +18044,24 @@ function renderKelly(p, chosen, cfg) {
   const back = backing(p, chosen);
   if (!back.worth) {
     host.className = "aiverdict";
-    host.innerHTML = t(back.ev > 0 ? "stake.kellyUncleared" : "stake.kellyNone", {
-      side: side(chosen), ev: signedPct(back.ev, 3),
-    });
+    host.innerHTML = back.held
+      ? t("stake.kellyGateSide", {
+          picker: pickerName(back.held.picker), side: side(chosen),
+          need: back.held.record.need.toFixed(2),
+        })
+      : t(back.ev > 0 ? "stake.kellyUncleared" : "stake.kellyNone", {
+          side: side(chosen), ev: signedPct(back.ev, 3),
+        });
     return;
   }
   const k = kellyStake({ q: back.q, tieP: back.tieP, side: chosen,
                          bankroll: cfg.stakeBankroll, unit: cfg.stakeUnit });
   const won = (x) => Math.round(x).toLocaleString();
-  const parts = [t(back.source === "cards" ? "stake.kellyCards" : "stake.kellyTable", {
+  const key = { cards: "stake.kellyCards", gate: "stake.kellyGate" }[back.source] || "stake.kellyTable";
+  const parts = [t(key, {
     side: side(chosen), ev: signedPct(back.ev, 3),
     full: pct(k.fraction, 3), half: pct(k.half, 3),
+    ...(back.source === "gate" ? { picker: pickerName(back.picker), lo: signedPct(back.lo, 3) } : {}),
   })];
   if (k.amount !== null) {
     parts.push(t("stake.kellyAmount", { full: won(k.amount), half: won(k.halfAmount) }));
@@ -18490,13 +19289,26 @@ function currentAlerts() {
         kelly: pct(kellyStake({ q: back.q, tieP: back.tieP, side: chosen }).fraction, 3),
       }),
     });
-  } else if (back.worth) {
+  } else if (back.worth && back.source === "table") {
     out.push({
       key: `table:${state.active}:${chosen}`, kind: "table",
       text: t("alert.table", { side: side(chosen), ev: signedPct(back.ev, 3) }),
     });
   }
-  if (usingNetwork()) {
+  // Held for as long as the picker stays past its line, whoever names the
+  // coup to come: the cards taking one coup do not close the gate. Keyed on
+  // the picker alone, so a side passing or falling back says so in the bar
+  // without announcing the picker again.
+  const a = audited();
+  if (a.promoted) {
+    const sides = ["B", "P"].filter((s) => a.row.sides[s].pass);
+    out.push({
+      key: `gate:${state.active}:${a.promoted}`, kind: "gate",
+      text: t("alert.gate", { picker: pickerName(a.promoted), sides: sidesName(sides) }),
+    });
+  }
+  // The network taking the pick: unless the gate gave the pick to another.
+  if (usingNetwork() && (!a.promoted || a.promoted === "net")) {
     const l = learned();
     out.push({
       key: `model:${state.active}`, kind: "model",
