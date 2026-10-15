@@ -979,6 +979,8 @@ body.open > #gate{display:none}
     </span>
     <span id="shoeMeta"></span>
     <span class="store" data-full-only><i class="sdot" id="storeDot"></i><span id="storeLabel"></span></span>
+    <!-- The local server's copy, where the page is served by one (sync.js). -->
+    <span class="store" data-full-only id="syncBox" hidden><i class="sdot" id="syncDot"></i><span id="syncLabel"></span></span>
     <span class="spacer"></span>
     <!-- Browser notifications for the alerts below the header: asked for on
          this button's click, never before it. -->
@@ -1469,6 +1471,24 @@ const S = {
   "store.syncing": { ko: "저장 중…", en: "Saving…", "zh-Hant": "儲存中…", "zh-Hans": "保存中…" },
   "store.synced": { ko: "저장됨", en: "Saved", "zh-Hant": "已儲存", "zh-Hans": "已保存" },
   "store.error": { ko: "저장 실패", en: "Save failed", "zh-Hant": "儲存失敗", "zh-Hans": "保存失败" },
+  "sync.on": {
+    ko: "로컬 서버에도 저장 · {n}판",
+    en: "Also on the local server · {n} [n|coup|coups]",
+    "zh-Hant": "也存於本機伺服器 · {n} 局",
+    "zh-Hans": "也存于本机服务器 · {n} 局",
+  },
+  "sync.sending": {
+    ko: "로컬 서버로 보내는 중…",
+    en: "Sending to the local server…",
+    "zh-Hant": "正在傳送到本機伺服器…",
+    "zh-Hans": "正在发送到本机服务器…",
+  },
+  "sync.error": {
+    ko: "로컬 서버에 못 보냄 · 다시 시도 중",
+    en: "Local server not reached · retrying",
+    "zh-Hant": "無法連到本機伺服器 · 重試中",
+    "zh-Hans": "无法连到本机服务器 · 重试中",
+  },
   "store.full": { ko: "저장 공간 가득 참", en: "Storage full", "zh-Hant": "儲存空間已滿", "zh-Hans": "存储空间已满" },
   "view.full": { ko: "전체 기능 보기", en: "Show every panel", "zh-Hant": "顯示全部功能", "zh-Hans": "显示全部功能" },
   "view.simple": { ko: "간단히 보기", en: "Show the essentials", "zh-Hant": "只看重點", "zh-Hans": "只看重点" },
@@ -13597,6 +13617,155 @@ function readVersion(value) {
   return n > 0 && n <= TOP_VERSION ? n : 0;
 }
 
+/* ═══ sync.js ═══ */
+/**
+ * The reader's coups, kept on the local server too -- where there is one.
+ *
+ * The page keeps what it reads in this browser. Served by the local server
+ * (`python -m baccarat serve`, at `/live`), it can also hand each shoe to the
+ * server's store, and that is the store the retraining loop, the integrity
+ * test and the backtests read: without this, the coups the reader collected
+ * reached them only through an export and an import by hand.
+ *
+ * Whether there is a server is asked once, of `/api/sync`, and only from a
+ * page served at `/live`: the published page never asks anything of anybody.
+ * After that a shoe is sent whenever it differs from what was last sent for
+ * it -- a coup read, an undo, a mended end, a table renamed -- a batch at a
+ * time, a moment after the last change, so a burst of coups is one request.
+ * The server makes its copy match the page's whatever it held before, so
+ * sending a shoe twice is harmless, and the first send of a visit sends
+ * everything the page holds: a server whose store was emptied is filled
+ * again. A send that fails is tried again, later each time, until it lands.
+ *
+ * What is not sent: a shoe the page deletes stays on the server (nothing
+ * here deletes anything there), and typed cards stay in the browser -- the
+ * page keeps ranks, the server's records want suits.
+ */
+
+/** Shoes in one request; the server takes no more (`SYNC_BATCH_MAX`). */
+const SYNC_BATCH = 100;
+/** After the last change, before sending: a burst of coups is one request. */
+const SYNC_DELAY_MS = 1200;
+/** The longest wait between attempts while the server does not answer. */
+const SYNC_RETRY_MAX_MS = 60_000;
+/** The path the page has to be served at for any of this to happen. */
+const SYNC_PAGE_PATH = "/live";
+
+const signature = (s) => `${s.table_id}\u0001${s.outcomes}\u0001${s.closed ? 1 : 0}`;
+
+class ServerSync {
+  /**
+   * `shoes()` lists every shoe the page holds, as the server wants them:
+   * `{ table_id, shoe_id, outcomes, started_at, closed }`.
+   */
+  constructor({ shoes, fetchFn = (...a) => globalThis.fetch(...a), path = "/api/sync",
+                delay = SYNC_DELAY_MS, retryMax = SYNC_RETRY_MAX_MS,
+                onStatus = () => {}, timers = globalThis } = {}) {
+    this.shoes = shoes;
+    this.fetchFn = fetchFn;
+    this.path = path;
+    this.delay = delay;
+    this.retryMax = retryMax;
+    this.onStatus = onStatus;
+    this.timers = timers;
+    this.enabled = false;
+    this.sent = new Map();          // shoe_id -> signature the server last took
+    this.timer = null;
+    this.busy = false;
+    this.again = false;
+    this.failures = 0;
+    this.status = { state: "off", games: 0, shoes: 0 };
+  }
+
+  /** Ask whether a server is there; start sending if it is. */
+  async start() {
+    let ok = false;
+    try {
+      const res = await this.fetchFn(this.path, { headers: { accept: "application/json" } });
+      if (res.ok) {
+        const body = await res.json();
+        ok = body && body.status === "ok";
+        if (ok) this._summary(body);
+      }
+    } catch { ok = false; }
+    this.enabled = ok;
+    if (ok) {
+      this._set("on");
+      this.changed(0);
+    }
+    return ok;
+  }
+
+  /** Something the page holds changed: send it shortly. */
+  changed(after = this.delay) {
+    if (!this.enabled) return;
+    if (this.busy) { this.again = true; return; }
+    if (this.timer) this.timers.clearTimeout(this.timer);
+    this.timer = this.timers.setTimeout(() => { this.timer = null; this.flush(); }, after);
+  }
+
+  /** The shoes that differ from what the server last took. */
+  pending() {
+    const out = [];
+    for (const s of this.shoes()) {
+      // An empty shoe the server never had is nothing to send; one it had
+      // (every coup undone) is sent, so the server lets its coups go too.
+      if (!s.outcomes && !this.sent.has(s.shoe_id)) continue;
+      if (this.sent.get(s.shoe_id) !== signature(s)) out.push(s);
+    }
+    return out;
+  }
+
+  async flush() {
+    if (!this.enabled || this.busy) return;
+    const todo = this.pending();
+    if (!todo.length) { this._set("on"); return; }
+    this.busy = true;
+    this._set("sending");
+    try {
+      for (let i = 0; i < todo.length; i += SYNC_BATCH) {
+        const batch = todo.slice(i, i + SYNC_BATCH);
+        // What is sent, taken now: a coup read while the request is out
+        // differs from it, and goes in the next one.
+        const body = JSON.stringify({ shoes: batch });
+        const took = batch.map((s) => [s.shoe_id, signature(s)]);
+        const res = await this.fetchFn(this.path, {
+          method: "POST",
+          headers: { "content-type": "application/json", accept: "application/json" },
+          body,
+        });
+        if (!res.ok) throw new Error(`sync answered ${res.status}`);
+        const answer = await res.json();
+        for (const [id, sig] of took) this.sent.set(id, sig);
+        this._summary(answer);
+      }
+      this.failures = 0;
+      this.busy = false;
+      this._set("on");
+      if (this.again || this.pending().length) { this.again = false; this.changed(); }
+    } catch {
+      this.busy = false;
+      this.again = false;
+      this.failures += 1;
+      this._set("error");
+      const wait = Math.min(this.retryMax, this.delay * 2 ** Math.min(this.failures, 10));
+      this.changed(wait);
+    }
+  }
+
+  _summary(body) {
+    if (body && Number.isFinite(body.n_games)) {
+      this.status.games = body.n_games;
+      this.status.shoes = Number(body.n_shoes) || 0;
+    }
+  }
+
+  _set(state) {
+    this.status.state = state;
+    this.onStatus({ ...this.status });
+  }
+}
+
 /* ═══ members.js ═══ */
 /* Who may open the reader: members, the master who lets them in, and the
  * record of every sign-in.
@@ -14509,6 +14678,7 @@ function startGate({ onOpen = () => {}, onLock = () => {} } = {}) {
 
 
 
+
 const $ = (id) => document.getElementById(id);
 const el = (tag, cls, text) => {
   const n = document.createElement(tag);
@@ -14863,11 +15033,42 @@ function measureAfterLayout() {
   });
 }
 
+/**
+ * The local server's copy of the shoes, where the page is served by one
+ * (see `sync.js`). Every table's shoes, as the server stores them; the
+ * unsaved sheet is not a table and is never sent.
+ */
+const serverSync = new ServerSync({
+  shoes: () => {
+    const out = [];
+    for (const [name, table] of Object.entries(state.tables)) {
+      for (const shoe of table.shoes || []) {
+        if (!shoe.id) continue;
+        out.push({ table_id: name, shoe_id: shoe.id, outcomes: shoe.o || "",
+                   started_at: Number.isFinite(shoe.t) && shoe.t > 1e12 ? shoe.t : null,
+                   closed: !!shoe.closed });
+      }
+    }
+    return out;
+  },
+  onStatus: () => renderSyncStatus(),
+});
+
+/** The header's line for the server's copy, beside the browser's own. */
+function renderSyncStatus() {
+  const st = serverSync.status;
+  $("syncBox").hidden = st.state === "off";
+  if (st.state === "off") return;
+  $("syncDot").className = "sdot " + (st.state === "on" ? "synced" : st.state === "sending" ? "syncing" : "error");
+  $("syncLabel").textContent = t("sync." + st.state, { n: st.games.toLocaleString() });
+}
+
 function commit(changedIds, writtenTable = state.active) {
   clampMarks();
   lastWrite = writtenTable;
   invalidate();
   store.save(state, changedIds);
+  serverSync.changed();
   // Before the render, so the panel that reports the record is drawn from a
   // log that already knows about the coup just committed.
   settleLog();
@@ -16736,6 +16937,7 @@ function renderAll() {
   renderLiveIntervals();
   renderLiveSources();
   renderNotifyButton();
+  renderSyncStatus();
   render();
   if (live) live._emit();
   if (lastReport) renderIntegrityResult(lastReport);
@@ -18825,6 +19027,7 @@ async function boot() {
     else if (!here) state.active = null;
     invalidate();
     render();
+    serverSync.changed();
     flashNote(t("store.elsewhere"), NOTE_MS);
   }, (log) => {
     // Not settled here. The other tab settled it against its own corpus, and
@@ -18892,6 +19095,9 @@ async function boot() {
     invalidate();
     render();
   }
+  // Served by the local server, the shoes go to its store too. Asked only
+  // there: the published page sends nothing anywhere.
+  if (location.pathname === SYNC_PAGE_PATH) serverSync.start();
 }
 
 boot();
