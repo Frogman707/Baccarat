@@ -3517,6 +3517,12 @@ const S = {
     "zh-Hant": "{n} 靴 — 至少要 {min} 靴才會判定。",
     "zh-Hans": "{n} 靴 — 至少要 {min} 靴才会判定。",
   },
+  "cloud.why.skipCopies": {
+    ko: "슈 {n}개 중 같은 판을 다시 기록한 {copies}개를 빼면 {left}개 — 최소 {min}개가 모여야 판정합니다.",
+    en: "{n} [n|shoe|shoes], {left} once the {copies} [copies|copy|copies] of others are set aside — at least {min} are needed before anything is judged.",
+    "zh-Hant": "{n} 靴中扣除重複記錄的 {copies} 靴後剩 {left} 靴 — 至少要 {min} 靴才會判定。",
+    "zh-Hans": "{n} 靴中扣除重复记录的 {copies} 靴后剩 {left} 靴 — 至少要 {min} 靴才会判定。",
+  },
   "cloud.why.go": {
     ko: "앞쪽 슈로 관문을 통과했고, 관문이 보지 않은 최근 {n}슈에서도 기준 확률보다 나았습니다. 다음 실행에서 달라질 수 있으며, 페이지 추천은 바뀌지 않습니다.",
     en: "The earlier shoes passed the gate, and the latest {n} [n|shoe|shoes], kept back from it, did better than the constant too. The next run may say otherwise; the page's recommendations do not change.",
@@ -16017,7 +16023,15 @@ function startGate({ onOpen = () => {}, onLock = () => {}, onAdmit = () => {} } 
   /** The cycle's verdict in the page's own words, from what it recorded -- never its English. */
   function cloudWhy(c, shoes) {
     const held = c.holdout || null;
-    if (c.decision === "SKIP") return t("cloud.why.skip", { n: num(shoes), min: num(c.minShoes) });
+    if (c.decision === "SKIP") {
+      // Fifty shoes too few to judge reads as nonsense; fifty of which most
+      // repeat others -- a board read again after the table was cleared --
+      // does not. What the cycle judged is the distinct ones.
+      const left = c.distinctShoes;
+      return Number.isFinite(left) && Number.isFinite(shoes) && left < shoes
+        ? t("cloud.why.skipCopies", { n: num(shoes), copies: num(shoes - left), left: num(left), min: num(c.minShoes) })
+        : t("cloud.why.skip", { n: num(shoes), min: num(c.minShoes) });
+    }
     if (c.decision === "ERROR") return t("cloud.why.error");
     if (String(c.decision).startsWith("GO")) return t("cloud.why.go", { n: num(held ? held.shoes : 0) });
     if (held && !held.confirmed) return t("cloud.why.unconfirmed", { n: num(held.shoes) });
