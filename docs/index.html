@@ -918,6 +918,9 @@ body.open > #gate{display:none}
   border:1px solid currentColor}
 .chip.pending{color:var(--accent)} .chip.approved{color:var(--tie)}
 .chip.rejected,.chip.suspended{color:var(--banker)}
+.chip.cloud-go{color:var(--tie)} .chip.cloud-nogo{color:var(--ink-2)}
+.chip.cloud-skip{color:var(--accent)} .chip.cloud-error{color:var(--banker)}
+.cloudhead{margin:4px 0 8px; font-size:14.5px; line-height:1.5; white-space:normal}
 .sheetform{display:grid; grid-template-columns:1fr 1fr auto; gap:10px; align-items:end}
 .sheetform .gfield input{height:42px; font-size:15px}
 .sheetform .btn{height:42px}
@@ -990,6 +993,8 @@ body.open > #gate{display:none}
     <span class="store" data-full-only><i class="sdot" id="storeDot"></i><span id="storeLabel"></span></span>
     <!-- The local server's copy, where the page is served by one (sync.js). -->
     <span class="store" data-full-only id="syncBox" hidden><i class="sdot" id="syncDot"></i><span id="syncLabel"></span></span>
+    <!-- Firebase's copy, for a member who is signed in (sync.js, members.js). -->
+    <span class="store" data-full-only id="cloudBox" hidden><i class="sdot" id="cloudDot"></i><span id="cloudLabel"></span></span>
     <span class="spacer"></span>
     <!-- Browser notifications for the alerts below the header: asked for on
          this button's click, never before it. -->
@@ -1403,6 +1408,7 @@ body.open > #gate{display:none}
       <button role="tab" data-tab="members" data-i18n="admin.tabMembers"></button>
       <button role="tab" data-tab="create" data-i18n="admin.tabCreate"></button>
       <button role="tab" data-tab="logins" data-i18n="admin.tabLogins"></button>
+      <button role="tab" data-tab="cloud" data-i18n="admin.tabCloud"></button>
     </div>
     <div id="acctBody"></div>
   </div>
@@ -1490,7 +1496,7 @@ const S = {
   "theme.light": { ko: "밝게", en: "Light", "zh-Hant": "淺色", "zh-Hans": "浅色" },
   "theme.dark": { ko: "어둡게", en: "Dark", "zh-Hant": "深色", "zh-Hans": "深色" },
 
-  "store.local": { ko: "이 브라우저에만 저장", en: "Saved in this browser", "zh-Hant": "僅存於此瀏覽器", "zh-Hans": "仅存于此浏览器" },
+  "store.local": { ko: "이 브라우저에 저장", en: "Saved in this browser", "zh-Hant": "存於此瀏覽器", "zh-Hans": "存于此浏览器" },
   "store.syncing": { ko: "저장 중…", en: "Saving…", "zh-Hant": "儲存中…", "zh-Hans": "保存中…" },
   "store.synced": { ko: "저장됨", en: "Saved", "zh-Hant": "已儲存", "zh-Hans": "已保存" },
   "store.error": { ko: "저장 실패", en: "Save failed", "zh-Hant": "儲存失敗", "zh-Hans": "保存失败" },
@@ -1511,6 +1517,24 @@ const S = {
     en: "Local server not reached · retrying",
     "zh-Hant": "無法連到本機伺服器 · 重試中",
     "zh-Hans": "无法连到本机服务器 · 重试中",
+  },
+  "cloudSync.on": {
+    ko: "Firebase에도 저장 · {n}판",
+    en: "Also on Firebase · {n} [n|coup|coups]",
+    "zh-Hant": "也存於 Firebase · {n} 局",
+    "zh-Hans": "也存于 Firebase · {n} 局",
+  },
+  "cloudSync.sending": {
+    ko: "Firebase로 보내는 중…",
+    en: "Sending to Firebase…",
+    "zh-Hant": "正在傳送到 Firebase…",
+    "zh-Hans": "正在发送到 Firebase…",
+  },
+  "cloudSync.error": {
+    ko: "Firebase에 못 보냄 · 다시 시도 중",
+    en: "Firebase not reached · retrying",
+    "zh-Hant": "無法連到 Firebase · 重試中",
+    "zh-Hans": "无法连到 Firebase · 重试中",
   },
   "store.full": { ko: "저장 공간 가득 참", en: "Storage full", "zh-Hant": "儲存空間已滿", "zh-Hans": "存储空间已满" },
   "view.full": { ko: "전체 기능 보기", en: "Show every panel", "zh-Hant": "顯示全部功能", "zh-Hans": "显示全部功能" },
@@ -3425,6 +3449,95 @@ const S = {
   "admin.tabMembers": { ko: "회원", en: "Members", "zh-Hant": "會員", "zh-Hans": "会员" },
   "admin.tabCreate": { ko: "회원 만들기", en: "Add a member", "zh-Hant": "新增會員", "zh-Hans": "新增会员" },
   "admin.tabLogins": { ko: "로그인 기록", en: "Sign-ins", "zh-Hant": "登入紀錄", "zh-Hans": "登录记录" },
+  "admin.tabCloud": { ko: "클라우드 점검", en: "Cloud check", "zh-Hant": "雲端檢查", "zh-Hans": "云端检查" },
+  "cloud.sub": {
+    ko: "GitHub Actions가 6시간마다 회원들이 Firebase에 올린 판 전부로 재학습 판정을 다시 합니다. 결과만 기록하며, 페이지의 추천은 바꾸지 않습니다.",
+    en: "Every six hours GitHub Actions retrains on every shoe the members' pages filed in Firebase and records what the gate said. It only records: the page's recommendations do not change.",
+    "zh-Hant": "GitHub Actions 每 6 小時用會員上傳到 Firebase 的全部牌靴重新訓練並判定。只記錄結果，不會改變頁面的建議。",
+    "zh-Hans": "GitHub Actions 每 6 小时用会员上传到 Firebase 的全部牌靴重新训练并判定。只记录结果，不会改变页面的建议。",
+  },
+  "cloud.never": {
+    ko: "아직 실행 기록이 없습니다. 첫 예약 실행 전이거나, 서비스 계정에 ‘Cloud Datastore User’ 권한이 아직 없을 수 있습니다.",
+    en: "No run yet. Either the first scheduled run has not come, or the service account does not yet have the 'Cloud Datastore User' role.",
+    "zh-Hant": "尚無執行紀錄。可能還沒到第一次排程執行，或服務帳戶尚未取得「Cloud Datastore User」角色。",
+    "zh-Hans": "尚无运行记录。可能还没到第一次计划运行，或服务账号尚未获得“Cloud Datastore User”角色。",
+  },
+  "cloud.lastRun": {
+    ko: "마지막 실행 {when} · {by}",
+    en: "Last run {when} · {by}",
+    "zh-Hant": "最後執行 {when} · {by}",
+    "zh-Hans": "最后运行 {when} · {by}",
+  },
+  "cloud.by.schedule": { ko: "예약 실행", en: "scheduled", "zh-Hant": "排程", "zh-Hans": "计划" },
+  "cloud.by.manual": { ko: "수동 실행", en: "by hand", "zh-Hant": "手動", "zh-Hans": "手动" },
+  "cloud.corpus": {
+    ko: "모인 판 {games}판 · {shoes}슈 · 회원 {members}명",
+    en: "Collected: {games} [games|coup|coups] · {shoes} [shoes|shoe|shoes] · {members} [members|member|members]",
+    "zh-Hant": "已收集 {games} 局 · {shoes} 靴 · 會員 {members} 人",
+    "zh-Hans": "已收集 {games} 局 · {shoes} 靴 · 会员 {members} 人",
+  },
+  "cloud.figures": {
+    ko: "가장 나은 학습 모델 {model} · 관문 ROI {roi} · p(BH) {p} · 남겨 둔 슈 ROI {held}",
+    en: "Best trained model {model} · gate ROI {roi} · p(BH) {p} · kept-back shoes ROI {held}",
+    "zh-Hant": "最佳訓練模型 {model} · 關卡 ROI {roi} · p(BH) {p} · 保留牌靴 ROI {held}",
+    "zh-Hans": "最佳训练模型 {model} · 关卡 ROI {roi} · p(BH) {p} · 保留牌靴 ROI {held}",
+  },
+  "cloud.decision.go": { ko: "관문 통과 (참고용)", en: "Passed (for reference)", "zh-Hant": "通過（僅供參考）", "zh-Hans": "通过（仅供参考）" },
+  "cloud.decision.nogo": { ko: "관문 미통과", en: "Not passed", "zh-Hant": "未通過", "zh-Hans": "未通过" },
+  "cloud.decision.skip": { ko: "판정 보류", en: "Not judged", "zh-Hant": "暫不判定", "zh-Hans": "暂不判定" },
+  "cloud.decision.error": { ko: "오류", en: "Error", "zh-Hant": "錯誤", "zh-Hans": "错误" },
+  "cloud.why.skip": {
+    ko: "슈 {n}개 — 최소 {min}개가 모여야 판정합니다.",
+    en: "{n} [n|shoe|shoes] — at least {min} are needed before anything is judged.",
+    "zh-Hant": "{n} 靴 — 至少要 {min} 靴才會判定。",
+    "zh-Hans": "{n} 靴 — 至少要 {min} 靴才会判定。",
+  },
+  "cloud.why.go": {
+    ko: "앞쪽 슈로 관문을 통과했고, 관문이 보지 않은 최근 {n}슈에서도 기준 확률보다 나았습니다. 다음 실행에서 달라질 수 있으며, 페이지 추천은 바뀌지 않습니다.",
+    en: "The earlier shoes passed the gate, and the latest {n} [n|shoe|shoes], kept back from it, did better than the constant too. The next run may say otherwise; the page's recommendations do not change.",
+    "zh-Hant": "較早的牌靴通過關卡，關卡未看過的最近 {n} 靴也優於基準機率。下次執行結果可能不同，頁面建議不會改變。",
+    "zh-Hans": "较早的牌靴通过关卡，关卡未看过的最近 {n} 靴也优于基准概率。下次运行结果可能不同，页面建议不会改变。",
+  },
+  "cloud.why.unconfirmed": {
+    ko: "앞쪽 슈로는 관문을 통과했지만, 남겨 둔 최근 {n}슈에서 확인되지 않았습니다.",
+    en: "The earlier shoes passed the gate, but the latest {n} [n|shoe|shoes], kept back from it, did not bear it out.",
+    "zh-Hant": "較早的牌靴通過關卡，但保留的最近 {n} 靴未能確認。",
+    "zh-Hans": "较早的牌靴通过关卡，但保留的最近 {n} 靴未能确认。",
+  },
+  "cloud.why.nogo": { ko: "이유: {list}", en: "Why: {list}", "zh-Hant": "原因：{list}", "zh-Hans": "原因：{list}" },
+  "cloud.why.roi": { ko: "ROI가 0 이하", en: "ROI not above zero", "zh-Hant": "ROI 未高於 0", "zh-Hans": "ROI 未高于 0" },
+  "cloud.why.p": {
+    ko: "다중검정 보정 후 유의하지 않음", en: "not significant after correction",
+    "zh-Hant": "多重檢定校正後不顯著", "zh-Hans": "多重检验校正后不显著",
+  },
+  "cloud.why.ci": {
+    ko: "부트스트랩 구간이 0을 포함", en: "the bootstrap interval includes zero",
+    "zh-Hant": "自助法區間包含 0", "zh-Hans": "自助法区间包含 0",
+  },
+  "cloud.why.error": {
+    ko: "실행 중 오류가 났습니다. GitHub의 Actions 기록을 확인하세요.",
+    en: "The run failed. See its log under Actions on GitHub.",
+    "zh-Hant": "執行時發生錯誤。請查看 GitHub 的 Actions 紀錄。",
+    "zh-Hans": "运行时出错。请查看 GitHub 的 Actions 记录。",
+  },
+  "cloud.checksH": { ko: "슈 점검", en: "Shoe checks", "zh-Hant": "牌靴檢查", "zh-Hans": "牌靴检查" },
+  "cloud.checks": {
+    ko: "너무 짧게 닫힌 슈 {short} · 너무 긴 슈 {long} · 중복 슈 {copies}",
+    en: "Closed too short {short} · too long {long} · copies {copies}",
+    "zh-Hant": "過早結束 {short} · 過長 {long} · 重複 {copies}",
+    "zh-Hans": "过早结束 {short} · 过长 {long} · 重复 {copies}",
+  },
+  "cloud.kind.short": { ko: "짧게 닫힘", en: "Closed short", "zh-Hant": "過早結束", "zh-Hans": "过早结束" },
+  "cloud.kind.long": { ko: "너무 김", en: "Too long", "zh-Hant": "過長", "zh-Hans": "过长" },
+  "cloud.kind.copy": { ko: "중복", en: "Copy", "zh-Hant": "重複", "zh-Hans": "重复" },
+  "cloud.copyOf": { ko: "{a} = {b}", en: "{a} = {b}", "zh-Hant": "{a} = {b}", "zh-Hans": "{a} = {b}" },
+  "cloud.colKind": { ko: "종류", en: "Kind", "zh-Hant": "類型", "zh-Hans": "类型" },
+  "cloud.colShoe": { ko: "회원 · 테이블 · 슈", en: "Member · table · shoe", "zh-Hant": "會員 · 牌桌 · 牌靴", "zh-Hans": "会员 · 牌桌 · 牌靴" },
+  "cloud.colCoups": { ko: "판", en: "Coups", "zh-Hant": "局", "zh-Hans": "局" },
+  "cloud.colShoes": { ko: "슈", en: "Shoes", "zh-Hant": "靴", "zh-Hans": "靴" },
+  "cloud.colBy": { ko: "실행", en: "Run", "zh-Hant": "執行", "zh-Hans": "运行" },
+  "cloud.colDecision": { ko: "판정", en: "Verdict", "zh-Hant": "判定", "zh-Hans": "判定" },
+  "cloud.runsH": { ko: "최근 실행", en: "Recent runs", "zh-Hant": "最近執行", "zh-Hans": "最近运行" },
   "admin.pendingH": { ko: "승인 대기 ({n})", en: "Waiting ({n})", "zh-Hant": "待核准（{n}）", "zh-Hans": "待批准（{n}）" },
   "admin.pendingNone": {
     ko: "승인을 기다리는 신청이 없습니다.", en: "Nobody is waiting.", "zh-Hant": "沒有待核准的申請。", "zh-Hans": "没有待批准的申请。",
@@ -14716,25 +14829,34 @@ function readVersion(value) {
 
 /* ═══ sync.js ═══ */
 /**
- * The reader's coups, kept on the local server too -- where there is one.
+ * The reader's coups, kept somewhere besides this browser -- where there is
+ * somewhere to keep them.
  *
- * The page keeps what it reads in this browser. Served by the local server
- * (`python -m baccarat serve`, at `/live`), it can also hand each shoe to the
- * server's store, and that is the store the retraining loop, the integrity
- * test and the backtests read: without this, the coups the reader collected
- * reached them only through an export and an import by hand.
+ * Two places, each with its own instance of the same class:
  *
- * Whether there is a server is asked once, of `/api/sync`, and only from a
- * page served at `/live`: the published page never asks anything of anybody.
- * After that a shoe is sent whenever it differs from what was last sent for
+ * - **Firebase.** A member who is signed in (and let in) has every shoe the
+ *   page holds filed in Firestore under their own name (`shoes/{uid}_{shoe}`,
+ *   `members.js`), on the published page as anywhere else. That is the corpus
+ *   the retraining job reads on its schedule (`baccarat/serving/cloud.py`).
+ * - **The local server**, where the page is served by one (`python -m baccarat
+ *   serve`, at `/live`): its store, read by the server's own retraining loop.
+ *   Whether there is a server is asked once, of `/api/sync`, and only from a
+ *   page served at `/live`.
+ *
+ * Either way a shoe is sent whenever it differs from what was last sent for
  * it -- a coup read, an undo, a mended end, a table renamed -- a batch at a
  * time, a moment after the last change, so a burst of coups is one request.
- * The server makes its copy match the page's whatever it held before, so
- * sending a shoe twice is harmless, and the first send of a visit sends
- * everything the page holds: a server whose store was emptied is filled
- * again. A send that fails is tried again, later each time, until it lands.
+ * The far side makes its copy match the page's whatever it held before, so
+ * sending a shoe twice is harmless. A send that fails is tried again, later
+ * each time, until it lands.
  *
- * What is not sent: a shoe the page deletes stays on the server (nothing
+ * The local server is sent everything on the first send of a visit, so a
+ * store that was emptied is filled again. Firebase is not: what was filed is
+ * remembered in this browser, per account (`memory`), so a visit sends only
+ * what changed since the last one -- the free quota counts writes, and a page
+ * holding a thousand shoes would spend a thousand of them on every reload.
+ *
+ * What is not sent: a shoe the page deletes stays where it was sent (nothing
  * here deletes anything there), and typed cards stay in the browser -- the
  * page keeps ranks, the server's records want suits.
  */
@@ -14748,7 +14870,41 @@ const SYNC_RETRY_MAX_MS = 60_000;
 /** The path the page has to be served at for any of this to happen. */
 const SYNC_PAGE_PATH = "/live";
 
-const signature = (s) => `${s.table_id}\u0001${s.outcomes}\u0001${s.closed ? 1 : 0}`;
+/**
+ * What a shoe was when it was sent, in a few characters: its length and an
+ * FNV-1a hash of its table, coups and whether it closed. Short, because the
+ * Firebase instance keeps one per shoe in this browser's storage.
+ */
+function signature(s) {
+  const text = `${s.table_id}\u0001${s.outcomes}\u0001${s.closed ? 1 : 0}`;
+  let h = 0x811c9dc5;
+  for (let i = 0; i < text.length; i++) {
+    h ^= text.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return `${s.outcomes.length}.${h.toString(36)}`;
+}
+
+/** The local server, over HTTP: `GET` to ask whether it is there, `POST` to send. */
+function httpTransport(fetchFn = (...a) => globalThis.fetch(...a), path = "/api/sync") {
+  return {
+    async probe() {
+      const res = await fetchFn(path, { headers: { accept: "application/json" } });
+      if (!res.ok) return null;
+      const body = await res.json();
+      return body && body.status === "ok" ? body : null;
+    },
+    async send(batch) {
+      const res = await fetchFn(path, {
+        method: "POST",
+        headers: { "content-type": "application/json", accept: "application/json" },
+        body: JSON.stringify({ shoes: batch }),
+      });
+      if (!res.ok) throw new Error(`sync answered ${res.status}`);
+      return res.json();
+    },
+  };
+}
 
 class ServerSync {
   /**
@@ -14756,11 +14912,14 @@ class ServerSync {
    * `{ table_id, shoe_id, outcomes, started_at, closed }`.
    */
   constructor({ shoes, fetchFn = (...a) => globalThis.fetch(...a), path = "/api/sync",
+                transport = null, memory = null,
                 delay = SYNC_DELAY_MS, retryMax = SYNC_RETRY_MAX_MS,
                 onStatus = () => {}, timers = globalThis } = {}) {
     this.shoes = shoes;
-    this.fetchFn = fetchFn;
-    this.path = path;
+    // Where the shoes go: the local server unless told otherwise.
+    this.transport = transport || httpTransport(fetchFn, path);
+    // What was sent, kept between visits: `{ load() -> {id: signature}, save(object) }`.
+    this.memory = memory;
     this.delay = delay;
     this.retryMax = retryMax;
     this.onStatus = onStatus;
@@ -14772,25 +14931,45 @@ class ServerSync {
     this.again = false;
     this.failures = 0;
     this.status = { state: "off", games: 0, shoes: 0 };
+    // Bumped by every start and stop: an answer that comes back to an older
+    // one -- the account that sent it has signed out -- is not acted on.
+    this.gen = 0;
   }
 
-  /** Ask whether a server is there; start sending if it is. */
+  /** Ask whether the far side is there; start sending if it is. */
   async start() {
-    let ok = false;
-    try {
-      const res = await this.fetchFn(this.path, { headers: { accept: "application/json" } });
-      if (res.ok) {
-        const body = await res.json();
-        ok = body && body.status === "ok";
-        if (ok) this._summary(body);
-      }
-    } catch { ok = false; }
+    const gen = ++this.gen;
+    let body = null;
+    try { body = await this.transport.probe(); } catch { body = null; }
+    if (gen !== this.gen) return false;              // stopped, or started again, meanwhile
+    const ok = !!body;
     this.enabled = ok;
     if (ok) {
+      this.sent = new Map();
+      try {
+        const kept = this.memory ? this.memory.load() : null;
+        if (kept && typeof kept === "object") {
+          for (const [id, sig] of Object.entries(kept)) if (typeof sig === "string") this.sent.set(id, sig);
+        }
+      } catch { /* sent again, then */ }
+      this._summary(body);
       this._set("on");
       this.changed(0);
     }
     return ok;
+  }
+
+  /** Stop sending: signed out, or somebody else signed in. */
+  stop() {
+    this.gen += 1;
+    this.enabled = false;
+    if (this.timer) this.timers.clearTimeout(this.timer);
+    this.timer = null;
+    this.again = false;
+    this.failures = 0;
+    this.sent = new Map();
+    this.status = { state: "off", games: 0, shoes: 0 };
+    this.onStatus({ ...this.status });
   }
 
   /** Something the page holds changed: send it shortly. */
@@ -14816,25 +14995,23 @@ class ServerSync {
   async flush() {
     if (!this.enabled || this.busy) return;
     const todo = this.pending();
-    if (!todo.length) { this._set("on"); return; }
+    if (!todo.length) { this._summary(null); this._set("on"); return; }
+    const gen = this.gen;
     this.busy = true;
     this._set("sending");
     try {
       for (let i = 0; i < todo.length; i += SYNC_BATCH) {
-        const batch = todo.slice(i, i + SYNC_BATCH);
         // What is sent, taken now: a coup read while the request is out
         // differs from it, and goes in the next one.
-        const body = JSON.stringify({ shoes: batch });
+        const batch = todo.slice(i, i + SYNC_BATCH).map((s) => ({ ...s }));
         const took = batch.map((s) => [s.shoe_id, signature(s)]);
-        const res = await this.fetchFn(this.path, {
-          method: "POST",
-          headers: { "content-type": "application/json", accept: "application/json" },
-          body,
-        });
-        if (!res.ok) throw new Error(`sync answered ${res.status}`);
-        const answer = await res.json();
+        const answer = await this.transport.send(batch);
+        // Stopped while it was out (signed out): what it took is not this
+        // account's to remember.
+        if (gen !== this.gen) { this.busy = false; return; }
         for (const [id, sig] of took) this.sent.set(id, sig);
         this._summary(answer);
+        this._remember();
       }
       this.failures = 0;
       this.busy = false;
@@ -14842,6 +15019,7 @@ class ServerSync {
       if (this.again || this.pending().length) { this.again = false; this.changed(); }
     } catch {
       this.busy = false;
+      if (gen !== this.gen) return;
       this.again = false;
       this.failures += 1;
       this._set("error");
@@ -14854,7 +15032,21 @@ class ServerSync {
     if (body && Number.isFinite(body.n_games)) {
       this.status.games = body.n_games;
       this.status.shoes = Number(body.n_shoes) || 0;
+    } else {
+      // The far side says nothing of its totals (Firebase): what this page
+      // has there, then.
+      let games = 0, shoes = 0;
+      for (const s of this.shoes()) {
+        if (this.sent.get(s.shoe_id) === signature(s) && s.outcomes) { games += s.outcomes.length; shoes += 1; }
+      }
+      this.status.games = games;
+      this.status.shoes = shoes;
     }
+  }
+
+  _remember() {
+    if (!this.memory) return;
+    try { this.memory.save(Object.fromEntries(this.sent)); } catch { /* sent again next visit */ }
   }
 
   _set(state) {
@@ -15012,6 +15204,62 @@ function problemOf(error) {
 }
 
 const fail = (code) => Object.assign(new Error(code), { code });
+
+/* ------------------------------------------------------------- the shoes */
+
+/** A shoe's name as Firestore files it (`shoes/{uid}_{shoe}`); the rules hold the same. */
+const SHOE_ID_RULE = /^[A-Za-z0-9._-]{1,64}$/;
+/** The most coups one shoe holds there, and the longest table name. */
+const SHOE_COUPS_MAX = 400;
+const TABLE_NAME_MAX = 96;
+
+/**
+ * A shoe as Firestore takes it, or null for one it would refuse.
+ *
+ * The page's own shoes always pass -- `S` and base-36 digits, a few dozen
+ * coups. What does not is a shoe brought in from an old export under a name
+ * of its own, or one past four hundred coups: those stay in this browser. A
+ * table name longer than Firestore keeps is cut, never split inside a
+ * character.
+ */
+function fileableShoe(s) {
+  if (!s || !SHOE_ID_RULE.test(String(s.shoe_id))) return null;
+  const outcomes = String(s.outcomes ?? "");
+  if (outcomes.length > SHOE_COUPS_MAX || /[^PBT]/.test(outcomes)) return null;
+  let table = String(s.table_id ?? "").trim() || "?";
+  if (table.length > TABLE_NAME_MAX) {
+    table = table.slice(0, TABLE_NAME_MAX);
+    if (/[\uD800-\uDBFF]$/.test(table)) table = table.slice(0, -1);
+  }
+  return {
+    table_id: table, shoe_id: s.shoe_id, outcomes,
+    started_at: Number.isSafeInteger(s.started_at) && s.started_at > 0 ? s.started_at : null,
+    closed: !!s.closed,
+  };
+}
+
+/** Timestamps, as milliseconds, all the way down: what the retraining job wrote, plainly. */
+function firestorePlain(v) {
+  if (v && typeof v.toMillis === "function") return v.toMillis();
+  if (Array.isArray(v)) return v.map(firestorePlain);
+  if (v && typeof v === "object") return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, firestorePlain(x)]));
+  return v;
+}
+
+/** How many of the retraining job's runs the master's desk lists. */
+const CLOUD_RUNS_SHOWN = 12;
+
+/**
+ * The page's shoes, sent to Firebase as the signed-in account's own -- the
+ * `transport` `sync.js` takes. There is nothing to ask first: an account let
+ * in may file, and the rules say no to one that is not.
+ */
+function cloudTransport(acc, user) {
+  return {
+    probe: async () => ({ status: "ok" }),
+    send: async (batch) => { await acc.saveShoes(user, batch); return null; },
+  };
+}
 
 /**
  * Load the Firebase SDK, when the page first needs it.
@@ -15186,6 +15434,33 @@ function firebaseAccounts(sdk, config = FIREBASE_CONFIG, emulators = null) {
       return user.uid;
     }),
 
+    /**
+     * Shoes the reader read, filed as this account's: one write each, the
+     * whole shoe, so a shoe that grew, shrank or closed is filed as it is now.
+     */
+    saveShoes: (user, shoes) => call(async () => {
+      const batch = S.writeBatch(db);
+      for (const s of shoes) {
+        batch.set(S.doc(db, "shoes", `${user.uid}_${s.shoe_id}`), {
+          uid: user.uid, id: user.id, table: s.table_id, shoe: s.shoe_id, outcomes: s.outcomes,
+          startedAt: s.started_at, closed: s.closed, updatedAt: S.serverTimestamp(),
+        });
+      }
+      await batch.commit();
+    }),
+
+    /** What the retraining job made of the shoes last time, or null before it first ran. */
+    cloudLatest: () => call(async () => {
+      const snap = await S.getDoc(S.doc(db, "cloud", "latest"));
+      return snap.exists() ? firestorePlain(snap.data()) : null;
+    }),
+
+    /** Its runs, newest first. */
+    cloudRuns: (limit = CLOUD_RUNS_SHOWN) => call(async () => {
+      const q = S.query(S.collection(db, "cloudRuns"), S.orderBy("ranAt", "desc"), S.limit(limit));
+      return (await S.getDocs(q)).docs.map((d) => ({ id: d.id, ...firestorePlain(d.data()) }));
+    }),
+
     /** Sign-ins, newest first: everyone's for the master, or one member's. */
     logins: ({ uid = null, limit = LOGINS_SHOWN } = {}) => call(async () => {
       const where = uid ? [S.where("uid", "==", uid)] : [];
@@ -15235,9 +15510,12 @@ const NEWS = new Set(["pending", "requested"]);
  *
  * `onOpen` and `onLock` are the page's: what it does when the reader comes
  * into view (it was laid out while hidden) and when it goes (the live reader
- * stops reading for somebody who signed out).
+ * stops reading for somebody who signed out). `onAdmit(accounts, user)` is
+ * called once the sign-in server has let somebody in -- not on a reload
+ * opened offline on the last sign-in -- and is where the page starts filing
+ * its shoes under their name.
  */
-function startGate({ onOpen = () => {}, onLock = () => {} } = {}) {
+function startGate({ onOpen = () => {}, onLock = () => {}, onAdmit = () => {} } = {}) {
   const $g = (id) => document.getElementById(id);
   const body = document.body;
   let backendPromise = null;
@@ -15372,6 +15650,7 @@ function startGate({ onOpen = () => {}, onLock = () => {} } = {}) {
     // sign-in that stamped it again would keep an offline member in for ever.
     remember(session);
     follow(acc, user);
+    onAdmit(acc, { uid: user.uid, id: user.id, master: !!user.master });
   }
 
   /** What changes while somebody is in: a member let out, the master's queue. */
@@ -15582,6 +15861,7 @@ function startGate({ onOpen = () => {}, onLock = () => {} } = {}) {
       if (view === "members") out.replaceChildren(...(await membersView(acc)));
       else if (view === "create") out.replaceChildren(...createView(acc));
       else if (view === "logins") out.replaceChildren(...(await loginsView(acc, master)));
+      else if (view === "cloud") out.replaceChildren(...(await cloudView(acc)));
       else out.replaceChildren(...(await loginsView(acc, false)));
     } catch (e) {
       out.replaceChildren(node("p", "sheetmsg err", words(problemOf(e))));
@@ -15697,6 +15977,88 @@ function startGate({ onOpen = () => {}, onLock = () => {} } = {}) {
     return [sec];
   }
 
+  /* ------------------------------------------- what the retraining made */
+
+  const pct = (x) => (Number.isFinite(x) ? `${x >= 0 ? "+" : ""}${(x * 100).toFixed(2)}%` : "—");
+  const num = (x) => (Number.isFinite(x) ? x.toLocaleString() : "—");
+
+  /** The cycle's verdict in the page's own words, from what it recorded -- never its English. */
+  function cloudWhy(c, shoes) {
+    const held = c.holdout || null;
+    if (c.decision === "SKIP") return t("cloud.why.skip", { n: num(shoes), min: num(c.minShoes) });
+    if (c.decision === "ERROR") return t("cloud.why.error");
+    if (String(c.decision).startsWith("GO")) return t("cloud.why.go", { n: num(held ? held.shoes : 0) });
+    if (held && !held.confirmed) return t("cloud.why.unconfirmed", { n: num(held.shoes) });
+    const why = [];
+    if (!(c.roi > 0)) why.push(t("cloud.why.roi"));
+    if (!(c.pBH < 0.05)) why.push(t("cloud.why.p"));
+    if (!(c.ciLow > 0)) why.push(t("cloud.why.ci"));
+    return t("cloud.why.nogo", { list: why.join(" · ") || "—" });
+  }
+
+  function decisionChip(decision) {
+    const d = String(decision || "");
+    const key = d.startsWith("GO") ? "go" : d === "NO-GO" ? "nogo" : d === "SKIP" ? "skip" : "error";
+    return node("span", `chip cloud-${key}`, t("cloud.decision." + key));
+  }
+
+  async function cloudView(acc) {
+    const sec = node("section", "sheetsec");
+    sec.id = "acctCloud";
+    sec.appendChild(node("p", "sub", t("cloud.sub")));
+    const [latest, runs] = await Promise.all([acc.cloudLatest(), acc.cloudRuns(CLOUD_RUNS_SHOWN)]);
+    if (!latest) {
+      sec.appendChild(node("p", "empty", t("cloud.never")));
+      return [sec];
+    }
+    const c = latest.cycle || {};
+    const head = node("p", "cloudhead");
+    head.appendChild(decisionChip(c.decision));
+    head.appendChild(document.createTextNode(" " + cloudWhy(c, latest.shoes)));
+    head.title = String(c.reason || "");
+    sec.appendChild(head);
+    sec.appendChild(node("p", "sub", t("cloud.lastRun", {
+      when: when(latest.ranAt), by: t(latest.ranBy === "schedule" ? "cloud.by.schedule" : "cloud.by.manual"),
+    })));
+    sec.appendChild(node("p", null, t("cloud.corpus", {
+      games: num(latest.games), shoes: num(latest.shoes), members: num(latest.members),
+    })));
+    if (c.bestModel) {
+      sec.appendChild(node("p", "sub", t("cloud.figures", {
+        model: c.bestModel, roi: pct(c.roi),
+        p: Number.isFinite(c.pBH) ? c.pBH.toPrecision(2) : "—",
+        held: c.holdout ? pct(c.holdout.roi) : "—",
+      })));
+    }
+
+    const checks = node("section", "sheetsec");
+    const k = latest.corpus || {};
+    checks.appendChild(node("h3", null, t("cloud.checksH")));
+    checks.appendChild(node("p", null, t("cloud.checks", {
+      short: num(k.shortClosed), long: num(k.overlong), copies: num(k.duplicates),
+    })));
+    const examples = Array.isArray(k.examples) ? k.examples : [];
+    if (examples.length) {
+      checks.appendChild(table([t("cloud.colKind"), t("cloud.colShoe"), t("cloud.colCoups")],
+        examples.map((e) => [
+          { text: t("cloud.kind." + (e.kind === "short" ? "short" : e.kind === "long" ? "long" : "copy")) },
+          { text: e.kind === "copy" ? t("cloud.copyOf", { a: String(e.shoe), b: String(e.of) }) : String(e.shoe) },
+          { text: num(e.coups) }])));
+    }
+
+    const past = node("section", "sheetsec");
+    past.appendChild(node("h3", null, t("cloud.runsH")));
+    past.appendChild(runs.length
+      ? table([t("admin.colAt"), t("cloud.colBy"), t("cloud.colShoes"), t("cloud.colCoups"), t("cloud.colDecision")],
+        runs.map((r) => [
+          { text: when(r.ranAt), cls: "when" },
+          { text: t(r.ranBy === "schedule" ? "cloud.by.schedule" : "cloud.by.manual") },
+          { text: num(r.shoes) }, { text: num(r.games) },
+          { node: decisionChip((r.cycle || {}).decision) }]))
+      : node("p", "empty", t("cloud.never")));
+    return [sec, checks, past];
+  }
+
   function openSheet() {
     if (!session) return;
     sheet.hidden = false;
@@ -15773,6 +16135,7 @@ function startGate({ onOpen = () => {}, onLock = () => {} } = {}) {
 
 // Named, and spelled out: the page is served as one concatenated scope, where
 // a namespace import has nothing to be a namespace of.
+
 
 
 
@@ -16134,33 +16497,67 @@ function measureAfterLayout() {
 }
 
 /**
- * The local server's copy of the shoes, where the page is served by one
- * (see `sync.js`). Every table's shoes, as the server stores them; the
- * unsaved sheet is not a table and is never sent.
+ * Every table's shoes, as `sync.js` hands them on; the unsaved sheet is not a
+ * table and is never sent.
  */
-const serverSync = new ServerSync({
-  shoes: () => {
-    const out = [];
-    for (const [name, table] of Object.entries(state.tables)) {
-      for (const shoe of table.shoes || []) {
-        if (!shoe.id) continue;
-        out.push({ table_id: name, shoe_id: shoe.id, outcomes: shoe.o || "",
-                   started_at: Number.isFinite(shoe.t) && shoe.t > 1e12 ? shoe.t : null,
-                   closed: !!shoe.closed });
-      }
+function pageShoes() {
+  const out = [];
+  for (const [name, table] of Object.entries(state.tables)) {
+    for (const shoe of table.shoes || []) {
+      if (!shoe.id) continue;
+      out.push({ table_id: name, shoe_id: shoe.id, outcomes: shoe.o || "",
+                 started_at: Number.isFinite(shoe.t) && shoe.t > 1e12 ? shoe.t : null,
+                 closed: !!shoe.closed });
     }
-    return out;
-  },
-  onStatus: () => renderSyncStatus(),
-});
+  }
+  return out;
+}
 
-/** The header's line for the server's copy, beside the browser's own. */
+/** The local server's copy of the shoes, where the page is served by one (see `sync.js`). */
+const serverSync = new ServerSync({ shoes: pageShoes, onStatus: () => renderSyncStatus() });
+
+/**
+ * Firebase's copy: every shoe the page holds, filed under the member signed
+ * in, from the moment the sign-in server lets them in until they sign out.
+ * What was filed is remembered per account in this browser, so a reload sends
+ * only what changed (see `sync.js`). A shoe Firestore would refuse -- a name
+ * from an old import, more than four hundred coups -- stays here.
+ */
+const CLOUD_SENT_KEY = "baccarat.cloudSent.v1.";
+let cloudSync = null;
+
+function startCloudSync(acc, user) {
+  stopCloudSync();
+  const key = CLOUD_SENT_KEY + user.uid;
+  cloudSync = new ServerSync({
+    shoes: () => pageShoes().map(fileableShoe).filter(Boolean),
+    transport: cloudTransport(acc, user),
+    memory: {
+      load: () => JSON.parse(localStorage.getItem(key) || "null"),
+      save: (sent) => localStorage.setItem(key, JSON.stringify(sent)),
+    },
+    onStatus: () => renderSyncStatus(),
+  });
+  cloudSync.start();
+}
+
+function stopCloudSync() {
+  if (cloudSync) cloudSync.stop();
+  cloudSync = null;
+  renderSyncStatus();
+}
+
+/** The header's lines for the copies kept elsewhere, beside the browser's own. */
 function renderSyncStatus() {
-  const st = serverSync.status;
-  $("syncBox").hidden = st.state === "off";
-  if (st.state === "off") return;
-  $("syncDot").className = "sdot " + (st.state === "on" ? "synced" : st.state === "sending" ? "syncing" : "error");
-  $("syncLabel").textContent = t("sync." + st.state, { n: st.games.toLocaleString() });
+  const show = (sync, box, dot, label, words) => {
+    const st = sync ? sync.status : { state: "off" };
+    $(box).hidden = st.state === "off";
+    if (st.state === "off") return;
+    $(dot).className = "sdot " + (st.state === "on" ? "synced" : st.state === "sending" ? "syncing" : "error");
+    $(label).textContent = words(st.state, { n: st.games.toLocaleString() });
+  };
+  show(serverSync, "syncBox", "syncDot", "syncLabel", (state, n) => t("sync." + state, n));
+  show(cloudSync, "cloudBox", "cloudDot", "cloudLabel", (state, n) => t("cloudSync." + state, n));
 }
 
 function commit(changedIds, writtenTable = state.active) {
@@ -16169,6 +16566,7 @@ function commit(changedIds, writtenTable = state.active) {
   invalidate();
   store.save(state, changedIds);
   serverSync.changed();
+  cloudSync?.changed();
   // Before the render, so the panel that reports the record is drawn from a
   // log that already knows about the coup just committed.
   settleLog();
@@ -20713,6 +21111,7 @@ async function boot() {
     invalidate();
     render();
     serverSync.changed();
+    cloudSync?.changed();
     flashNote(t("store.elsewhere"), NOTE_MS);
   }, (log) => {
     // Not settled here. The other tab settled it against its own corpus, and
@@ -20757,7 +21156,9 @@ async function boot() {
   // size to measure.
   startGate({
     onOpen: () => { invalidate(); render(); foldExplanations(); },
+    onAdmit: (acc, user) => startCloudSync(acc, user),
     onLock: () => {
+      stopCloudSync();
       if (liveTable === null) return;
       live.stop();
       liveLog(t("live.logStopped"));
