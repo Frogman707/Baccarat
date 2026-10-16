@@ -299,20 +299,25 @@ body.simple.fit .steps li i{margin-top:1px}
                   font-variant-numeric:tabular-nums}
 #liveStatus .rest{font-size:12px; line-height:1.5; color:var(--ink-3);
                   font-variant-numeric:tabular-nums}
-/* In the console's column the two ways of finding the board share a row, and
-   stopping has the row under them to itself. */
-.liveacts{display:grid; grid-template-columns:1fr 1fr; gap:6px}
-.liveacts select,.liveacts .btn.stop{grid-column:1 / -1}
+/* In the console's column the two ways of finding the board share a row where
+   their names fit on it, and take a row each where they do not: a name is
+   never broken over two lines, which a narrower window, a longer language or
+   a wider system font all did to "영역 직접 / 지정". Stopping always has the
+   row under them to itself. */
+.liveacts{display:flex; flex-wrap:wrap; gap:6px}
 .liveacts select{font-size:12.5px; padding:4px 8px}
-.liveacts .btn{padding:6px 10px; font-size:12.5px; line-height:1.3; background:var(--surface)}
+.liveacts .btn{flex:1 1 auto; white-space:nowrap; padding:6px 10px; font-size:12.5px;
+               line-height:1.3; background:var(--surface)}
 .liveacts .btn:hover{background:var(--surface-3)}
+.liveacts select,.liveacts .btn.stop{flex:1 1 100%}
 /* Stop is the one way out, and looks like it: the square every player uses. */
 .liveacts .btn.stop{display:flex; align-items:center; justify-content:center; gap:7px; font-weight:600}
 .liveacts .btn.stop::before{content:""; width:8px; height:8px; border-radius:2px; background:currentColor}
 @container (min-width:540px){
   .livectl{flex-direction:row; align-items:center; padding:10px 12px}
-  .liveacts{display:flex; margin-left:auto}
-  .liveacts .btn{padding:6px 12px; white-space:nowrap}
+  .liveacts{margin-left:auto; flex-wrap:nowrap}
+  .liveacts select,.liveacts .btn,.liveacts .btn.stop{flex:0 0 auto}
+  .liveacts .btn{padding:6px 12px}
 }
 .btn.tiny{padding:3px 9px; font-size:11.5px; margin-left:auto; flex:0 0 auto}
 /* The dot sits on the headline's first line, and has a halo of its own colour. */
@@ -1771,10 +1776,10 @@ const S = {
     "zh-Hans": "<b>通过获利关卡：{picker} — {sides}。</b>在诚实的牌桌上，五个推荐器的押庄・押闲十份记录中任何一份即使每局都检查，碰到这条线的概率也不超过 {alpha}。从现在起，推荐与账本跟随这个推荐器，只有选到已通过那一边的局才会标「建议下注」并给出凯利。扣除运气的部分后剩下 {lo}，凯利以此计算。这是依过去记录做的判定，不保证之后也会赢。",
   },
   "audit.shut": {
-    ko: "<b>통과한 추천기 없음.</b> 어느 추천기도 운으로는 닿기 어려운 선을 넘지 못했습니다 — 가장 가까운 것({picker}의 {side} 배팅)도 {need}유닛 모자랍니다. 공정하게 섞인 테이블이라면 이것이 정상이며, 배지는 '배팅 권장 안 함'으로 남습니다.",
-    en: "<b>No picker past the gate.</b> None has crossed the line luck seldom reaches -- the nearest ({picker}, betting {side}) is {need} short. On a fairly shuffled table that is what is expected, and the badge stays at not worth backing.",
-    "zh-Hant": "<b>沒有推薦器通過。</b>沒有一個越過運氣難以碰到的線 — 最接近的（{picker}押{side}）也還差 {need} 單位。洗牌公正的牌桌本來就是如此，標籤維持「不建議下注」。",
-    "zh-Hans": "<b>没有推荐器通过。</b>没有一个越过运气难以碰到的线 — 最接近的（{picker}押{side}）也还差 {need} 单位。洗牌公正的牌桌本来就是如此，标签维持「不建议下注」。",
+    ko: "<b>통과한 추천기 없음.</b> 어느 추천기도 운으로는 닿기 어려운 선을 넘지 못했습니다 — 가장 가까운 것({picker}의 {side} 배팅)도 {need}유닛 모자랍니다. 공정하게 섞인 테이블이라면 이것이 정상이며, 추천 옆에 '배팅 권장' 배지가 붙지 않습니다.",
+    en: "<b>No picker past the gate.</b> None has crossed the line luck seldom reaches -- the nearest ({picker}, betting {side}) is {need} short. On a fairly shuffled table that is what is expected, and no worth-backing badge appears beside the pick.",
+    "zh-Hant": "<b>沒有推薦器通過。</b>沒有一個越過運氣難以碰到的線 — 最接近的（{picker}押{side}）也還差 {need} 單位。洗牌公正的牌桌本來就是如此，推薦旁不會出現「建議下注」標籤。",
+    "zh-Hans": "<b>没有推荐器通过。</b>没有一个越过运气难以碰到的线 — 最接近的（{picker}押{side}）也还差 {need} 单位。洗牌公正的牌桌本来就是如此，推荐旁不会出现「建议下注」标签。",
   },
   "audit.tooFew": {
     ko: "<b>아직 판정 전.</b> 배팅 기록이 가장 긴 쪽도 {n}회뿐입니다 — 추천기의 뱅커 배팅과 플레이어 배팅은 각각 {floor}회부터 판정합니다.",
@@ -2274,10 +2279,10 @@ const S = {
   "alert.tag.shuffle": { ko: "셔플 이상", en: "Shuffle flag", "zh-Hant": "洗牌異常", "zh-Hans": "洗牌异常" },
   "alert.tag.gate": { ko: "수익 관문", en: "Money gate", "zh-Hant": "獲利關卡", "zh-Hans": "获利关卡" },
   "alert.gate": {
-    ko: "{picker}의 기록이 수익 관문을 넘었습니다({sides}) — 지금부터 추천이 이 추천기를 따르고, 통과한 쪽을 고른 판에는 배지가 '배팅 권장'으로 바뀝니다. 정직한 테이블이 운으로 넘을 확률이 2.5% 이하인 선이지만, 지난 기록이라 앞으로도 이긴다는 보장은 없습니다.",
+    ko: "{picker}의 기록이 수익 관문을 넘었습니다({sides}) — 지금부터 추천이 이 추천기를 따르고, 통과한 쪽을 고른 판에는 '배팅 권장' 배지가 붙습니다. 정직한 테이블이 운으로 넘을 확률이 2.5% 이하인 선이지만, 지난 기록이라 앞으로도 이긴다는 보장은 없습니다.",
     en: "The record of {picker} is past the money gate, on {sides} -- the pick now follows it, and says worth backing on a coup it picks a side that passed. An honest table crosses that line by luck with chance 2.5% at most, but it is a record of what has been, and does not promise what comes next.",
-    "zh-Hant": "「{picker}」的紀錄已通過獲利關卡（{sides}）— 從現在起推薦跟隨它，選到已通過那一邊的局，標籤會改為「建議下注」。誠實牌桌靠運氣越過這條線的機率不超過 2.5%，但這是過去的紀錄，不保證之後也會贏。",
-    "zh-Hans": "「{picker}」的记录已通过获利关卡（{sides}）— 从现在起推荐跟随它，选到已通过那一边的局，标签会改为「建议下注」。诚实牌桌靠运气越过这条线的概率不超过 2.5%，但这是过去的记录，不保证之后也会赢。",
+    "zh-Hant": "「{picker}」的紀錄已通過獲利關卡（{sides}）— 從現在起推薦跟隨它，選到已通過那一邊的局，會出現「建議下注」標籤。誠實牌桌靠運氣越過這條線的機率不超過 2.5%，但這是過去的紀錄，不保證之後也會贏。",
+    "zh-Hans": "「{picker}」的记录已通过获利关卡（{sides}）— 从现在起推荐跟随它，选到已通过那一边的局，会出现「建议下注」标签。诚实牌桌靠运气越过这条线的概率不超过 2.5%，但这是过去的记录，不保证之后也会赢。",
   },
   "alert.cards": {
     ko: "카드 카운트가 다음 판 {side} 배팅을 {ev} 앞선다고 계산했습니다(입력한 카드로 계산한 정확한 값). 켈리 기준 배팅은 원금의 {kelly}입니다.",
