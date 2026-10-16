@@ -204,6 +204,18 @@ body.simple #aiLedger .aifact{border-bottom:none}
   body.simple #aiPanel{grid-column:8 / span 5; grid-row:1 / span 2}
   body.simple #boardPanel{grid-column:1 / span 7; grid-row:2}
 }
+/* The same two columns in a narrower window, drawn smaller (`fitToWindow`
+   lays the page out at 960px and zooms it to the window). The media
+   queries still see the window, so what they do to a narrow one -- one
+   column, tighter spacing, the steps one under another -- is undone here. */
+body.simple.fit main{padding:20px; gap:16px; grid-template-rows:auto 1fr}
+body.simple.fit .col{gap:16px}
+body.simple.fit .c7{grid-column:span 7}
+body.simple.fit #aiPanel{grid-column:8 / span 5; grid-row:1 / span 2}
+body.simple.fit #boardPanel{grid-column:1 / span 7; grid-row:2}
+body.simple.fit .steps{grid-auto-flow:column; grid-auto-columns:1fr; max-width:none; gap:12px}
+body.simple.fit .steps li{align-items:flex-start}
+body.simple.fit .steps li i{margin-top:1px}
 .viewtoggle{display:flex; justify-content:center; padding:4px 0 10px}
 .viewtoggle .btn{padding:9px 18px; font-size:13.5px; border:1px solid var(--line-2);
   background:var(--surface)}
@@ -258,9 +270,20 @@ body.simple #aiLedger .aifact{border-bottom:none}
 }
 .livebox .btn.primary{padding:11px 26px; font-size:15px; border-radius:10px}
 .livebox .actions{margin-top:0}
-#liveCanvas{width:100%; height:auto; display:block; border-radius:9px;
+/* The shared screen, as a glance at what is being read: no taller than about
+   a third of the window, so the board under it is on the same screen. A
+   whole browser window shared beside the page is taller than it is wide, and
+   drawn the column's width it pushed the board out of sight. Width and height
+   both follow the picture, so it is never stretched -- the box drawn on it is
+   carried back through its size either way (`bindRegionPicker`). Drawing a
+   box by hand wants the picture at full size, and gets it until the box is
+   drawn. */
+.liveview{display:flex; flex-wrap:wrap; align-items:flex-end; gap:11px 16px}
+.liveview .livebar{flex:1 1 210px; margin-top:0}
+#liveCanvas{width:auto; max-width:100%; height:auto; max-height:clamp(150px, 27vh, 400px);
+            flex:0 1 auto; min-width:0; display:block; border-radius:9px;
             background:var(--surface-3); border:1px solid var(--line); touch-action:none}
-#liveCanvas.picking{cursor:crosshair; border-color:var(--accent)}
+#liveCanvas.picking{cursor:crosshair; border-color:var(--accent); max-height:none}
 #livePickHint{margin-top:8px; color:var(--accent); font-size:12px}
 .livebar{display:flex; align-items:center; gap:9px; flex-wrap:wrap; margin-top:11px}
 .livestate{display:flex; align-items:center; gap:9px; min-width:0}
@@ -489,17 +512,17 @@ table.stake tr:last-child td{border-bottom:none}
    It is written in English whatever the interface language is, because those
    are the words on the table's own screen -- reading the two together should
    not be a translation exercise. */
-.result{display:flex; align-items:center; gap:15px; margin-bottom:17px;
-        padding:14px 18px; border-radius:12px; min-height:66px;
+.result{display:flex; align-items:center; gap:10px; margin-bottom:11px;
+        padding:7px 14px; border-radius:10px; min-height:42px;
         border:1px solid var(--line); background:var(--surface-2)}
-.result .rdot{width:34px; height:34px; border-radius:50%; flex:0 0 auto;
-              background:var(--ink-3); box-shadow:inset 0 0 0 3px var(--mark-ring)}
-.result .rword{font-size:23px; font-weight:600; letter-spacing:.045em;
+.result .rdot{width:20px; height:20px; border-radius:50%; flex:0 0 auto;
+              background:var(--ink-3); box-shadow:inset 0 0 0 2px var(--mark-ring)}
+.result .rword{font-size:16.5px; font-weight:600; letter-spacing:.045em;
                line-height:1.15; min-width:0}
 .result .rmeta{margin-left:auto; padding-left:12px; text-align:right; flex:0 0 auto;
-               font-family:var(--mono); font-size:11.5px; color:var(--ink-3);
-               font-variant-numeric:tabular-nums; line-height:1.5}
-.result .rmeta b{display:block; font-size:12.5px; font-weight:500; color:var(--ink-2)}
+               font-family:var(--mono); font-size:11px; color:var(--ink-3);
+               font-variant-numeric:tabular-nums; line-height:1.4}
+.result .rmeta b{display:block; font-size:12px; font-weight:500; color:var(--ink-2)}
 .result.B{border-color:var(--banker); background:var(--banker-soft)}
 .result.B .rdot{background:var(--banker)}
 .result.B .rword{color:var(--banker)}
@@ -510,7 +533,7 @@ table.stake tr:last-child td{border-bottom:none}
 .result.T .rdot{background:var(--tie)}
 .result.T .rword{color:var(--tie)}
 /* Before the first coup it says so, rather than sitting there as an empty box. */
-.result.waiting .rword{font-size:14.5px; font-weight:500; letter-spacing:0;
+.result.waiting .rword{font-size:13.5px; font-weight:500; letter-spacing:0;
                        color:var(--ink-3)}
 /* The coup that just landed announces itself once and then holds still. */
 @keyframes resultIn{from{opacity:0; transform:translateY(-5px) scale(.99)}
@@ -784,10 +807,7 @@ footer{max-width:1220px; margin:0 auto; padding:4px 20px 40px; font-size:11.5px;
   #kpis{grid-template-columns:1fr 1fr; gap:8px}
   .tile .v{font-size:19px}
   .aigrid{grid-template-columns:1fr}
-  .result{gap:12px; padding:12px 14px; min-height:58px}
-  .result .rdot{width:28px; height:28px}
-  .result .rword{font-size:19px}
-  .result .rmeta{font-size:11px}
+  .result{padding:7px 12px}
   .livebox{padding:20px 14px}
   .actions{gap:7px}
   footer{padding-bottom:96px}          /* clear of the entry bar */
@@ -1059,8 +1079,11 @@ body.open > #gate{display:none}
       </div>
 
       <div id="liveActive" hidden>
+        <!-- The picture and what the reader says of it, side by side where the
+             picture leaves room -- a tall window shared -- and the words
+             under it where it does not. -->
+        <div class="liveview">
         <canvas id="liveCanvas"></canvas>
-        <p class="small" id="livePickHint" hidden data-i18n="live.pickHint"></p>
         <div class="livebar">
           <!-- The dot and the words it colours wrap as one: apart, a phone put
                the dot on a line by itself over the status it belongs to. -->
@@ -1076,6 +1099,8 @@ body.open > #gate{display:none}
           <button class="btn ghost" id="liveRelock" data-i18n="live.relock"></button>
           <button class="btn" id="liveStop" data-i18n="live.stop"></button>
         </div>
+        </div>
+        <p class="small" id="livePickHint" hidden data-i18n="live.pickHint"></p>
         <div id="liveBinding" class="warn" hidden></div>
         <div id="liveSurface" class="warn" hidden></div>
         <div id="liveWarn" class="warn" hidden></div>
@@ -16414,7 +16439,37 @@ function applyView() {
   const label = t(simple ? "view.full" : "view.simple");
   $("viewToggle").textContent = label;
   $("viewSwitch").textContent = label;
+  fitToWindow();
   foldExplanations();
+}
+
+/**
+ * The guest's view at a desk, kept whole in a narrower window.
+ *
+ * Beside a casino window, the page is given what is left of the screen. The
+ * guest's two columns -- the reader over the board, the prediction beside
+ * them -- were laid out for 941px and up, and narrower the page fell into one
+ * column: the prediction went between the reader and the board, and the board
+ * off the bottom of the screen. Between there and a phone's width, the page
+ * is now laid out at 960px -- the narrowest desk, and the scrollbar the
+ * window's width includes -- and drawn smaller (`body.fit`, CSS zoom), so a
+ * narrower window shows what a wider one did, at its scale. A phone keeps its
+ * own one-column page, and so does a touch screen, where a finger needs the
+ * full-size controls more than the second column.
+ */
+const FIT_WIDTH = 960;
+const FIT_FLOOR = 621;
+
+function fitToWindow() {
+  const body = document.body;
+  const w = window.innerWidth;
+  const fit = body.classList.contains("simple") && w >= FIT_FLOOR && w < FIT_WIDTH
+    && !window.matchMedia?.("(pointer: coarse)")?.matches;
+  body.classList.toggle("fit", fit);
+  // From the window's own width, not the page's: what the zoom does to the
+  // page's height can bring a scrollbar and take it away, and a width read
+  // inside the page would chase it.
+  body.style.zoom = fit ? String(w / FIT_WIDTH) : "";
 }
 
 /** Change views, and remember the choice. */
@@ -21174,6 +21229,7 @@ async function boot() {
   // A paragraph that fitted in two lines at one width may not at another.
   let refold = null;
   window.addEventListener("resize", () => {
+    fitToWindow();
     clearTimeout(refold);
     refold = setTimeout(foldExplanations, 150);
   });
