@@ -278,25 +278,51 @@ body.simple.fit .steps li i{margin-top:1px}
    carried back through its size either way (`bindRegionPicker`). Drawing a
    box by hand wants the picture at full size, and gets it until the box is
    drawn. */
-.liveview{display:flex; flex-wrap:wrap; align-items:flex-end; gap:11px 16px}
-.liveview .livebar{flex:1 1 210px; margin-top:0}
+/* Beside it, the reader's console: what it is doing, as a headline with its
+   particulars under it, and the three things that can be done about it at the
+   foot -- the height of the picture, so the two read as one instrument. Under
+   a wide picture, where the console has the column's width, it is one row:
+   the status at the left, the controls at the right. */
+.liveview{display:flex; flex-wrap:wrap; align-items:stretch; gap:12px}
+.liveview .livebar{flex:1 1 220px; display:flex; min-width:0; container-type:inline-size}
 #liveCanvas{width:auto; max-width:100%; height:auto; max-height:clamp(150px, 27vh, 400px);
-            flex:0 1 auto; min-width:0; display:block; border-radius:9px;
+            flex:0 1 auto; align-self:flex-start; min-width:0; display:block; border-radius:10px;
             background:var(--surface-3); border:1px solid var(--line); touch-action:none}
 #liveCanvas.picking{cursor:crosshair; border-color:var(--accent); max-height:none}
 #livePickHint{margin-top:8px; color:var(--accent); font-size:12px}
-.livebar{display:flex; align-items:center; gap:9px; flex-wrap:wrap; margin-top:11px}
-.livestate{display:flex; align-items:center; gap:9px; min-width:0}
-.livebar select{font-size:12.5px; padding:4px 8px}
-.livebar .btn{padding:5px 12px; font-size:12.5px}
+.livectl{flex:1; min-width:0; display:flex; flex-direction:column; justify-content:space-between;
+         gap:14px; padding:13px 14px; border-radius:10px;
+         background:var(--surface-2); border:1px solid var(--line)}
+.livestate{display:flex; align-items:flex-start; gap:10px; min-width:0}
+#liveStatus{display:flex; flex-direction:column; gap:3px; min-width:0}
+#liveStatus .lead{font-size:15px; font-weight:600; line-height:1.35; color:var(--ink);
+                  font-variant-numeric:tabular-nums}
+#liveStatus .rest{font-size:12px; line-height:1.5; color:var(--ink-3);
+                  font-variant-numeric:tabular-nums}
+/* In the console's column the two ways of finding the board share a row, and
+   stopping has the row under them to itself. */
+.liveacts{display:grid; grid-template-columns:1fr 1fr; gap:6px}
+.liveacts select,.liveacts .btn.stop{grid-column:1 / -1}
+.liveacts select{font-size:12.5px; padding:4px 8px}
+.liveacts .btn{padding:6px 10px; font-size:12.5px; line-height:1.3; background:var(--surface)}
+.liveacts .btn:hover{background:var(--surface-3)}
+/* Stop is the one way out, and looks like it: the square every player uses. */
+.liveacts .btn.stop{display:flex; align-items:center; justify-content:center; gap:7px; font-weight:600}
+.liveacts .btn.stop::before{content:""; width:8px; height:8px; border-radius:2px; background:currentColor}
+@container (min-width:540px){
+  .livectl{flex-direction:row; align-items:center; padding:10px 12px}
+  .liveacts{display:flex; margin-left:auto}
+  .liveacts .btn{padding:6px 12px; white-space:nowrap}
+}
 .btn.tiny{padding:3px 9px; font-size:11.5px; margin-left:auto; flex:0 0 auto}
-#liveStatus{font-family:var(--mono); font-size:12px; color:var(--ink-2);
-            font-variant-numeric:tabular-nums}
-.livedot{width:8px; height:8px; border-radius:50%; background:var(--ink-3); flex:0 0 auto}
-.livedot.on{background:var(--tie); animation:pulse 2s ease-in-out infinite}
-.livedot.searching{background:var(--accent)}
+/* The dot sits on the headline's first line, and has a halo of its own colour. */
+.livedot{width:9px; height:9px; margin-top:6px; border-radius:50%; background:var(--ink-3); flex:0 0 auto}
+.livedot.on{background:var(--tie); box-shadow:0 0 0 3px color-mix(in srgb, var(--tie) 22%, transparent);
+            animation:pulse 2s ease-in-out infinite}
+.livedot.searching{background:var(--accent); box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent)}
 /* Between shoes the reader is holding its place, not hunting for one. */
-.livedot.waiting{background:var(--accent); animation:pulse 2s ease-in-out infinite}
+.livedot.waiting{background:var(--accent); box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
+                 animation:pulse 2s ease-in-out infinite}
 @keyframes pulse{0%,100%{opacity:1} 50%{opacity:.35}}
 .livelog{margin-top:11px; max-height:104px; overflow-y:auto; font-family:var(--mono);
          font-size:11.5px; color:var(--ink-3); line-height:1.75}
@@ -1085,21 +1111,22 @@ body.open > #gate{display:none}
              under it where it does not. -->
         <div class="liveview">
         <canvas id="liveCanvas"></canvas>
-        <div class="livebar">
+        <div class="livebar"><div class="livectl">
           <!-- The dot and the words it colours wrap as one: apart, a phone put
                the dot on a line by itself over the status it belongs to. -->
           <span class="livestate"><span class="livedot" id="liveDot"></span><span id="liveStatus"></span></span>
-          <span class="spacer"></span>
-          <select id="liveInterval" data-full-only data-i18n-aria="live.intervalAria">
-            <option value="1000"></option>
-            <option value="1500" selected></option>
-            <option value="3000"></option>
-            <option value="6000"></option>
-          </select>
-          <button class="btn ghost" id="livePick" data-i18n="live.pick"></button>
-          <button class="btn ghost" id="liveRelock" data-i18n="live.relock"></button>
-          <button class="btn" id="liveStop" data-i18n="live.stop"></button>
-        </div>
+          <div class="liveacts">
+            <select id="liveInterval" data-full-only data-i18n-aria="live.intervalAria">
+              <option value="1000"></option>
+              <option value="1500" selected></option>
+              <option value="3000"></option>
+              <option value="6000"></option>
+            </select>
+            <button class="btn" id="livePick" data-i18n="live.pick"></button>
+            <button class="btn" id="liveRelock" data-i18n="live.relock"></button>
+            <button class="btn stop" id="liveStop" data-i18n="live.stop"></button>
+          </div>
+        </div></div>
         </div>
         <p class="small" id="livePickHint" hidden data-i18n="live.pickHint"></p>
         <div id="liveBinding" class="warn" hidden></div>
@@ -2683,8 +2710,8 @@ const S = {
     "zh-Hant": "下注 {bets} 局 · 每注 {n} · 勝率 {rate}",
     "zh-Hans": "下注 {bets} 局 · 每注 {n} · 胜率 {rate}",
   },
-  "ai.bet.win": { ko: "이김", en: "Won", "zh-Hant": "贏", "zh-Hans": "赢" },
-  "ai.bet.lose": { ko: "짐", en: "Lost", "zh-Hant": "輸", "zh-Hans": "输" },
+  "ai.bet.win": { ko: "승", en: "Won", "zh-Hant": "贏", "zh-Hans": "赢" },
+  "ai.bet.lose": { ko: "패", en: "Lost", "zh-Hant": "輸", "zh-Hans": "输" },
   "ai.bet.push": { ko: "무효", en: "Push", "zh-Hant": "和局退還", "zh-Hans": "和局退还" },
   "ai.betReturned": { ko: "반환", en: "returned", "zh-Hant": "退還", "zh-Hans": "退还" },
   "ai.ledgerCoups": { ko: "{n}판", en: "{n}", "zh-Hant": "{n} 局", "zh-Hans": "{n} 局" },
@@ -2927,7 +2954,7 @@ const S = {
     "zh-Hant": "結果 {came} · AI 推薦 {pick} → {result}", "zh-Hans": "结果 {came} · AI 推荐 {pick} → {result}",
   },
   "board.beadKey": {
-    ko: "육매 칸 안의 글자는 그 판에서 <b>AI 추천</b>이 맞혔으면 <b>승</b>, 틀렸으면 <b>패</b>, 타이라 배팅금이 돌아왔으면 <b>무</b>입니다. 칸 색은 실제 결과(빨강 뱅커 · 파랑 플레이어 · 초록 타이)입니다. 각 판의 추천은 그 앞 판들만 보고 정한 것이고, AI 추천 배팅 결과의 이김 · 짐 · 무효와 같은 기록입니다.",
+    ko: "육매 칸 안의 글자는 그 판에서 <b>AI 추천</b>이 맞혔으면 <b>승</b>, 틀렸으면 <b>패</b>, 타이라 배팅금이 돌아왔으면 <b>무</b>입니다. 칸 색은 실제 결과(빨강 뱅커 · 파랑 플레이어 · 초록 타이)입니다. 각 판의 추천은 그 앞 판들만 보고 정한 것이고, AI 추천 배팅 결과의 승 · 패 · 무효와 같은 기록입니다.",
     en: "Each bead says what the <b>AI pick</b> did on that coup: <b>W</b> won, <b>L</b> lost, <b>=</b> a tie, which returned the stake. Its colour is the result (red Banker · blue Player · green Tie). Each pick was made from the coups before it only, and these are the same wins, losses and pushes as in backing the pick.",
     "zh-Hant": "珠盤路格內的字是該局 <b>AI 推薦</b> 的結果：猜中為 <b>贏</b>、猜錯為 <b>輸</b>、和局退還本金為 <b>和</b>。格子顏色是實際結果（紅莊 · 藍閒 · 綠和）。每局的推薦只根據之前的局，與 AI 推薦下注結果的贏 · 輸 · 和局退還是同一份紀錄。",
     "zh-Hans": "珠盘路格内的字是该局 <b>AI 推荐</b> 的结果：猜中为 <b>赢</b>、猜错为 <b>输</b>、和局退还本金为 <b>和</b>。格子颜色是实际结果（红庄 · 蓝闲 · 绿和）。每局的推荐只根据之前的局，与 AI 推荐下注结果的赢 · 输 · 和局退还是同一份记录。",
@@ -17590,6 +17617,20 @@ let liveWasActive = false;
 /** Whether the preview is waiting for a box to be dragged on it. */
 let livePicking = false;
 
+// The status as a headline and its particulars under it: "35 read", and then
+// how the region is held, how long ago, and from where. One line of small
+// type, it broke wherever the column ended. Every status, in every language,
+// opens with its headline and puts the rest after the first " — " or " · ".
+let liveStatusText = null;
+function setLiveStatus(text) {
+  if (text === liveStatusText) return;
+  liveStatusText = text;
+  const cut = text.search(/ [\u2014\u00b7] /);
+  const box = $("liveStatus");
+  box.replaceChildren(el("b", "lead", cut < 0 ? text : text.slice(0, cut)));
+  if (cut >= 0) box.appendChild(el("span", "rest", text.slice(cut + 3)));
+}
+
 function onLiveState(st) {
   // Sharing is what starts the page, so starting or stopping it on a table
   // with nothing in it moves the panels between their zeros and their figures.
@@ -17652,11 +17693,11 @@ function onLiveState(st) {
     : st.pinned === "grid" && st.grid
       ? t("live.waitingGrid", { cols: st.grid.cols, rows: st.grid.rows })
       : null;
-  $("liveStatus").textContent = found
+  setLiveStatus(found
     ? t("live.reading", { n: st.board.sequence.length, lock: t(pinWord), ago }) + " · " + via
     : st.cleared ? t("live.cleared") + " · " + via
     : waiting ? waiting + " · " + via
-    : t("live.searching");
+    : t("live.searching"));
 
   // Said once, when it happens, because it is the answer to "is it looking at
   // the right place" and the preview outline alone is easy to miss.
@@ -18140,8 +18181,12 @@ function renderPrediction() {
   pick.textContent = side(chosen);
   pick.className = "v " + chosen;
 
+  // Only "worth backing" is shown beside the pick (the owner's call,
+  // 2026-10-16): the reference-only badge sat there on nearly every coup and
+  // read as clutter. The judgment is still made and kept on the element, and
+  // the warning at the foot of the panel still says what baccarat costs.
   const badge = $("aiBetBadge");
-  badge.hidden = false;
+  badge.hidden = !worthBacking;
   badge.textContent = t(worthBacking ? "ai.betGo" : "ai.betHold");
   badge.className = "betbadge " + (worthBacking ? "go" : "hold");
 
