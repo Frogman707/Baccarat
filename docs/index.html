@@ -1003,9 +1003,10 @@ body.open > #gate{display:none}
       <button class="btn ghost" id="addTable" data-i18n="header.addTable"></button>
       <button class="btn ghost" id="renameTable" data-i18n="header.renameTable"></button>
     </span>
-    <!-- In both views: the guest's view has it at the top of the page, as the
-         one way to clear what the screen shows of this table. -->
-    <button class="btn ghost" id="clearTable" data-i18n="header.clearTable"></button>
+    <!-- In both views, the guest's at the top of the page: the page opened
+         afresh, as Ctrl+R opens it. -->
+    <button class="btn ghost" id="clearTable" data-i18n="header.clearTable"
+            data-i18n-title="header.clearTableTip"></button>
     <span class="hgroup" data-full-only>
       <button class="btn ghost" id="resetBtn" data-i18n="header.deleteTable"></button>
     </span>
@@ -1485,7 +1486,13 @@ const S = {
   },
   "header.renameTable": { ko: "이름 변경", en: "Rename", "zh-Hant": "重新命名", "zh-Hans": "重命名" },
   "header.deleteTable": { ko: "테이블 삭제", en: "Delete table", "zh-Hant": "刪除牌桌", "zh-Hans": "删除牌桌" },
-  "header.clearTable": { ko: "테이블 초기화", en: "Clear table", "zh-Hant": "清空牌桌", "zh-Hans": "清空牌桌" },
+  "header.clearTable": { ko: "테이블 초기화", en: "Reset page", "zh-Hant": "重設頁面", "zh-Hans": "重置页面" },
+  "header.clearTableTip": {
+    ko: "Ctrl+R처럼 페이지를 새로 엽니다. 기록은 그대로 남고, 화면 공유는 다시 시작해야 합니다.",
+    en: "Opens the page afresh, as Ctrl+R does. Every record stays; the screen share is started again.",
+    "zh-Hant": "與 Ctrl+R 相同，重新開啟頁面。紀錄全部保留，需重新開始分享畫面。",
+    "zh-Hans": "与 Ctrl+R 相同，重新打开页面。记录全部保留，需重新开始共享画面。",
+  },
   "header.renamePrompt": {
     ko: "{table} 의 새 이름:", en: "New name for {table}:",
     "zh-Hant": "{table} 的新名稱：", "zh-Hans": "{table} 的新名称：",
@@ -3322,12 +3329,6 @@ const S = {
     "zh-Hant": "將刪除 {tables} 張桌台上收集的全部 {coups} 局。無法復原 — 若有需要保留的請先匯出。要繼續嗎？",
     "zh-Hans": "将删除 {tables} 张桌台上收集的全部 {coups} 局。无法复原 — 若有需要保留的请先导出。要继续吗？",
   },
-  "tools.clearConfirm": {
-    ko: "\"{table}\" 테이블에 모은 {coups}판을 지웁니다. 테이블은 그대로 남습니다. 되돌릴 수 없습니다 — 남겨야 할 것이 있으면 먼저 내보내세요. 계속할까요?",
-    en: "This erases the {coups} [coups|coup|coups] collected for \"{table}\". The table itself stays. It cannot be undone -- export first if any of it is worth keeping. Continue?",
-    "zh-Hant": "將刪除「{table}」已收集的 {coups} 局，桌台本身保留。無法復原 — 若有需要保留的請先匯出。要繼續嗎？",
-    "zh-Hans": "将删除“{table}”已收集的 {coups} 局，桌台本身保留。无法复原 — 若有需要保留的请先导出。要继续吗？",
-  },
   "tools.resetConfirm": {
     ko: "\"{table}\" 테이블의 수집 데이터를 모두 지웁니다. 계속할까요?",
     en: "This erases everything collected for \"{table}\". Continue?",
@@ -3351,10 +3352,6 @@ const S = {
   "flash.recorded": { ko: "{side} 기록", en: "{side} recorded", "zh-Hant": "已記錄 {side}", "zh-Hans": "已记录 {side}" },
   "flash.undo": { ko: "한 판 취소", en: "One coup undone", "zh-Hant": "已復原一局", "zh-Hans": "已撤销一局" },
   "flash.newShoe": { ko: "새 슈 시작", en: "New shoe started", "zh-Hant": "已開新牌靴", "zh-Hans": "已开新牌靴" },
-  "live.logTableCleared": {
-    ko: "테이블 초기화 — 화면을 처음부터 다시 읽습니다", en: "Table cleared — reading the screen afresh",
-    "zh-Hant": "已清空牌桌 — 重新讀取畫面", "zh-Hans": "已清空牌桌 — 重新读取画面",
-  },
 
   /* --------------------------------------------------------------- footer */
   // The calculation is what stays in the browser. The page as a whole need
@@ -20985,43 +20982,14 @@ function bindControls() {
   // A tab closed with journal entries still waiting to be written writes them first.
   addEventListener("pagehide", () => journal.flush());
 
-  // Emptying a table is not deleting it. A table that went wrong -- a shoe read
-  // off the wrong board, a session that turned out to be free play -- wants its
-  // record gone and itself kept, because it is still the table in front of you
-  // and it is about to be recorded again. Deleting and retyping the name gets
-  // there too, and loses the name's history on the way.
-  $("clearTable").onclick = async () => {
-    const name = state.active;
-    if (!name || !state.tables[name]) return;
-    const coups = tableCoups(name);
-    if (!coups) return;                       // nothing to clear
-    if (!confirm(t("tools.clearConfirm", { table: name, coups: coups.toLocaleString() }))) {
-      return;
-    }
-    const ids = shoes(name).map((s) => s.id);
-    journal.add("edit", { by: "user", why: "clearTable", table: name, shoes: ids.length, coups });
-    // The reader goes on, from nothing: what the screen shows next is read
-    // as this table's first shoe, the way a reader just started reads it.
-    // Stopping it here, as deleting the table does, left the owner's casino
-    // unread until they shared it again -- and clearing is what they press
-    // when the record on screen has gone wrong and the casino has not.
-    if (liveTable === name) {
-      live.relock();
-      liveWrote = null;
-      liveHolds = 0;
-      liveResumed = false;
-      setLiveWarn(null);
-      liveLog(t("live.logTableCleared"), "new");
-    }
-    // The same reasoning as deleting: a prediction log whose coups are gone
-    // holds figures nothing can be checked against.
-    forgetPredictions(predictionLog, name);
-    store.saveLog(predictionLog);
-    learners.forget(name);
-    state.tables[name] = { shoes: [] };
-    await store.deleteShoes(ids);
-    commit([]);
-  };
+  // The header's first button does what Ctrl+R does: the page opened afresh,
+  // every record kept, the screen share to be started again (the owner's
+  // request, 2026-10-16). It used to empty the table and read the screen
+  // again -- and every time, the shoes already filed in Firebase stayed filed
+  // and the ones read again were filed beside them: 38 of the first 56 shoes
+  // there were copies. A reload files nothing twice. Records are still
+  // removed where they always were, by deleting the table in the full view.
+  $("clearTable").onclick = () => location.reload();
 
   $("resetBtn").onclick = async () => {
     if (!state.active || !state.tables[state.active]) return;   // nothing to delete
