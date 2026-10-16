@@ -15844,10 +15844,17 @@ function startGate({ onOpen = () => {}, onLock = () => {}, onAdmit = () => {} } 
     box.textContent = words(problem);
   }
 
+  // Bumped by every drawing of the sheet: a tab whose answer comes back after
+  // another tab was opened is not drawn over that one.
+  let sheetDraw = 0;
+
   async function renderSheet() {
     if (sheet.hidden || !session) return;
+    const mine = ++sheetDraw;
     const acc = await backend();
+    if (mine !== sheetDraw) return;
     const out = $g("acctBody");
+    const draw = (nodes) => { if (mine === sheetDraw) out.replaceChildren(...nodes); };
     const master = session.master;
     $g("acctTitle").textContent = t(master ? "acct.manage" : "acct.mine");
     $g("acctTabs").hidden = !master;
@@ -15858,13 +15865,13 @@ function startGate({ onOpen = () => {}, onLock = () => {}, onAdmit = () => {} } 
     const view = master ? tab : "mine";
     out.replaceChildren(node("p", "empty", t("admin.loading")));
     try {
-      if (view === "members") out.replaceChildren(...(await membersView(acc)));
-      else if (view === "create") out.replaceChildren(...createView(acc));
-      else if (view === "logins") out.replaceChildren(...(await loginsView(acc, master)));
-      else if (view === "cloud") out.replaceChildren(...(await cloudView(acc)));
-      else out.replaceChildren(...(await loginsView(acc, false)));
+      if (view === "members") draw(await membersView(acc));
+      else if (view === "create") draw(createView(acc));
+      else if (view === "logins") draw(await loginsView(acc, master));
+      else if (view === "cloud") draw(await cloudView(acc));
+      else draw(await loginsView(acc, false));
     } catch (e) {
-      out.replaceChildren(node("p", "sheetmsg err", words(problemOf(e))));
+      draw([node("p", "sheetmsg err", words(problemOf(e)))]);
     }
   }
 
