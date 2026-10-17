@@ -11723,6 +11723,14 @@ const RECHECK_EVERY = 12;
  * over again.
  */
 const GRID_PATIENCE = 3;
+
+/**
+ * How long a start waits for the shared video's first frame before it starts
+ * the reader anyway. A frame arrives in milliseconds when there is one; past
+ * this the reader runs, saying it is looking, and reads once frames come.
+ */
+const PLAY_WAIT_MS = 2000;
+
 /**
  * Marks needed to call something a board: fewer once the strip is located, and
  * one is enough in a strip just watched go empty.
@@ -12258,7 +12266,14 @@ class LiveWatcher {
       this.stop();
       return false;
     }
-    await this.video.play().catch(() => {});
+    // Not waited on for ever. `play` settles when the first frame comes, and
+    // a shared surface can send none for a long time -- a window minimised, a
+    // tab the browser is slow to draw -- while the page said nothing, and the
+    // share button, pressed again, did nothing: the stream was already taken.
+    // Measured in the page with a `play` that never settles. The sampler and
+    // the preview skip a video with no frame yet (see `_sample`).
+    await Promise.race([this.video.play().catch(() => {}),
+                        new Promise((done) => setTimeout(done, PLAY_WAIT_MS))]);
 
     // Stopped during `play`. `stop` had the stream by then and has already
     // closed it, so there is nothing left to release here -- only a sampler
