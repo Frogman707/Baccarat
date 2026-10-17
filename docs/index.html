@@ -16987,6 +16987,11 @@ function onLiveRead(seq, board, repeats, extra = {}) {
   // a warning's button can be pressed long after this reading.
   const into = liveTable;
   const table = readingTable(into, state.tables, chosenTable());
+  // And a held reading is checked against the record when the person says
+  // so, which can be after the table was renamed: its name as it was then,
+  // looked up, made an empty table of it again -- kept, and in the selector --
+  // and the reading was refused as if the record had moved on.
+  const writingTo = () => readingTable(into, state.tables, chosenTable());
   const open = openShoe(table);
   const current = open.o;
   if (liveWrote) liveWrote.reads += 1;
@@ -17017,7 +17022,7 @@ function onLiveRead(seq, board, repeats, extra = {}) {
           const added = onScreen.length - closed.o.length;
           setCards(closed, alignCardItems(closed.c || "", closed.o, onScreen));
           closed.o = onScreen;
-          commitTo(table, [closed.id]);
+          commitTo(writingTo(), [closed.id]);
           if (mend) {
             journal.add("edit", { by: "reader", why: "mend", table: journalTable(into), shoe: closed.id,
                                   before, after: onScreen });
@@ -17028,7 +17033,13 @@ function onLiveRead(seq, board, repeats, extra = {}) {
         if (admitReading(board, extra, {
           action: mend ? "closedMend" : "closedGrow", into, shoeId: closed.id, before, after: onScreen,
           last: onScreen.length - at, conflict: mend && !freshOwn(closed, at), rewrites: mend,
-          apply: () => { if (closed.o !== before) return false; write(); return true; },
+          // Still in the record, as the shoe taken up again has to be: another
+          // tab's copy landing in between replaces every shoe with its own.
+          apply: () => {
+            if (closed.o !== before || !shoes(writingTo()).includes(closed)) return false;
+            write();
+            return true;
+          },
         })) write();
       }
       return;
@@ -17148,7 +17159,7 @@ function onLiveRead(seq, board, repeats, extra = {}) {
         action: "resume", into, shoeId: back.shoe.id, before, after: back.seq,
         last: back.seq.length - at, conflict: rewrites, rewrites,
         apply: () => {
-          if (back.shoe.o !== before || !shoes(readingTable(into, state.tables, chosenTable())).includes(back.shoe)) return false;
+          if (back.shoe.o !== before || !shoes(writingTo()).includes(back.shoe)) return false;
           write();
           return true;
         },
@@ -17174,7 +17185,7 @@ function onLiveRead(seq, board, repeats, extra = {}) {
       if (admitReading(board, extra, {
         action: "takeBack", into, shoeId: open.id, before: current, after: seq, last: 0,
         conflict: !freshOwn(open, seq.length), rewrites: true,
-        apply: () => { if (openShoe(table).o !== current) return false; write(); return true; },
+        apply: () => { if (openShoe(writingTo()).o !== current) return false; write(); return true; },
       })) write();
     }
     return;
@@ -17220,7 +17231,7 @@ function onLiveRead(seq, board, repeats, extra = {}) {
       if (admitReading(board, extra, {
         action: "mend", into, shoeId: open.id, before: current, after: seq,
         last: seq.length - at, conflict: !freshOwn(open, at), rewrites: true,
-        apply: () => { if (openShoe(table).o !== current) return false; write(); return true; },
+        apply: () => { if (openShoe(writingTo()).o !== current) return false; write(); return true; },
       })) write();
     }
     return;
@@ -17244,7 +17255,7 @@ function onLiveRead(seq, board, repeats, extra = {}) {
     };
     if (admitReading(board, extra, {
       action: "grow", into, shoeId: open.id, before: current, after: seq, last: added,
-      apply: () => { if (openShoe(table).o !== current) return false; write(); return true; },
+      apply: () => { if (openShoe(writingTo()).o !== current) return false; write(); return true; },
     })) write();
   } else if ((restart || reopened || verdict === "reset") && repeats >= enough) {
     // A new shoe starts at one coup. A reading that shares nothing with the
@@ -17286,7 +17297,7 @@ function onLiveRead(seq, board, repeats, extra = {}) {
         };
         if (admitReading(board, extra, {
           action: "tableChange", into, shoeId: null, before: current, after: seq, last: seq.length,
-          apply: () => { if (openShoe(table).o !== current) return false; write(); return true; },
+          apply: () => { if (openShoe(writingTo()).o !== current) return false; write(); return true; },
         })) write();
         return;
       }
@@ -17324,7 +17335,7 @@ function onLiveRead(seq, board, repeats, extra = {}) {
     };
     if (admitReading(board, extra, {
       action: "newShoe", into, shoeId: null, before: current, after: seq, last: seq.length,
-      apply: () => { if (openShoe(table).o !== current) return false; write(); return true; },
+      apply: () => { if (openShoe(writingTo()).o !== current) return false; write(); return true; },
     })) write();
   }
 }
@@ -20921,6 +20932,9 @@ function bindControls() {
     // the next coup it reads is filed under a table that no longer exists and
     // falls back to whichever one is selected.
     if (liveTable === from) liveTable = to;
+    // A reading held for the person comes too: it holds this table's
+    // prediction back until they answer, and under the old name it did not.
+    if (held && held.table === from) held.table = to;
     // And so does its record, or the table arrives at its new name having
     // predicted nothing.
     renamePredictions(predictionLog, from, to);
