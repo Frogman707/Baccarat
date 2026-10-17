@@ -2023,6 +2023,18 @@ const S = {
     "zh-Hant": "正在尋找珠盤路 — 請確認分享的是顯示桌台的視窗",
     "zh-Hans": "正在寻找珠盘路 — 请确认共享的是显示桌台的窗口",
   },
+  "live.noPicture": {
+    ko: "공유한 화면에서 영상이 오지 않습니다 — 공유한 창을 최소화했다면 다시 열어 주세요",
+    en: "No picture from the shared screen — if the shared window is minimised, open it again",
+    "zh-Hant": "分享的畫面沒有影像 — 若分享的視窗已最小化，請重新開啟",
+    "zh-Hans": "共享的画面没有图像 — 若共享的窗口已最小化，请重新打开",
+  },
+  "live.noPictureCamera": {
+    ko: "카메라에서 영상이 오지 않습니다 — 다른 앱이 카메라를 쓰고 있지 않은지 확인하세요",
+    en: "No picture from the camera — check that no other app is using it",
+    "zh-Hant": "相機沒有影像 — 請確認沒有其他應用程式正在使用相機",
+    "zh-Hans": "相机没有图像 — 请确认没有其他应用正在使用相机",
+  },
   "live.logGrow": { ko: "+{n}판 → {total}판  {sides}", en: "+{n} → {total}  {sides}", "zh-Hant": "+{n} 局 → {total} 局  {sides}", "zh-Hans": "+{n} 局 → {total} 局  {sides}" },
   "live.logNewShoe": { ko: "새 슈 시작 — {n}판 읽음", en: "New shoe — {n} read", "zh-Hant": "新牌靴 — 已讀 {n} 局", "zh-Hans": "新牌靴 — 已读 {n} 局" },
   "live.logTableChange": {
@@ -11732,6 +11744,12 @@ const GRID_PATIENCE = 3;
 const PLAY_WAIT_MS = 2000;
 
 /**
+ * How long a started source may send no picture at all before the reader says
+ * so, rather than that it is looking for the board.
+ */
+const NO_PICTURE_MS = 5000;
+
+/**
  * Marks needed to call something a board: fewer once the strip is located, and
  * one is enough in a strip just watched go empty.
  *
@@ -12097,6 +12115,8 @@ class LiveWatcher {
     this.lastReadAt = 0;
     this.reads = 0;
     this.samples = 0;
+    this.startedAt = 0;      // when the reader last started sampling
+    this.blank = false;      // no picture has come from the source: see `_sample`
     this.error = null;
     this.source = null;      // "screen" or "camera", for the error advice
     this.surface = null;     // what was shared: see `_readSurface`
@@ -12410,6 +12430,8 @@ class LiveWatcher {
     this.lastBoard = null;
     this.reads = 0;
     this.samples = 0;
+    this.startedAt = Date.now();
+    this.blank = false;
   }
 
   _emit() {
@@ -12425,6 +12447,7 @@ class LiveWatcher {
       grid: this.grid && { cols: this.grid.cols, rows: this.grid.rows,
                            pitch: Math.round(this.grid.pitch) },
       cleared: this.cleared,
+      blank: this.blank,
       lastReadAt: this.lastReadAt,
       reads: this.reads,
       candidate: this.candidate,
@@ -12435,7 +12458,18 @@ class LiveWatcher {
   /** Grab one frame, read it, and emit only once frames agree. */
   _sample() {
     const v = this.video;
-    if (!v || !v.videoWidth) return;
+    if (!v) return;
+    // A source sending no picture at all -- a shared window minimised -- has
+    // nothing to read, and was said to be looking for the board, for as long
+    // as it stayed that way. Said for what it is, once it has lasted.
+    if (!v.videoWidth) {
+      if (!this.blank && Date.now() - this.startedAt >= NO_PICTURE_MS) {
+        this.blank = true;
+        this._emit();
+      }
+      return;
+    }
+    if (this.blank) { this.blank = false; this._emit(); }
     if (this._readSurface()) this._emit();
 
     const scale = Math.min(1, WORK_MAX / Math.max(v.videoWidth, v.videoHeight));
@@ -17745,6 +17779,7 @@ function onLiveState(st) {
       : null;
   setLiveStatus(found
     ? t("live.reading", { n: st.board.sequence.length, lock: t(pinWord), ago }) + " · " + via
+    : st.blank ? t(st.source === "camera" ? "live.noPictureCamera" : "live.noPicture")
     : st.cleared ? t("live.cleared") + " · " + via
     : waiting ? waiting + " · " + via
     : t("live.searching"));
