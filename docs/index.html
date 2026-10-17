@@ -12248,16 +12248,22 @@ class LiveWatcher {
     this.video.muted = true;
     this.video.playsInline = true;
     this.canvas = document.createElement("canvas");
+    // Listened for before `play`, not after: sharing stopped from the
+    // browser's own bar while the video was starting ended the track with
+    // nobody listening, and the reader then ran on, saying it was watching, a
+    // stream that was gone. A track already over by now is a start that ended.
+    const tracks = stream.getVideoTracks();
+    for (const track of tracks) track.addEventListener("ended", () => this.stop());
+    if (tracks.length && tracks.every((track) => track.readyState === "ended")) {
+      this.stop();
+      return false;
+    }
     await this.video.play().catch(() => {});
 
     // Stopped during `play`. `stop` had the stream by then and has already
     // closed it, so there is nothing left to release here -- only a sampler
     // not to start for a source that is gone.
     if (this.attempt !== mine) return false;
-
-    for (const track of stream.getVideoTracks()) {
-      track.addEventListener("ended", () => this.stop());
-    }
 
     this._reset();
     this._startPreview();
@@ -12804,7 +12810,10 @@ class LiveWatcher {
       // for eight marks the new shoe had not dealt yet -- and told the viewer
       // their screen sharing was broken while it did. The lock is kept and the
       // emptiness reported instead.
-      if (this.empties === CLEAR_PATIENCE) {
+      // At or past: empty looks before any lock count too, and a lock taken on
+      // an empty strip after more than three of them -- a ruling found late --
+      // never saw the count equal three again, and the shuffle went unnoticed.
+      if (this.empties >= CLEAR_PATIENCE && !this.cleared) {
         // The strip is empty and the lock stays on it.
         //
         // This used to search the whole screen here, and hand the lock over to
@@ -13080,7 +13089,8 @@ class LiveWatcher {
     const place = { x: Math.max(0, Math.round(seen.box.x - pad)), y: Math.max(0, Math.round(seen.box.y - pad)) };
     place.w = Math.min(w, Math.round(seen.box.x2 + pad)) - place.x;
     place.h = Math.min(h, Math.round(seen.box.y2 + pad)) - place.y;
-    for (const pitch of [this.grid ? this.grid.pitch : 0, 0]) {
+    // The pinned pitch and then none -- once, where nothing is pinned.
+    for (const pitch of this.grid ? [this.grid.pitch, 0] : [0]) {
       board = found(detectBoards(frame, { region: place, minCells: LOCKED_CELLS, pitch }));
       if (board) return { board, bounds: null };
     }
@@ -13484,7 +13494,12 @@ function roadCarriedOn(shoe, board) {
   if (!board || board.kind === "bead" || !shoe || board.nRows > 6) return null;
   if (sharePrefix(shoe, board.sequence)) return null;
   const screen = roadPicture(board.cells);
-  const now = drawnRoad(shoe);
+  // A shoe of ties so far has no mark of its own: `drawnRoad` gives it the
+  // first cell for a screen that shows nothing else, and against a screen
+  // whose first coup has since been dealt that cell is in the way -- the
+  // ties are written across that coup's mark. Measured: a shoe that opened
+  // with a tie, read off a big road, came out with the tie after the coup.
+  const now = /[BP]/.test(shoe) ? drawnRoad(shoe) : { at: new Map(), ties: shoe.length };
   const cells = screen.at.size - now.at.size, ties = screen.ties - now.ties;
   if (cells < 0 || ties < 0 || cells + ties > ROAD_NEW) return null;
   for (const [key, mark] of now.at) {
