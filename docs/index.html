@@ -3603,6 +3603,12 @@ const S = {
     "zh-Hant": "過早結束 {short} · 過長 {long} · 重複 {copies}",
     "zh-Hans": "过早结束 {short} · 过长 {long} · 重复 {copies}",
   },
+  "cloud.copiesWhose": {
+    ko: "중복 슈 중 {between}개는 다른 회원이 기록한 슈와 같습니다. 두 사람이 같은 테이블을 보면 생기며 문제가 아닙니다. {own}개는 같은 회원이 같은 판을 다시 기록한 것입니다.",
+    en: "Of the copies, {between} repeat another member's shoe — two people at one table, which is no fault — and {own} repeat the member's own: a board read again.",
+    "zh-Hant": "重複的靴中，{between} 個與其他會員記錄的靴相同，兩人看同一張桌時就會出現，並非錯誤；{own} 個是同一會員把同一局面再次記錄。",
+    "zh-Hans": "重复的靴中，{between} 个与其他会员记录的靴相同，两人看同一张桌时就会出现，并非错误；{own} 个是同一会员把同一局面再次记录。",
+  },
   "cloud.kind.short": { ko: "짧게 닫힘", en: "Closed short", "zh-Hant": "過早結束", "zh-Hans": "过早结束" },
   "cloud.kind.long": { ko: "너무 김", en: "Too long", "zh-Hant": "過長", "zh-Hans": "过长" },
   "cloud.kind.copy": { ko: "중복", en: "Copy", "zh-Hant": "重複", "zh-Hans": "重复" },
@@ -16180,6 +16186,14 @@ function startGate({ onOpen = () => {}, onLock = () => {}, onAdmit = () => {} } 
     checks.appendChild(node("p", null, t("cloud.checks", {
       short: num(k.shortClosed), long: num(k.overlong), copies: num(k.duplicates),
     })));
+    // Whose shoe the copies repeat: another member's is two people at one
+    // table, the member's own is a board read again. Runs before the count
+    // existed have none, and say nothing.
+    if (k.duplicates > 0 && Number.isFinite(k.duplicatesBetweenMembers)) {
+      checks.appendChild(node("p", null, t("cloud.copiesWhose", {
+        between: num(k.duplicatesBetweenMembers), own: num(k.duplicates - k.duplicatesBetweenMembers),
+      })));
+    }
     const examples = Array.isArray(k.examples) ? k.examples : [];
     if (examples.length) {
       checks.appendChild(table([t("cloud.colKind"), t("cloud.colShoe"), t("cloud.colCoups")],
