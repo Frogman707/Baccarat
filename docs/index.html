@@ -1792,10 +1792,10 @@ const S = {
     "zh-Hans": "<b>尚未判定。</b>记录最长的一边也只有 {n} 注 — 推荐器的押庄与押闲各自从 {floor} 注起才判定。",
   },
   "audit.record": {
-    ko: "<b>관문 닫힘.</b> 이 테이블의 기록이 8덱 바카라의 모양이 아니라(타이 비율이나 슈 길이), 어떤 추천기가 이겨도 판독 오류를 배운 것일 수 있어 따르지 않습니다.",
-    en: "<b>Gate shut.</b> This table's record is not the shape 8-deck baccarat produces (its tie rate or its shoe lengths), so a picker winning on it may have learned a misreading, and none is followed.",
-    "zh-Hant": "<b>關卡關閉。</b>本桌紀錄不是 8 副牌百家樂會有的樣子（和局比例或牌靴長度），任何推薦器在此贏錢都可能是學到了判讀錯誤，因此不跟隨。",
-    "zh-Hans": "<b>关卡关闭。</b>本桌记录不是 8 副牌百家乐会有的样子（和局比例或牌靴长度），任何推荐器在此赢钱都可能是学到了判读错误，因此不跟随。",
+    ko: "<b>관문 닫힘.</b> 이 테이블의 기록이 8덱 바카라의 모양이 아니라(타이 비율, 슈 길이, 같은 판을 다시 기록한 슈), 어떤 추천기가 이겨도 판독 오류를 배운 것일 수 있어 따르지 않습니다.",
+    en: "<b>Gate shut.</b> This table's record is not the shape 8-deck baccarat produces (its tie rate, its shoe lengths, or a shoe recorded twice), so a picker winning on it may have learned a misreading, and none is followed.",
+    "zh-Hant": "<b>關卡關閉。</b>本桌紀錄不是 8 副牌百家樂會有的樣子（和局比例、牌靴長度，或同一靴記錄兩次），任何推薦器在此贏錢都可能是學到了判讀錯誤，因此不跟隨。",
+    "zh-Hans": "<b>关卡关闭。</b>本桌记录不是 8 副牌百家乐会有的样子（和局比例、牌靴长度，或同一靴记录两次），任何推荐器在此赢钱都可能是学到了判读错误，因此不跟随。",
   },
   "verify.h": {
     ko: "실제 추천 성적", en: "What was actually recommended",
@@ -2823,6 +2823,12 @@ const S = {
     en: "<b>{n} [n|shoe is|shoes are] longer than a shoe can be.</b> An 8-deck shoe tops out at 86 coups, so a longer record is one strip counted twice or two shoes stitched together. The learned model is not trusted on it.",
     "zh-Hant": "<b>有 {n} 靴比一靴還長。</b>8 副牌的牌靴最多 86 局，更長者即為同一路單重複計數或兩靴被接在一起。此紀錄不採用學習模型。",
     "zh-Hans": "<b>有 {n} 靴比一靴还长。</b>8 副牌的牌靴最多 86 局，更长者即为同一路单重复计数或两靴被接在一起。此记录不采用学习模型。",
+  },
+  "state.copies": {
+    ko: "<b>같은 판을 다시 기록한 슈가 {n}개 있습니다.</b> 이미 본 슈를 다시 학습하면 외워서 맞히게 되므로, 이 기록으로는 학습 모델을 신뢰하지 않고 수익 관문도 열지 않습니다.",
+    en: "<b>{n} [n|shoe repeats|shoes repeat] another shoe of this table.</b> A model that has seen a shoe wins its copy by remembering it, so on this record the learned model is not trusted and the money gate is not opened.",
+    "zh-Hant": "<b>有 {n} 靴重複記錄了本桌的另一靴。</b>看過一靴的模型會靠記憶猜中它的副本，因此此紀錄不採用學習模型，收益關卡也不開啟。",
+    "zh-Hans": "<b>有 {n} 靴重复记录了本桌的另一靴。</b>看过一靴的模型会靠记忆猜中它的副本，因此此记录不采用学习模型，收益关卡也不开启。",
   },
   "state.bankerShare": { ko: "뱅커 비율", en: "Banker share", "zh-Hant": "莊家比率", "zh-Hans": "庄家比率" },
   "state.bankerShareRange": { ko: "{lo}–{hi} · {n}판 기준", en: "{lo}–{hi} · over {n} decided", "zh-Hant": "{lo}–{hi} · 以 {n} 局計", "zh-Hans": "{lo}–{hi} · 以 {n} 局计" },
@@ -8792,6 +8798,103 @@ function shoeShape(lengths = []) {
     whole,
     fragments: counted.length - whole - long,
   };
+}
+
+/**
+ * Coups two shoes must share, unbroken, before one is called a copy of the
+ * other -- the server's rule (`baccarat/data/dedupe.py`, `MIN_OVERLAP`). Two
+ * honest shoes open alike for thirty coups with chance near 5e-12.
+ */
+const COPY_OVERLAP = 30;
+
+/**
+ * The shoes of a record that repeat another of its shoes: every coup of one,
+ * in order and unbroken, inside another -- the same shoe, its opening, or a
+ * stretch of it. The shorter is the copy; of two the same, the later. Indices,
+ * ascending. The server's rule exactly (`find_copies`), so the page and the
+ * cloud's check call the same shoes copies.
+ */
+function copiedShoes(sequences, minOverlap = COPY_OVERLAP) {
+  const byOpening = new Map();
+  sequences.forEach((s, i) => {
+    if (s.length < minOverlap) return;
+    const key = s.slice(0, minOverlap);
+    const at = byOpening.get(key);
+    if (at) at.push(i); else byOpening.set(key, [i]);
+  });
+  const found = new Map();                        // the copy -> the shoe it repeats
+  sequences.forEach((s, host) => {
+    if (s.length < minOverlap) return;
+    for (let start = 0; start + minOverlap <= s.length; start += 1) {
+      const others = byOpening.get(s.slice(start, start + minOverlap));
+      if (!others) continue;
+      for (const other of others) {
+        if (other === host || found.has(other)) continue;
+        const o = sequences[other];
+        if (s.slice(start, start + o.length) !== o) continue;
+        const same = start === 0 && o.length === s.length;
+        const drop = same ? Math.max(host, other) : other;
+        const keep = same ? Math.min(host, other) : host;
+        if (found.has(drop) || found.get(keep) === drop) continue;
+        found.set(drop, keep);
+      }
+    }
+  });
+  return [...found.keys()].sort((a, b) => a - b);
+}
+
+/**
+ * `copiedShoes`' count, asked after every coup without the cost of asking it.
+ *
+ * Over two thousand shoes the whole walk is twenty milliseconds, and the page
+ * asks it after every coup. All but the last shoe move only when a shoe is
+ * closed, undone into or brought in, so their copies are kept, with an index
+ * of every stretch they hold; the last shoe -- the one being dealt -- is then
+ * looked up against them: a shoe it now holds whole is a copy, and so is the
+ * last shoe itself where another holds it.
+ */
+class CopyWatch {
+  constructor(minOverlap = COPY_OVERLAP) {
+    this.minOverlap = minOverlap;
+    this.before = null;
+  }
+
+  count(sequences) {
+    const n = sequences.length;
+    if (n < 2) return 0;
+    const before = sequences.slice(0, -1);
+    if (!this.before || this.before.length !== before.length || before.some((s, i) => s !== this.before[i])) {
+      this.before = before;
+      this.copies = new Set(copiedShoes(before, this.minOverlap));
+      this.openings = new Map();                  // a shoe's first stretch -> shoes
+      this.stretches = new Map();                 // every stretch -> shoes holding it
+      const m = this.minOverlap;
+      before.forEach((s, i) => {
+        for (let at = 0; at + m <= s.length; at += 1) {
+          const key = s.slice(at, at + m);
+          const into = at === 0 ? [this.openings, this.stretches] : [this.stretches];
+          for (const map of into) {
+            const list = map.get(key);
+            if (!list) map.set(key, [i]); else if (list[list.length - 1] !== i) list.push(i);
+          }
+        }
+      });
+    }
+    const last = sequences[n - 1], m = this.minOverlap;
+    if (last.length < m) return this.copies.size;
+    const copies = new Set(this.copies);
+    for (let at = 0; at + m <= last.length; at += 1) {
+      for (const i of this.openings.get(last.slice(at, at + m)) || []) {
+        const o = before[i];
+        // The same shoe twice is one copy, the later: found below.
+        if (o.length !== last.length && last.slice(at, at + o.length) === o) copies.add(i);
+      }
+    }
+    for (const i of this.stretches.get(last.slice(0, m)) || []) {
+      if (before[i].includes(last)) { copies.add(n - 1); break; }
+    }
+    return copies.size;
+  }
 }
 
 /** Expected value per coup of a flat unit on each side, ties pushing. */
@@ -18586,6 +18689,19 @@ function clearCards() {
 /** The walk itself, kept across coups so it is continued and not re-run. */
 const learners = new LearnerShelf();
 
+/** A table's copies, kept between coups (see `CopyWatch`), for the last two tables seen. */
+const copyWatches = new Map();              // insertion order is recency
+
+function copyWatchFor(name) {
+  const key = String(name);
+  let held = copyWatches.get(key);
+  if (held) copyWatches.delete(key);
+  else held = new CopyWatch();
+  copyWatches.set(key, held);
+  while (copyWatches.size > 2) copyWatches.delete(copyWatches.keys().next().value);
+  return held;
+}
+
 /**
  * The network's walk through this table, and whether it earned the wheel.
  *
@@ -18621,12 +18737,22 @@ function learned() {
   // -- so a record holding a longer one is a strip counted twice or two shoes
   // stitched into one, and a network trained on it is learning the join.
   const shape = shoeShape(shoes().filter((s) => s.o.length).map((s) => s.o.length));
-  if (record.implausible || shape.long) {
+  // And for a shoe recorded twice -- a board read again into a shoe of its
+  // own. Its tie rate and its length are a shoe's, so neither check above
+  // sees it; but a model that has watched a shoe wins its copy by
+  // remembering it. Measured on 82 fair shoes holding 36 copies, as one day
+  // of a member's record held: the money gate opened on 11% of tables, and on
+  // none without them. The cloud sets copies aside before it judges (the same
+  // rule, `copiedShoes`); the page cannot take shoes out of what it keeps, so
+  // it trusts neither the network nor the gate on such a record.
+  const copies = copyWatchFor(state.active ?? "").count(dealt.map((s) => s.o));
+  if (record.implausible || shape.long || copies) {
     value.trusted = false;
     value.reason = "record";
   }
   value.record = record;
   value.shape = shape;
+  value.copies = copies;
   learnCache = { revision, table: state.active, value };
   return value;
 }
@@ -18696,7 +18822,7 @@ function audited() {
     ruleBook: replay.all, cards,
     net: (from, to) => learner.picksBetween(from, to),
   });
-  const sound = !(l.record.implausible || l.shape.long);
+  const sound = !(l.record.implausible || l.shape.long || l.copies);
   const current = l.trusted && l.nextPick ? "net" : "rule";
   const passing = sound ? gate.passing : [];
   const promoted = passing.includes(current) ? current : passing[0] ?? null;
@@ -19361,9 +19487,12 @@ function renderKpis() {
   // collecting it knows which of the two it was.
   const note = $("shoeShape");
   const fragmentary = shape.counted >= 5 && shape.mean < SHOE_MIN * 0.6;
-  note.hidden = !(shape.long || fragmentary);
+  const copies = learned().copies;
+  note.hidden = !(shape.long || copies || fragmentary);
   note.innerHTML = shape.long
     ? t("state.overlong", { n: shape.long })
+    : copies
+      ? t("state.copies", { n: copies })
     : fragmentary
       ? t("state.fragments", {
           closed: shape.counted, avg: shape.mean.toFixed(0), whole: shape.whole,
