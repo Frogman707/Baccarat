@@ -17518,18 +17518,32 @@ function onLiveRead(seq, board, repeats, extra = {}) {
  * Deeper than a new shoe's opening, so that a new table opening the way a
  * short shoe left behind did is not taken for it, and deeper than the shoe in
  * progress agrees with the reading (`beyond`): as deep as that, the shoe in
- * progress is the one being dealt. Among the last few shoes closed: a table
- * left long ago has long since finished the shoe it was on.
+ * progress is the one being dealt.
+ *
+ * Every sign among the last few shoes closed. Past them, only the plain one,
+ * and as deep as a copy is told by (`COPY_OVERLAP`): the plate holding the
+ * shoe whole from its first coup, or the shoe holding the plate. An owner
+ * looking in at table after table files a shoe at each, so a table come back
+ * to is soon more than a few shoes back -- and in the members' records (the
+ * cloud's run of 2026-10-19) a table come back to after seven or nine others
+ * was filed again, whole or with what it had dealt meanwhile, three times in
+ * ten days. Thirty coups is no opening two shoes share by chance (about one
+ * pair in 10^11); the looser signs, past the last few, would be.
  */
 function shoeReturnedTo(seq, name, kind, beyond = 0) {
   if (kind !== "bead") return null;
   const list = shoes(name);
   let looked = 0;
-  for (let i = list.length - 1; i >= 0 && looked < 5; i -= 1) {
+  for (let i = list.length - 1; i >= 0; i -= 1) {
     const s = list[i];
     if (!s.closed) continue;
     looked += 1;
     if (s.o.length <= Math.max(RESTART_DEPTH, beyond)) continue;
+    if (looked > 5) {
+      if (s.o.length >= COPY_OVERLAP && seq.startsWith(s.o)) return { shoe: s, seq };
+      if (seq.length >= COPY_OVERLAP && s.o.startsWith(seq)) return { shoe: s, seq: s.o };
+      continue;
+    }
     if (seq.startsWith(s.o)) return { shoe: s, seq };
     if (seq.length > RESTART_DEPTH && s.o.startsWith(seq)) return { shoe: s, seq: s.o };
     const moved = scrolledInto(s.o, seq, kind);
