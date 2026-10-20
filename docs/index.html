@@ -2482,6 +2482,12 @@ const S = {
     "zh-Hant": "<b>有 {n} 靴比一靴還長。</b>8 副牌的牌靴最多 86 局，更長者即為同一路單重複計數或兩靴被接在一起。此紀錄不採用學習模型。",
     "zh-Hans": "<b>有 {n} 靴比一靴还长。</b>8 副牌的牌靴最多 86 局，更长者即为同一路单重复计数或两靴被接在一起。此记录不采用学习模型。",
   },
+  "state.lopsided": {
+    ko: "<b>실제 슈에서는 나올 수 없을 만큼 한쪽으로 치우친 슈가 {n}개 있습니다.</b> 결과판이 아니라 한 색의 띠를 읽은 기록입니다(예: 플레이어 40·뱅커 1). 이 기록으로는 학습 모델을 신뢰하지 않으며, 공정성 검정에서는 뺍니다.",
+    en: "<b>{n} [n|shoe leans|shoes lean] to one side further than any dealt shoe does.</b> A strip of one colour was read as marks — forty Player and a Banker, say. The learned model is not trusted on this record, and the fairness check leaves [n|it|them] out.",
+    "zh-Hant": "<b>有 {n} 靴的莊閒比例偏向一邊，超出任何實際發出的靴。</b>讀到的是單色條帶而非牌路（例如閒 40、莊 1）。此紀錄不採用學習模型，公平性檢定也將其排除。",
+    "zh-Hans": "<b>有 {n} 靴的庄闲比例偏向一边，超出任何实际发出的靴。</b>读到的是单色条带而非牌路（例如闲 40、庄 1）。此记录不采用学习模型，公平性检验也将其排除。",
+  },
   "state.copies": {
     ko: "<b>같은 판을 다시 기록한 슈가 {n}개 있습니다.</b> 이미 본 슈를 다시 학습하면 외워서 맞히게 되므로, 이 기록으로는 학습 모델을 신뢰하지 않습니다.",
     en: "<b>{n} [n|shoe repeats|shoes repeat] another shoe of this table.</b> A model that has seen a shoe wins its copy by remembering it, so on this record the learned model is not trusted.",
@@ -2824,6 +2830,12 @@ const S = {
   "int.normal": { ko: "정상", en: "normal", "zh-Hant": "正常", "zh-Hans": "正常" },
   "int.abnormal": { ko: "이상", en: "flagged", "zh-Hant": "異常", "zh-Hans": "异常" },
   "int.offAxis": { ko: "z = {z} — 축 범위 밖", en: "z = {z} — off the axis", "zh-Hant": "z = {z} — 超出座標範圍", "zh-Hans": "z = {z} — 超出坐标范围" },
+  "int.leftOut": {
+    ko: "한쪽으로 치우친(잘못 읽은) 슈 {n}개 제외",
+    en: "{n} one-sided (misread) [n|shoe|shoes] left out",
+    "zh-Hant": "排除 {n} 個偏向一邊（誤讀）的靴",
+    "zh-Hans": "排除 {n} 个偏向一边（误读）的靴",
+  },
   "int.meta": {
     ko: "{shoes}슈 · {coups}판 · 통계 {stats}개 · 귀무 복제 {reps}회 · 다중검정 보정 Benjamini-Hochberg",
     en: "{shoes} [shoes|shoe|shoes] · {coups} [coups|coup|coups] · {stats} [stats|statistic|statistics] · {reps} null [reps|replicate|replicates] · Benjamini-Hochberg correction",
@@ -8141,6 +8153,36 @@ function copiedShoes(sequences, minOverlap = COPY_OVERLAP) {
     }
   });
   return [...found.keys()].sort((a, b) => a - b);
+}
+
+/**
+ * How far a shoe's Banker share of its decided coups may stray from an 8-deck
+ * shoe's, in standard errors, before it is no shoe a table dealt -- the
+ * server's rule (`baccarat/data/lopsided.py`, `LOPSIDED_Z`). Of 200,000 shoes
+ * dealt by the simulator none reached 5, the most 4.85; a strip of one colour
+ * read as marks goes past it at once -- forty Player and a Banker in
+ * forty-one coups, filed on 2026-10-09, is -6.2.
+ */
+const LOPSIDED_Z = 5;
+
+/** A shoe's Banker share of its decided coups, in standard errors from a fair shoe's. */
+function bankerZ(seq) {
+  let banker = 0, decided = 0;
+  for (const ch of seq) {
+    if (ch === "T") continue;
+    decided += 1;
+    if (ch === "B") banker += 1;
+  }
+  if (!decided) return 0;
+  const p = BASE_BANKER_SHARE;
+  return (banker - decided * p) / Math.sqrt(decided * p * (1 - p));
+}
+
+/** The shoes of a record no table dealt, by that rule. Indices, ascending. */
+function lopsidedShoes(sequences) {
+  const out = [];
+  sequences.forEach((s, i) => { if (Math.abs(bankerZ(s)) >= LOPSIDED_Z) out.push(i); });
+  return out;
 }
 
 /**
@@ -17344,13 +17386,19 @@ function learned() {
   // `copiedShoes`); the page cannot take shoes out of what it keeps, so it
   // does not trust the network on such a record.
   const copies = copyWatchFor(state.active ?? "").count(sequences);
-  if (record.implausible || shape.long || copies) {
+  // And for a shoe no table dealt -- a strip of one colour read as marks,
+  // forty Player and a Banker -- which a streak-follower wins coup after
+  // coup. The cloud sets such shoes aside before it judges (the same rule,
+  // `lopsidedShoes`); the page keeps them, so it does not trust the network.
+  const lopsided = lopsidedShoes(sequences).length;
+  if (record.implausible || shape.long || copies || lopsided) {
     value.trusted = false;
     value.reason = "record";
   }
   value.record = record;
   value.shape = shape;
   value.copies = copies;
+  value.lopsided = lopsided;
   learnCache = { revision, table: state.active, rule, value };
   return value;
 }
@@ -17894,10 +17942,14 @@ function renderKpis() {
   // collecting it knows which of the two it was.
   const note = $("shoeShape");
   const fragmentary = shape.counted >= 5 && shape.mean < SHOE_MIN * 0.6;
-  const copies = learned().copies;
-  note.hidden = !(shape.long || copies || fragmentary);
+  const { copies, lopsided } = learned();
+  note.hidden = !(shape.long || lopsided || copies || fragmentary);
   note.innerHTML = shape.long
     ? t("state.overlong", { n: shape.long })
+    // Before the copies: the same strip read on two days is a copy too, and
+    // what it really is, is this.
+    : lopsided
+      ? t("state.lopsided", { n: lopsided })
     : copies
       ? t("state.copies", { n: copies })
     : fragmentary
@@ -19064,9 +19116,22 @@ function renderIntegrityStanding() {
   }
 }
 
+/**
+ * The shoes the fairness check tests, and how many it leaves out: a shoe no
+ * table dealt -- a strip of one colour read as marks -- would flag the record
+ * for the misreading, and read as a table that can be beaten. The cloud sets
+ * the same shoes aside before it judges.
+ */
+function testedShoes() {
+  const all = shoes().filter((s) => s.o.length).map((s) => s.o);
+  const out = new Set(lopsidedShoes(all));
+  return { list: all.filter((_, i) => !out.has(i)), left: out.size,
+           coups: all.reduce((a, s) => a + s.length, 0) };
+}
+
 function renderIntegrityAvailability() {
   renderIntegrityStanding();
-  const n = shoes().filter((s) => s.o.length).length;
+  const n = testedShoes().list.length;
   const btn = $("runIntegrity");
   btn.disabled = n < 3 || !!integrityRun;
   $("intHint").textContent = n < 3
@@ -19075,7 +19140,7 @@ function renderIntegrityAvailability() {
 }
 
 async function runIntegrity() {
-  const list = shoes().filter((s) => s.o.length).map((s) => s.o);
+  const { list, left, coups } = testedShoes();
   if (list.length < 3) return;
 
   const reps = Number($("reps").value);
@@ -19105,7 +19170,7 @@ async function runIntegrity() {
     while (nullCache.size > NULLS_KEPT) nullCache.delete(nullCache.keys().next().value);
   }
 
-  lastReport = integrityReport(list, samples, { nReplicates: reps });
+  lastReport = { ...integrityReport(list, samples, { nReplicates: reps }), left_out: left, recorded_coups: coups };
   const report = lastReport;
   integrityRun = null;
   $("intProgress").hidden = true;
@@ -19176,7 +19241,8 @@ function renderFindings(host, rep) {
 }
 
 function renderIntegrityResult(rep) {
-  integrityShown = { table: state.active, shoes: rep.n_shoes, coups: rep.n_games };
+  // The coups the table held, the ones left out too: what "still on screen" is measured against.
+  integrityShown = { table: state.active, shoes: rep.n_shoes, coups: rep.recorded_coups ?? rep.n_games };
   $("intResult").hidden = false;
   const v = $("intVerdict");
   v.className = "verdict " + (rep.verdict_kind === "flag" ? "flag" : rep.verdict_kind === "clean" ? "ok" : "neutral");
@@ -19206,7 +19272,7 @@ function renderIntegrityResult(rep) {
   $("intMeta").textContent = t("int.meta", {
     shoes: rep.n_shoes.toLocaleString(), coups: rep.n_games.toLocaleString(),
     stats: rep.findings.length, reps: rep.n_replicates,
-  });
+  }) + (rep.left_out ? " · " + t("int.leftOut", { n: rep.left_out }) : "");
 }
 
 /* ------------------------------------------------------------ import/out */
