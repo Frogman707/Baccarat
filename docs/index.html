@@ -3273,9 +3273,20 @@ const S = {
     "zh-Hant": "重複的靴中，{between} 個與其他會員記錄的靴相同，兩人看同一張桌時就會出現，並非錯誤；{own} 個是同一會員把同一局面再次記錄。",
     "zh-Hans": "重复的靴中，{between} 个与其他会员记录的靴相同，两人看同一张桌时就会出现，并非错误；{own} 个是同一会员把同一局面再次记录。",
   },
+  "cloud.lopsided": {
+    ko: "뱅커·플레이어가 실제로 딜링된 슈에서는 나올 수 없을 만큼 한쪽으로 치우친 기록 {n}개 — 결과판이 아니라 한 색의 띠를 읽은 것입니다. 같은 띠를 다른 날 다시 읽으면 중복 슈로도 잡힙니다.",
+    en: "{n} [n|shoe leans|shoes lean] to one side further than any dealt shoe does — a strip of one colour read as marks, not a board. The same strip read on another day shows up as a copy too.",
+    "zh-Hant": "{n} 個靴的莊閒比例偏向一邊，超出任何實際發出的靴 — 讀到的是單色條帶，而不是牌路。同一條帶在別天再讀到，也會被當成重複。",
+    "zh-Hans": "{n} 个靴的庄闲比例偏向一边，超出任何实际发出的靴 — 读到的是单色条带，而不是牌路。同一条带在别天再读到，也会被当成重复。",
+  },
+  "cloud.lopsidedOf": {
+    ko: "{shoe} — 뱅커 {b} · 플레이어 {p}", en: "{shoe} — Banker {b} · Player {p}",
+    "zh-Hant": "{shoe} — 莊 {b} · 閒 {p}", "zh-Hans": "{shoe} — 庄 {b} · 闲 {p}",
+  },
   "cloud.kind.short": { ko: "짧게 닫힘", en: "Closed short", "zh-Hant": "過早結束", "zh-Hans": "过早结束" },
   "cloud.kind.long": { ko: "너무 김", en: "Too long", "zh-Hant": "過長", "zh-Hans": "过长" },
   "cloud.kind.copy": { ko: "중복", en: "Copy", "zh-Hant": "重複", "zh-Hans": "重复" },
+  "cloud.kind.lopsided": { ko: "한쪽 치우침", en: "One-sided", "zh-Hant": "單邊", "zh-Hans": "单边" },
   "cloud.copyOf": { ko: "{a} = {b}", en: "{a} = {b}", "zh-Hant": "{a} = {b}", "zh-Hans": "{a} = {b}" },
   "cloud.colKind": { ko: "종류", en: "Kind", "zh-Hant": "類型", "zh-Hans": "类型" },
   "cloud.colShoe": { ko: "회원 · 테이블 · 슈", en: "Member · table · shoe", "zh-Hant": "會員 · 牌桌 · 牌靴", "zh-Hans": "会员 · 牌桌 · 牌靴" },
@@ -15062,12 +15073,18 @@ function startGate({ onOpen = () => {}, onLock = () => {}, onAdmit = () => {} } 
         between: num(k.duplicatesBetweenMembers), own: num(k.duplicates - k.duplicatesBetweenMembers),
       })));
     }
+    // Shoes no table dealt: a strip of one colour read as marks. Runs before
+    // they were counted have none, and say nothing.
+    if (k.lopsided > 0) checks.appendChild(node("p", null, t("cloud.lopsided", { n: num(k.lopsided) })));
     const examples = Array.isArray(k.examples) ? k.examples : [];
+    const kinds = ["short", "long", "lopsided"];
     if (examples.length) {
       checks.appendChild(table([t("cloud.colKind"), t("cloud.colShoe"), t("cloud.colCoups")],
         examples.map((e) => [
-          { text: t("cloud.kind." + (e.kind === "short" ? "short" : e.kind === "long" ? "long" : "copy")) },
-          { text: e.kind === "copy" ? t("cloud.copyOf", { a: String(e.shoe), b: String(e.of) }) : String(e.shoe) },
+          { text: t("cloud.kind." + (kinds.includes(e.kind) ? e.kind : "copy")) },
+          { text: e.kind === "copy" ? t("cloud.copyOf", { a: String(e.shoe), b: String(e.of) })
+            : e.kind === "lopsided" ? t("cloud.lopsidedOf", { shoe: String(e.shoe), b: num(e.banker), p: num(e.player) })
+              : String(e.shoe) },
           { text: num(e.coups) }])));
     }
 
