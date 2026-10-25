@@ -15336,7 +15336,6 @@ let unsaved = { shoes: [] };
 const tableNamed = (name) => (name
   ? (state.tables[name] || (state.tables[name] = { shoes: [] }))
   : unsaved);
-const table = () => tableNamed(state.active);
 const shoes = (name = state.active) => tableNamed(name).shoes;
 
 /**
