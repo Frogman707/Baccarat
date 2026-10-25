@@ -607,7 +607,7 @@ table.stake tr:last-child td{border-bottom:none}
 .sbarea .wm{position:absolute; inset:0; z-index:0; display:grid; place-items:center;
   pointer-events:none; font:700 calc(var(--f) * .78)/1 var(--sans); letter-spacing:.05em;
   color:var(--road-wm); white-space:nowrap; overflow:hidden}
-.scoreboard .road{display:grid; grid-auto-flow:column; grid-template-rows:repeat(6, var(--pitch));
+.scoreboard .road{display:grid; grid-auto-flow:column; grid-template-rows:repeat(var(--rows, 6), var(--pitch));
   grid-auto-columns:var(--pitch); width:max-content;
   background-image:linear-gradient(90deg, var(--road-line) 1px, transparent 1px),
                    linear-gradient(var(--road-line) 1px, transparent 1px);
@@ -18606,15 +18606,17 @@ function askRoads(outcomes, side) {
 /**
  * One road on its paper. `paint(cell, row, col)` draws what that square of
  * `used` columns holds, saying whether it held anything; squares go in
- * column by column, and the paper runs on past the last mark to `columns`.
+ * column by column, `rows` to a column, and the paper runs on past the last
+ * mark to `columns`.
  */
-function drawRoad(host, used, columns, paint) {
+function drawRoad(host, used, columns, paint, rows = ROAD_ROWS) {
   const step = host.classList.contains("sm") ? 2 : 1;
   let total = Math.max(used, columns);
   total += total % step;
+  host.style.setProperty("--rows", String(rows));
   const paper = document.createDocumentFragment();
   for (let c = 0; c < total; c++) {
-    for (let r = 0; r < ROAD_ROWS; r++) {
+    for (let r = 0; r < rows; r++) {
       const cell = el("span", "cell");
       if (!(c < used && paint(cell, r, c))) cell.classList.add("empty");
       paper.appendChild(cell);
@@ -18660,16 +18662,21 @@ function renderBoard() {
   });
 
   // The big road: rings, and a tie as a green stroke across the coup before
-  // it -- with how many, when it is more than one.
-  const big = road.grid(ROAD_ROWS);
-  const ties = new Map(road.tieCells(ROAD_ROWS).map(([r, c, n]) => [`${r},${c}`, n]));
+  // it -- with how many, when it is more than one. A run goes straight down
+  // however long it is, the road growing a row for it, as the owner asked
+  // (2026-10-25): a table turns a run deeper than six right along the bottom,
+  // the dragon's tail, which reads as a second run beside it. The derived
+  // roads keep the table's six rows.
+  const bigRows = Math.max(ROAD_ROWS, ...road.columnLengths);
+  const big = road.grid(bigRows);
+  const ties = new Map(road.tieCells(bigRows).map(([r, c, n]) => [`${r},${c}`, n]));
   drawRoad($("big"), big[0].length, ROAD_PAPER.big, (cell, r, c) => {
     const o = big[r][c], n = ties.get(`${r},${c}`) || 0;
     if (o) cell.appendChild(el("i", "mk " + o));
     if (n) cell.appendChild(el("i", "tie"));
     if (n > 1) cell.appendChild(el("b", "tn", String(n)));
     return Boolean(o || n);
-  });
+  }, bigRows);
 
   // The derived roads, each in columns of one colour as the big road is in
   // columns of one side: rings, dots and strokes.
