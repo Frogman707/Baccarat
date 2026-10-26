@@ -18660,14 +18660,14 @@ function renderBoard() {
   });
 
   // The big road: rings, and a tie as a green stroke across the coup before
-  // it -- with how many, when it is more than one.
+  // it with how many -- one as well, as the owner's table counts them (their
+  // photo, VLS1003, 2026-10-25).
   const big = road.grid(ROAD_ROWS);
   const ties = new Map(road.tieCells(ROAD_ROWS).map(([r, c, n]) => [`${r},${c}`, n]));
   drawRoad($("big"), big[0].length, ROAD_PAPER.big, (cell, r, c) => {
     const o = big[r][c], n = ties.get(`${r},${c}`) || 0;
     if (o) cell.appendChild(el("i", "mk " + o));
-    if (n) cell.appendChild(el("i", "tie"));
-    if (n > 1) cell.appendChild(el("b", "tn", String(n)));
+    if (n) cell.append(el("i", "tie"), el("b", "tn", String(n)));
     return Boolean(o || n);
   });
 
