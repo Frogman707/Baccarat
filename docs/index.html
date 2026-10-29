@@ -3187,6 +3187,12 @@ const S = {
     "zh-Hant": "已收集 {games} 局 · {shoes} 靴 · 會員 {members} 人",
     "zh-Hans": "已收集 {games} 局 · {shoes} 靴 · 会员 {members} 人",
   },
+  "cloud.lastWritten": {
+    ko: "마지막으로 저장된 판: {when}",
+    en: "Last coup saved: {when}",
+    "zh-Hant": "最後儲存的一局：{when}",
+    "zh-Hans": "最后保存的一局：{when}",
+  },
   "cloud.figures": {
     ko: "가장 나은 학습 모델 {model} · 관문 ROI {roi} · p(BH) {p} · 남겨 둔 슈 ROI {held}",
     en: "Best trained model {model} · gate ROI {roi} · p(BH) {p} · kept-back shoes ROI {held}",
@@ -15084,6 +15090,12 @@ function startGate({ onOpen = () => {}, onLock = () => {}, onAdmit = () => {} } 
     sec.appendChild(node("p", null, t("cloud.corpus", {
       games: num(latest.games), shoes: num(latest.shoes), members: num(latest.members),
     })));
+    // When the page last saved a coup, anyone's: figures that stop moving
+    // while the owner plays mean the saving has stopped, not the playing.
+    // Runs from before it was kept have none, and say nothing.
+    if (Number.isFinite(latest.lastWritten)) {
+      sec.appendChild(node("p", "sub", t("cloud.lastWritten", { when: when(latest.lastWritten) })));
+    }
     if (c.bestModel) {
       sec.appendChild(node("p", "sub", t("cloud.figures", {
         model: c.bestModel, roi: pct(c.roi),
