@@ -167,8 +167,9 @@ h2{font-size:15px; font-weight:600; margin:0 0 3px; letter-spacing:-.01em}
    not a class: the renders rewrite the class of several of these on every
    coup, and a class marker went with it. */
 body.simple [data-full-only]{display:none !important}
-/* Firebase's line, in the simple view only while it fails (renderSyncStatus). */
-body.simple #cloudBox:not(.failing){display:none !important}
+/* A copy that has stopped being saved shows even in the simple view
+   (renderSyncStatus marks it failing): Firebase's line, the local server's. */
+body.simple .store.failing[data-full-only]{display:flex !important}
 /* The guest's one button besides the reader's: clearing the table, drawn as
    a button rather than a link so it reads as the action it is. */
 body.simple #clearTable{border-color:var(--line-2); background:var(--surface); color:var(--ink); font-weight:600}
@@ -1017,7 +1018,7 @@ body.open > #gate{display:none}
     <!-- The local server's copy, where the page is served by one (sync.js). -->
     <span class="store" data-full-only id="syncBox" hidden><i class="sdot" id="syncDot"></i><span id="syncLabel"></span></span>
     <!-- Firebase's copy, for a member who is signed in (sync.js, members.js). -->
-    <span class="store" id="cloudBox" hidden><i class="sdot" id="cloudDot"></i><span id="cloudLabel"></span></span>
+    <span class="store" data-full-only id="cloudBox" hidden><i class="sdot" id="cloudDot"></i><span id="cloudLabel"></span></span>
     <span class="spacer"></span>
     <button class="btn ghost" id="viewSwitch" type="button"></button>
     <select id="langSel" data-i18n-aria="header.langAria"></select>
@@ -1527,6 +1528,8 @@ const S = {
   "cloudSync.problem.network": { ko: "연결 안 됨", en: "no connection", "zh-Hant": "無法連線", "zh-Hans": "无法连接" },
   "cloudSync.problem.rules": { ko: "저장 권한 없음", en: "not allowed to save", "zh-Hant": "沒有儲存權限", "zh-Hans": "没有保存权限" },
   "cloudSync.problem.setup": { ko: "Firebase 설정 문제", en: "Firebase setup", "zh-Hant": "Firebase 設定問題", "zh-Hans": "Firebase 设置问题" },
+  "cloudSync.problem.tooMany": { ko: "요청이 너무 많음", en: "too many requests", "zh-Hant": "請求過多", "zh-Hans": "请求过多" },
+  "cloudSync.problem.suspended": { ko: "계정 정지됨", en: "account suspended", "zh-Hant": "帳號已停用", "zh-Hans": "账号已停用" },
   "cloudSync.problem.unknown": { ko: "알 수 없는 오류", en: "unknown error", "zh-Hant": "未知錯誤", "zh-Hans": "未知错误" },
   "store.full": { ko: "저장 공간 가득 참", en: "Storage full", "zh-Hant": "儲存空間已滿", "zh-Hans": "存储空间已满" },
   "view.full": { ko: "전체 기능 보기", en: "Show every panel", "zh-Hant": "顯示全部功能", "zh-Hans": "显示全部功能" },
@@ -14083,8 +14086,9 @@ class ServerSync {
       this.failures += 1;
       // What the far side said, where it said anything (Firebase's code, as
       // `problemOf` names it): the page shows it, so a refusal is not taken
-      // for a dropped connection.
-      this.status.problem = typeof e?.code === "string" ? e.code : null;
+      // for a dropped connection. Kept until a send lands, so a retry under
+      // way still reads as failing.
+      this.status.problem = typeof e?.code === "string" && e.code ? e.code : "unknown";
       this._set("error");
       const wait = Math.min(this.retryMax, this.delay * 2 ** Math.min(this.failures, 10));
       this.changed(wait);
@@ -14261,6 +14265,10 @@ function problemOf(error) {
   if (/invalid-email/.test(code)) return "badId";
   if (/too-many-requests/.test(code)) return "tooMany";
   if (/network-request-failed|unavailable|deadline-exceeded|failed-to-fetch|internal-error/.test(code)) return "network";
+  // A quota spent is as good as too many tries; a session Firestore no longer
+  // takes is a sign-in to make again, which is what "rules" tells a member.
+  if (/resource-exhausted/.test(code)) return "tooMany";
+  if (/unauthenticated/.test(code)) return "rules";
   if (/operation-not-allowed|configuration-not-found|admin-restricted-operation/.test(code)) return "setup";
   if (/permission-denied/.test(code)) return "rules";
   return "unknown";
@@ -14317,10 +14325,26 @@ const CLOUD_RUNS_SHOWN = 12;
  * `transport` `sync.js` takes. There is nothing to ask first: an account let
  * in may file, and the rules say no to one that is not.
  */
-function cloudTransport(acc, user) {
+/**
+ * How long a save may go unanswered before it is called a lost connection.
+ * Firestore does not refuse a write it cannot send: it holds it until the
+ * connection comes back, and the page would say "sending" all that while --
+ * in the simple view, nothing at all. The write itself is not cancelled; if it
+ * lands later, the next send files the same shoes again, which changes nothing.
+ */
+const CLOUD_SAVE_TIMEOUT_MS = 20000;
+
+function cloudTransport(acc, user, timeoutMs = CLOUD_SAVE_TIMEOUT_MS) {
   return {
     probe: async () => ({ status: "ok" }),
-    send: async (batch) => { await acc.saveShoes(user, batch); return null; },
+    send: async (batch) => {
+      const save = acc.saveShoes(user, batch);
+      save.catch(() => {});                       // its answer, once given up on, is nobody's
+      let timer;
+      const late = new Promise((_, reject) => { timer = setTimeout(() => reject(fail("network")), timeoutMs); });
+      try { await Promise.race([save, late]); } finally { clearTimeout(timer); }
+      return null;
+    },
   };
 }
 
@@ -15672,29 +15696,34 @@ function stopCloudSync() {
   renderSyncStatus();
 }
 
-/** What a Firebase refusal is called on the page: the codes `problemOf` gives that a save can meet. */
-const CLOUD_PROBLEMS = ["network", "rules", "setup"];
+/** Why Firebase did not take a save, in the page's words; a code with none is "unknown". */
+function cloudProblem(code) {
+  const key = "cloudSync.problem." + code;
+  const text = t(key);
+  return text === key ? t("cloudSync.problem.unknown") : text;
+}
 
 /**
  * The header's lines for the copies kept elsewhere, beside the browser's own.
- * Firebase's line also shows in the simple view while it is failing, with
- * why: a member who keeps to that view would otherwise never know their
+ * A line also shows in the simple view while it is failing -- from the first
+ * failure until a send lands, a retry under way included -- and Firebase's
+ * says why: a member who keeps to that view would otherwise never know their
  * coups had stopped being saved.
  */
 function renderSyncStatus() {
   const show = (sync, box, dot, label, words) => {
     const st = sync ? sync.status : { state: "off" };
     $(box).hidden = st.state === "off";
-    $(box).classList.toggle("failing", st.state === "error");
+    $(box).classList.toggle("failing", st.state !== "off" && st.state !== "on" && st.problem != null);
     if (st.state === "off") return;
     $(dot).className = "sdot " + (st.state === "on" ? "synced" : st.state === "sending" ? "syncing" : "error");
-    $(label).textContent = words(st.state, {
-      n: st.games.toLocaleString(),
-      why: t("cloudSync.problem." + (CLOUD_PROBLEMS.includes(st.problem) ? st.problem : "unknown")),
-    });
+    $(label).textContent = words(st);
   };
-  show(serverSync, "syncBox", "syncDot", "syncLabel", (state, n) => t("sync." + state, n));
-  show(cloudSync, "cloudBox", "cloudDot", "cloudLabel", (state, n) => t("cloudSync." + state, n));
+  const n = (st) => st.games.toLocaleString();
+  show(serverSync, "syncBox", "syncDot", "syncLabel", (st) => t("sync." + st.state, { n: n(st) }));
+  show(cloudSync, "cloudBox", "cloudDot", "cloudLabel", (st) => t("cloudSync." + st.state, {
+    n: n(st), why: st.state === "error" ? cloudProblem(st.problem) : "",
+  }));
 }
 
 function commit(changedIds, writtenTable = state.active) {
