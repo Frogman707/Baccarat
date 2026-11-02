@@ -12078,8 +12078,32 @@ class LiveWatcher {
       const deeper = discThere >= 0 && !road(this.grid) && road(openings[discThere].lattice)
         && fits(boards[discThere], openings[discThere].lattice)
         && !boards.some((b, i) => openings[i] && openings[i].pinned && fits(b, this.grid));
-      if ((!discHere || deeper) && discThere >= 0) this._adoptRuling(openings[discThere].lattice);
-      else if (!anyHere && anyThere >= 0) this._adoptRuling(openings[anyThere].lattice);
+      // Nor does a mark in the first cell of the lattice pinned keep the lock
+      // from a road's lattice that a disc a third again as big opens, filling
+      // its own cell: a plate is ruled at the big road's cell or coarser, and
+      // where it is coarser the big road's first ring is the smaller mark --
+      // too small, at twelve pixels to the plate's cell (an owner's VLS1003
+      // board, its plate under the roads), to read as a ring at all.
+      const bigger = discThere >= 0 && road(openings[discThere].lattice)
+        && fits(boards[discThere], openings[discThere].lattice)
+        && boards.every((b, i) => !(openings[i] && openings[i].pinned)
+                                  || (b.diameter || 0) * 1.3 <= (boards[discThere].diameter || 0));
+      if ((!discHere || deeper || bigger) && discThere >= 0) this._adoptRuling(openings[discThere].lattice);
+      // Nor, where only rings open anything, a lattice with another of its
+      // cell ruled over it on the same edge: the plate is the top of what
+      // is ruled. A plate drawn in rings over the big road, both ruled
+      // alike (the stacked layout), had the big road's lattice kept at hand
+      // from the band's search (see `findStrip`), and the big road's first
+      // column opened it at the second coup: the big road was read for the
+      // shoe, its ties lost. The lock stays, as it did, until a plate past
+      // doubt shows.
+      else if (!anyHere && anyThere >= 0) {
+        const lat = openings[anyThere].lattice;
+        const under = [this.grid, ...(this.grid.siblings || [])].some((g) => g !== lat
+          && Math.abs(g.pitch - lat.pitch) <= lat.pitch * 0.12
+          && Math.abs(g.box.x - lat.box.x) <= lat.pitch && g.box.y2 <= lat.box.y + lat.pitch);
+        if (!under) this._adoptRuling(lat);
+      }
     }
     const before = this.sightings, now = [], shown = [];
     for (const b of boards) {
