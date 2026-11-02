@@ -6059,9 +6059,18 @@ function detectBoards(imageData, { region = null, minCells = 8, whole = null, pi
       // as glare, and once the plate was wide enough for it to find one
       // more mark it was taken -- with both ties turned to nothing, and the
       // shoe read only as far as the first of them.
+      //
+      // Counted mark by mark, where each was, rather than colour by colour:
+      // on the same white panel, the plate's pair dots in the corners of its
+      // cells, the stretch turned a Player's blue dot green and the tie disc
+      // under it to nothing -- as many ties after as before, and two marks
+      // more -- and the plate was read to the coup before the tie, then not
+      // at all (drawn as an owner's VLS1003 board draws its plate).
       const byCode = (ms) => { const n = [0, 0, 0, 0]; for (const m of ms) n[m.code] += 1; return n; };
       const before = byCode(marks), after = byCode(recovered);
-      const gains = recovered.length > marks.length && after.every((n, c) => n >= before[c]);
+      const kept = (m) => recovered.some((r) => r.code === m.code
+        && Math.abs(r.cx - m.cx) <= size(m) / 2 && Math.abs(r.cy - m.cy) <= size(m) / 2);
+      const gains = recovered.length > marks.length && marks.every(kept);
       if (globalThis.__LATTICE_DEBUG) console.log(`[detect] glare: ${marks.length} marks (${before[TIE]} ties) -> ${recovered.length} (${after[TIE]} ties)${gains ? " taken" : ""}`);
       if (gains) {
         all = relabelled;
@@ -7371,7 +7380,7 @@ function detectGrid(imageData, { region = null } = {}) {
   // of the plate's own ruling, found a row above it and at a hair more
   // pitch, on an owner's table with its roads beside the video.
   const area = (b) => Math.max(0, b.x2 - b.x) * Math.max(0, b.y2 - b.y);
-  const lying = (c) => all.some((f) => f !== c && f.cols * f.rows > c.cols * c.rows
+  const lying = (c) => all.some((f) => f !== c && !covering(f) && f.rows <= 8 && f.cols * f.rows > c.cols * c.rows
     && Math.abs(f.pitch - c.pitch) <= c.pitch * 0.12
     && area({ x: Math.max(f.box.x, c.box.x), y: Math.max(f.box.y, c.box.y),
               x2: Math.min(f.box.x2, c.box.x2), y2: Math.min(f.box.y2, c.box.y2) }) >= area(c.box) / 2);
@@ -10787,7 +10796,21 @@ function findStrip(frame, frameW, frameH) {
   if (!whole) return inBand;
   if (!inBand) return whole;
   const tall = (g) => g.panel.y2 - g.panel.y;
-  return tall(whole) > tall(inBand) ? whole : inBand;
+  const [kept, other] = tall(whole) > tall(inBand) ? [whole, inBand] : [inBand, whole];
+  // The lattices the other search found are kept at hand too: a shoe's
+  // first coup says which lattice is the plate (see the reader's
+  // `_opening`), and it can only say so of one it knows of. Drawn as an
+  // owner's VLS1003 board draws its plate, under the roads at eighteen
+  // pixels to the cell, the band found the plate's ruling and the whole
+  // frame did not, and the whole frame's taller panel was kept: the first
+  // disc opened nothing known, the big road's first ring was read as the
+  // shoe, and then the big road for the rest of it.
+  const known = [kept, ...(kept.siblings || [])];
+  const same = (a, b) => Math.abs(a.pitch - b.pitch) <= a.pitch * 0.05
+    && Math.abs(a.box.x - b.box.x) <= a.pitch / 2 && Math.abs(a.box.y - b.box.y) <= a.pitch / 2;
+  const more = [other, ...(other.siblings || [])].filter((l) => !known.some((k) => same(k, l)))
+    .map((l) => ({ ...l, siblings: undefined }));
+  return more.length ? { ...kept, siblings: [...(kept.siblings || []), ...more] } : kept;
 }
 
 /**
@@ -11519,7 +11542,31 @@ class LiveWatcher {
         const whole = (r) => r.boards.some((b) => b.cells.length > 2
           && b.cells.map((c) => c.fill).sort((p, q) => p - q)[b.cells.length >> 1] >= SOLID_MARK);
         const finer = plain.boards.some((b) => b.cells.length >= 6 && b.diameter > pitch * 1.3);
-        if (plate(plain) > plate(got) || finer
+        // Or where the ruling's reading cut a shoe's first marks into pieces
+        // under half their size, the biggest marks on the screen aside --
+        // marks that stand at the first cell of another lattice the strip
+        // is ruled in, at their own size: a plate under the roads (an
+        // owner's VLS1003 board), drawn at one and a half times the size and
+        // ruled for the derived roads at a third of the plate's cell, had
+        // the shoe's first disc in nine pieces, read as a board of three
+        // Bankers ahead of the disc itself, and the counts' discs beside
+        // the plate, outside the ruling and whole, kept the biggest marks
+        // whole either way. Only there: a plate's coups of one side run
+        // together into a block are marks twice the cell too, cut by the
+        // ruling into what they are (an owner's table with its plate under
+        // the betting bar, at 1.1 times the size).
+        const inside = (g, p) => {
+          const slack = Math.max(2, p.diameter * 0.15);
+          return g.box.x >= p.box.x - slack && g.box.x2 <= p.box.x2 + slack
+            && g.box.y >= p.box.y - slack && g.box.y2 <= p.box.y2 + slack;
+        };
+        const opensOwn = (p) => (this.grid.siblings || []).some((s) => s.pitch >= p.diameter
+          && s.pitch <= p.diameter * 1.6
+          && Math.abs(p.box.x - s.box.x) <= s.pitch / 2 && Math.abs(p.box.y - s.box.y) <= s.pitch / 2);
+        const pieces = plain.boards.some((p) => p.cells.length <= OPENING_MARKS && opensOwn(p)
+          && got.boards.some((g) => inside(g, p) && g.diameter * 2 <= p.diameter
+                                    && g.cells.length > p.cells.length));
+        if (plate(plain) > plate(got) || finer || pieces
             || (biggest(plain) > biggest(got) * 1.3 && (most(plain) >= most(got) || !whole(got)))) got = plain;
       }
       if (!got.boards.length) continue;
