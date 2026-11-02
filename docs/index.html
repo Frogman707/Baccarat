@@ -5358,6 +5358,69 @@ function roadSequence(cells, nRows) {
   return out;
 }
 
+/**
+ * How much of a tie's green a ring must carry across it to carry the tie:
+ * pixels to three fifths of the ring's width, reaching across nearly a
+ * third of it. A slash from one side of a ring to the other, as thin as a
+ * pixel and a half, is twice that and more; a figure "1" or a small ring at
+ * the middle of a ring of twelve pixels, eight pixels or twelve over four;
+ * a speck of green blur at a ring's edge is a pixel or two.
+ */
+const TIE_STROKE_INK = 0.6, TIE_STROKE_REACH = 0.3;
+
+/**
+ * Count, on a big road's rings, the ties drawn across them in green that came
+ * through as no mark (see `greens` in `detectBoards`), and read the board
+ * again if any were. A ring already carrying a tie keeps it as it is.
+ */
+function tiesAcross(board, greens) {
+  if (!greens.count) return;
+  let added = false;
+  for (const c of board.cells) {
+    if (c.outcome === "T" || c.ties) continue;
+    const d = 2 * c.r;
+    const x = c.minX ?? c.cx - c.r, x2 = c.maxX ?? c.cx + c.r;
+    const y = c.minY ?? c.cy - c.r, y2 = c.maxY ?? c.cy + c.r;
+    const on = greens.within(x - 1, y - 1, x2 + 1, y2 + 1);
+    if (!on.length) continue;
+    const ink = on.reduce((sum, g) => sum + g.n, 0);
+    const across = Math.max(Math.max(...on.map((g) => g.maxX)) - Math.min(...on.map((g) => g.minX)),
+                            Math.max(...on.map((g) => g.maxY)) - Math.min(...on.map((g) => g.minY))) + 1;
+    if (ink >= d * TIE_STROKE_INK && across >= d * TIE_STROKE_REACH) { c.ties = 1; added = true; }
+  }
+  if (added) board.sequence = roadSequence(board.cells, board.nRows);
+}
+
+/** Bucket size, in pixels, of the lookup `greensBy` builds. */
+const GREEN_BUCKET = 32;
+
+/**
+ * Blobs looked up by where their middles stand: `within(x, y, x2, y2)` is
+ * those with a middle inside that box, `count` how many there are.
+ */
+function greensBy(blobs) {
+  const at = new Map();
+  for (const b of blobs) {
+    const key = `${Math.floor(b.cx / GREEN_BUCKET)},${Math.floor(b.cy / GREEN_BUCKET)}`;
+    if (!at.has(key)) at.set(key, []);
+    at.get(key).push(b);
+  }
+  return {
+    count: blobs.length,
+    within(x, y, x2, y2) {
+      const out = [];
+      for (let i = Math.floor(x / GREEN_BUCKET); i <= Math.floor(x2 / GREEN_BUCKET); i += 1) {
+        for (let j = Math.floor(y / GREEN_BUCKET); j <= Math.floor(y2 / GREEN_BUCKET); j += 1) {
+          for (const b of at.get(`${i},${j}`) || []) {
+            if (b.cx >= x && b.cx <= x2 && b.cy >= y && b.cy <= y2) out.push(b);
+          }
+        }
+      }
+      return out;
+    },
+  };
+}
+
 function buildBoard(marks, diameter) {
   const gap = diameter * 0.55;
   const cols = binAxis(marks.map((m) => m.cx), gap);
@@ -5378,15 +5441,24 @@ function buildBoard(marks, diameter) {
   // `SOLID_TIE`). That is the mark's tie, counted on it, not a cell of its
   // own: taken for one, the ring under it went unread and the run it was
   // part of broke in two.
+  //
+  // Or a tie's green well inside another side's mark, whatever its fill: a
+  // table that rings its ties draws a small green ring in the middle of the
+  // coup's, and at twenty pixels to the cell that is a mark of its own,
+  // solid enough to pass for a disc -- and half the size of the ring it is
+  // on, which no coup of its own is beside another in one cell.
   const slots = new Map();
   const stroke = (m) => m.outcome === "T" && m.fill < SOLID_TIE;
+  const inside = (t, m) => t.outcome === "T" && m.outcome !== "T" && t.r <= m.r * 0.7;
   for (const c of cells) {
     const key = `${c.col},${c.row}`;
     const prev = slots.get(key);
     if (!prev) slots.set(key, c);
-    else if (stroke(c) && !stroke(prev)) prev.ties = (prev.ties || 0) + 1;
-    else if (stroke(prev) && !stroke(c)) { c.ties = (c.ties || 0) + (prev.ties || 0) + 1; slots.set(key, c); }
-    else if (c.r > prev.r) slots.set(key, c);
+    else if ((stroke(c) && !stroke(prev)) || inside(c, prev)) prev.ties = (prev.ties || 0) + 1;
+    else if ((stroke(prev) && !stroke(c)) || inside(prev, c)) {
+      c.ties = (c.ties || 0) + (prev.ties || 0) + 1;
+      slots.set(key, c);
+    } else if (c.r > prev.r) slots.set(key, c);
   }
   let unique = [...slots.values()].sort((a, b) => (a.col - b.col) || (a.row - b.row));
 
@@ -6261,6 +6333,27 @@ function detectBoards(imageData, { region = null, minCells = 8, whole = null, pi
     }
   }
 
+  // A tie's green, where it is no mark: the stroke a big road draws across
+  // the ring of the coup before it, in pieces. Shared with the colour at half
+  // resolution, a slash across a ring is a chain of green blocks two pixels
+  // square meeting only at their corners -- six of them across a ring of
+  // sixteen pixels, none a mark, and the tie was not read: every coup after it
+  // was written a place early. Counted on the rings they cross (see
+  // `tiesAcross`), in the frame's own pixels.
+  // A small ring of a tie's green at a ring's middle is a mark of its own at
+  // twenty pixels to the cell, and half the size of the marks around it,
+  // dropped from its group for that (see `own` below): so marks are among
+  // them too, and a ring carrying one counts it once (see `tiesAcross`).
+  //
+  // Looked up by where they stand, not one by one: a frame packed with marks
+  // holds ten thousand of a tie's green and a big road of thousands of cells,
+  // and asking every cell of every green read three times as slowly as the
+  // frame without them (see the crowded-frame check in `test_js_port.py`).
+  const greens = greensBy(all.filter((b) => b.code === TIE).map((b) => ({
+    n: b.n, cx: b.cx + x0, cy: b.cy + y0,
+    minX: b.minX + x0, maxX: b.maxX + x0, minY: b.minY + y0, maxY: b.maxY + y0,
+  })));
+
   for (const m of marks) { m.cx += x0; m.cy += y0; m.minX += x0; m.maxX += x0; m.minY += y0; m.maxY += y0; }
 
   // Size is judged per board, never across the screenshot. A single global
@@ -6300,6 +6393,7 @@ function detectBoards(imageData, { region = null, minCells = 8, whole = null, pi
   for (const g of groups) {
     if (g.cells.length < minCells) continue;
     const board = buildBoard(g.cells, g.d);
+    if (board.kind === "bigroad") tiesAcross(board, greens);
     markFrameCut(board, H);
     if (opensLikeARoad(board)) boards.push(board);
   }
@@ -10689,6 +10783,13 @@ const FILLS_ITS_CELL = 0.75;
 const OVERSIZE_FOR_CELL = 1.3;
 
 /**
+ * A lattice ruled this much finer than another is a derived road's beside a
+ * road's: the derived roads are drawn at half the big road's cell, the
+ * plate at its cell or coarser.
+ */
+const FINER_THAN_A_ROAD = 0.75;
+
+/**
  * Samples between full-screen re-checks, so a bad lock heals on its own.
  *
  * Twelve is about twenty seconds at the default interval -- long enough that
@@ -12375,6 +12476,14 @@ class LiveWatcher {
   /** Pin to another lattice of the ruling's, keeping the rest at hand. */
   _adoptRuling(sibling) {
     const grid = this.grid;
+    // Never down to a lattice much finer than the one pinned: the derived
+    // roads are ruled finer than the plate and the big road on every table,
+    // and a plate is never finer than the big road. On a table with no
+    // plate, its big road pinned at twelve pixels to the cell, the small
+    // road's first disc opened the derived roads' lattice at six, the lock
+    // moved there, and a Banker of the small road went down as the shoe's
+    // fourth coup.
+    if (sibling.pitch < grid.pitch * FINER_THAN_A_ROAD) return;
     const others = [grid, ...(grid.siblings || [])].filter((g) => g !== sibling)
       .map((g) => ({ ...g, siblings: undefined }));
     this.grid = { ...sibling, siblings: others };
