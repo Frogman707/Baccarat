@@ -10682,6 +10682,13 @@ const ROAD_ROWS_MAX = 8;
 const FILLS_ITS_CELL = 0.75;
 
 /**
+ * How much bigger than a lattice's cell a mark may be and still be one of its
+ * own: no road's mark is much bigger than its cell (see the ruling's pitch in
+ * `_sample`).
+ */
+const OVERSIZE_FOR_CELL = 1.3;
+
+/**
  * Samples between full-screen re-checks, so a bad lock heals on its own.
  *
  * Twelve is about twenty seconds at the default interval -- long enough that
@@ -12332,8 +12339,18 @@ class LiveWatcher {
       // edge, with nothing above them while the plate is empty. Taken for
       // the shoe's first coup there, the reader followed the counts' first
       // disc for the whole shoe, the plate filling above it unread.
+      //
+      // And only a mark the lattice's cell could hold: on a white page the
+      // derived roads' panel grows out over the whole strip, its left edge
+      // the plate's, and with the plate empty the counts' first disc under
+      // it -- half again as big as the derived roads' cell, level with their
+      // top row -- was at that edge, in the ruling's upper half, with
+      // nothing above it. Drawn with the plate under the video on the left
+      // at twenty pixels to the cell, the reader read a Banker on an empty
+      // table and followed the counts for the shoe.
       const edge = (b) => near(b.box.x, g.box.x) || near(b.box.x, g.panel.x);
       return edge(board) && board.box.y >= g.box.y - reach && board.box.y <= (g.box.y + g.box.y2) / 2
+        && !((board.diameter || 0) > g.pitch * OVERSIZE_FOR_CELL)
         && !boards.some((o) => o !== board && edge(o) && o.box.y < board.box.y);
     };
     if (opens(grid)) return { lattice: grid, pinned: true };
