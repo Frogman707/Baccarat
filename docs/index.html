@@ -7451,6 +7451,9 @@ function detectGrid(imageData, { region = null } = {}) {
     };
   };
   const grid = describe(core);
+  // What its marks said of it (see `rank`), for a caller choosing between
+  // two searches' lattices (see the live reader's `findStrip`).
+  grid.marks = top.slice(0, 4);
   grid.siblings = candidates.filter((l) => l !== core).map(describe);
   return grid;
 }
@@ -10663,6 +10666,21 @@ const PICK_TOLERANCE = 0.5;
  * instead: a shoe opens at the ruling's first cell (see `_roadsAmong`).
  */
 const OPENING_MARKS = 2;
+
+/**
+ * More rows than any road has: a bead plate is six deep, five or eight on
+ * some tables, and a lattice deeper than that is the rules of two panels
+ * found as one (see `detectGrid`).
+ */
+const ROAD_ROWS_MAX = 8;
+
+/**
+ * How much of its cell a road's mark fills across, at the least: a disc,
+ * a ring or a tile is drawn to most of its cell on every table, and a mark
+ * well under that in a lattice's first cell is another, finer road's.
+ */
+const FILLS_ITS_CELL = 0.75;
+
 /**
  * Samples between full-screen re-checks, so a bad lock heals on its own.
  *
@@ -10785,6 +10803,15 @@ function bandLock(bounds, frameW, frameH) {
  * Whichever finds the taller panel wins, because a strip cut off by the band's
  * own edge is shorter than the same strip found whole.
  */
+/** Whether lattice `p`'s marks say less of it than `q`'s say of `q` (see `detectGrid`). */
+function fewerMarks(p, q) {
+  const a = p.marks || [], b = q.marks || [];
+  for (let i = 0; i < Math.max(a.length, b.length); i += 1) {
+    if ((a[i] || 0) !== (b[i] || 0)) return (a[i] || 0) < (b[i] || 0);
+  }
+  return false;
+}
+
 function findStrip(frame, frameW, frameH) {
   const band = bottomBand(frameW, frameH);
   const inBand = detectGrid(frame, { region: band });
@@ -10796,7 +10823,21 @@ function findStrip(frame, frameW, frameH) {
   if (!whole) return inBand;
   if (!inBand) return whole;
   const tall = (g) => g.panel.y2 - g.panel.y;
-  const [kept, other] = tall(whole) > tall(inBand) ? [whole, inBand] : [inBand, whole];
+  // Unless the whole frame's lattice is a piece of the band's: the same
+  // cell, inside it, narrower, and with fewer of its cells marked at their
+  // middles (see `detectGrid`). Drawn as an owner's VLS1003 board draws its
+  // plate, under the roads at eighteen pixels to the cell shared at one and
+  // a half times the size, forty-odd coups in: the whole frame's lattice
+  // was a ruling fitted to the plate's filled columns and the derived roads
+  // over them, seven columns wide and ten rows deep; the band's was the
+  // plate's own fourteen columns. The taller panel was the whole frame's,
+  // grown from those seven columns, and the lock it gave stopped short of
+  // the shoe's newest coups, in the ninth.
+  const piece = Math.abs(whole.pitch - inBand.pitch) <= inBand.pitch * 0.12
+    && whole.cols < inBand.cols
+    && whole.box.x >= inBand.box.x - inBand.pitch && whole.box.x2 <= inBand.box.x2 + inBand.pitch
+    && fewerMarks(whole, inBand);
+  const [kept, other] = !piece && tall(whole) > tall(inBand) ? [whole, inBand] : [inBand, whole];
   // The lattices the other search found are kept at hand too: a shoe's
   // first coup says which lattice is the plate (see the reader's
   // `_opening`), and it can only say so of one it knows of. Drawn as an
@@ -11891,6 +11932,28 @@ class LiveWatcher {
     if (!boards.length) { this.lastBoard = null; this.empties += 1; this._emit(); return; }
     this.empties = 0;
 
+    // A big road read first, inside a lock pinned to a ruling, may be the
+    // big road of a table whose plate the ruling left out. Where a plate
+    // past doubt elsewhere on the frame holds the same shoe -- the big
+    // road's coups, the plate's ties aside -- that plate is the board, and
+    // the lock is grown to hold it: on a black panel, the plate under the
+    // roads at eighteen pixels to the cell (an owner's VLS1003 board), its
+    // filled columns hid its ruling, the big road's was found, and fifty
+    // coups in the reader read the big road, both ties lost, for as long
+    // as it was watched. Only the same shoe: a neighbouring table's plate
+    // is no plate of this one.
+    if (!following && this.pinned === "grid" && boards[0].kind === "bigroad"
+        && !boards.some(looksLikePlate)) {
+      const plate = this._plateOfTheSameShoe(frame, boards[0]);
+      if (plate) {
+        boards = [plate.board];
+        bounds = plate.bounds;
+        const pad = Math.max(8, Math.round(plate.board.diameter || 0));
+        this.region = this.memory = grownToHold(this.region, plate.board.box, pad, w, h);
+        this.memoryAt = Date.now();
+      }
+    }
+
     // Prefer the board this run has been reading, so a strip that gains a
     // derived road between frames does not move the reading somewhere else --
     // but only among boards still worth reading, so the preference cannot
@@ -12000,7 +12063,22 @@ class LiveWatcher {
       const discThere = boards.findIndex((b, i) => disc(i) && !openings[i].pinned);
       const anyHere = openings.some((o) => o && o.pinned);
       const anyThere = openings.findIndex((o) => o && !o.pinned);
-      if (!discHere && discThere >= 0) this._adoptRuling(openings[discThere].lattice);
+      // Nor does a mark too small for its cell, in the first cell of a
+      // lattice deeper than any road -- the rules of two panels taken for
+      // one -- keep the lock from a road's lattice that a disc of its own
+      // cell's size opens: on a black panel, the plate under the roads at
+      // eighteen pixels to the cell (an owner's VLS1003 board), the big
+      // road's first ring was too small to read as a ring, opened a lattice
+      // of thirteen rows at the plate's cell running from the big road down
+      // through the plate, and the reader read the big road for the shoe.
+      // A plate over the big road, its first disc filling the deep
+      // lattice's first cell, keeps it.
+      const road = (g) => g.rows <= ROAD_ROWS_MAX;
+      const fits = (b, g) => (b.diameter || 0) >= g.pitch * FILLS_ITS_CELL;
+      const deeper = discThere >= 0 && !road(this.grid) && road(openings[discThere].lattice)
+        && fits(boards[discThere], openings[discThere].lattice)
+        && !boards.some((b, i) => openings[i] && openings[i].pinned && fits(b, this.grid));
+      if ((!discHere || deeper) && discThere >= 0) this._adoptRuling(openings[discThere].lattice);
       else if (!anyHere && anyThere >= 0) this._adoptRuling(openings[anyThere].lattice);
     }
     const before = this.sightings, now = [], shown = [];
@@ -12028,6 +12106,21 @@ class LiveWatcher {
     // coup, look after look.
     if (this._ruling()) return [];
     return boards.length === 1 && boards[0].cells.length <= OPENING_MARKS ? boards : [];
+  }
+
+  /**
+   * A plate past doubt anywhere on the frame, outside the lock, holding the
+   * shoe `road` holds -- the same coups, ties aside, and as many -- with the
+   * frame's bounds; or null.
+   */
+  _plateOfTheSameShoe(frame, road) {
+    const bare = (seq) => seq.replace(/T/g, "");
+    const full = detectBoards(frame, { minCells: COLD_CELLS });
+    const board = full.boards.find((b) => looksLikePlate(b) && !within(b.box, this.region)
+      && bare(b.sequence) === bare(road.sequence));
+    if (!board) return null;
+    board.shown = true;
+    return { board, bounds: full.bounds };
   }
 
   /** The ruled panel the reader is pinned to, if it is pinned to one. */
