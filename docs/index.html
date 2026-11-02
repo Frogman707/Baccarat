@@ -100,7 +100,10 @@ header{display:contents}
 .hin .hrow{flex-wrap:nowrap}
 .brand{min-width:0; flex:0 1 auto}
 .brand > span:last-child{overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
-#tableSel,.acct{flex:0 0 auto}
+#tableSel{flex:0 0 auto}
+/* The account bar may give way to its note, which then wraps: on a phone the
+   offline note is longer than the row has room for. */
+.acct{flex:0 1 auto; min-width:0}
 .hgroup{display:inline-flex; align-items:center; gap:2px; flex-wrap:wrap}
 .htools .btn.ghost{padding:5px 10px; font-size:12.5px}
 #tableSel{max-width:40vw; font-weight:500}
@@ -907,7 +910,8 @@ body.open > #gate{display:none}
 .acctbtn svg{width:15px; height:15px; display:block}
 .acctbadge{min-width:18px; height:18px; padding:0 5px; border-radius:9px; background:var(--banker);
   color:#fff; font-size:11px; line-height:18px; text-align:center; font-weight:600}
-.acctnote{font-size:11.5px; color:var(--accent)}
+.acctnote{font-size:11.5px; color:var(--accent); min-width:0; line-height:1.3; text-align:right}
+.acctbtn{flex:0 0 auto}
 /* One column no wider than the screen: sized to its content, the sheet took
    the width of its widest table on a phone, and its own buttons -- log out,
    close -- were off the right-hand edge where nothing scrolls to. */
@@ -3156,8 +3160,10 @@ const S = {
     "zh-Hant": "已送出申請，經管理員核准後即可登入。", "zh-Hans": "已提交申请，经管理员批准后即可登录。",
   },
   "gate.offline": {
-    ko: "오프라인: 마지막 로그인으로 열었습니다", en: "Offline: opened on your last sign-in",
-    "zh-Hant": "離線：依上次登入開啟", "zh-Hans": "离线：按上次登录打开",
+    ko: "오프라인 · Firebase에 저장 안 됨 · 연결되면 새로고침",
+    en: "Offline · not saved to Firebase · reload once connected",
+    "zh-Hant": "離線 · 未存到 Firebase · 連線後請重新整理",
+    "zh-Hans": "离线 · 未保存到 Firebase · 连接后请刷新",
   },
   "acct.logout": { ko: "로그아웃", en: "Sign out", "zh-Hant": "登出", "zh-Hans": "退出登录" },
   "acct.manage": { ko: "회원 관리", en: "Members", "zh-Hant": "會員管理", "zh-Hans": "会员管理" },
