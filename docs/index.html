@@ -11662,7 +11662,24 @@ class LiveWatcher {
     const following = !!(this.region && this.lastBox && this.proven);
     // The board being followed is read as one, so a mark hidden inside it is
     // a hole in it rather than a seam between two boards (see `groupBlobs`).
-    const whole = following ? { ...this.lastBox, d: this.lastSize, fill: this.lastFill } : null;
+    //
+    // Not from a mark or two no bigger than the pinned cell: they never
+    // proved a mark's size, and handed down as the board's they had every
+    // bigger mark in the lock cut to their size -- on an owner's VLS1003
+    // board at 1.25 times the size, the big road's first ring with two
+    // ties across it, cut by the derived roads' ruling and read as two
+    // Bankers, had the plate's discs twice its size cut into nine pieces
+    // each, and the plate was gone from the lock for the rest of the shoe.
+    //
+    // Only where the lock holds a mark twice their size: on a plate of eight
+    // pixels to the cell every mark is the cell's size, and withholding
+    // theirs read the plate from its second row after a wipe, with a tie
+    // for the new shoe's second coup (drawn as a stacked table draws it).
+    const twice = (this.lastSize || 0) * 2;
+    const sized = !((this.lastRead || "").length <= OPENING_MARKS && this.grid
+                    && (this.lastSize || 0) <= this.grid.pitch * OVERSIZE_FOR_CELL
+                    && this.biggerInLock >= twice);
+    const whole = following && sized ? { ...this.lastBox, d: this.lastSize, fill: this.lastFill } : null;
     // And a strip whose ruling has been found is read by its cells' size,
     // which a run of one side that ran together is cut by (see `detectBoards`)
     // -- while it can be the cells of the board being read: no mark is much
@@ -11805,11 +11822,81 @@ class LiveWatcher {
     // says the window has not moved, whatever its ruling says (see the
     // re-check below).
     let stayed = false;
+    // The biggest mark the lock holds, for the next look's `sized`: measured
+    // before anything is filtered out, where a plate's disc twice the size
+    // of the mark or two being followed is still among the boards.
+    this.biggerInLock = Math.max(0, ...boards.map((b) => b.diameter || 0));
     if (following) {
+      const inLock = boards;
       const carried = boardsCarryingOn(boards, this.lastBox);
       const last = this.lastRead || "";
       stayed = carried.some((b) => b.sequence.startsWith(last) || last.startsWith(b.sequence));
       boards = carried.length ? carried : movedTo(boards, this.lastRead);
+      // A board of a mark or two being followed may be the big road's first
+      // ring, taken for the shoe where the plate's own lattice was never
+      // found (see `_opensThePanel`): a tie after the first coup is drawn
+      // across that ring and adds none, so the ring reads as one mark for
+      // coups on end, while the plate beside it in the lock, read whole,
+      // was filtered out for not standing where the ring stood. Drawn as an
+      // owner's VLS1003 board draws it at 1.25 times the size with a tie
+      // for the second coup, the reader read one Banker for five coups,
+      // then the ruling's re-check took the lock off the plate, and the big
+      // road was read for the shoe with the tie lost. A plate past doubt in
+      // the lock that reads on from the mark or two is the board, and the
+      // lock is grown to hold it.
+      //
+      // And a big road being followed, however long: a plate past doubt in
+      // the lock holding the shoe it holds -- the big road's coups, ties
+      // aside, and as many or one more -- is the board. The big road writes
+      // a tie across the ring of the coup before it, read a coup late or
+      // not at all (see `tiesAcross`), and on the same board with three
+      // Bankers to open, the reader took the big road at its second column,
+      // read the shoe's ninth coup, a tie, as nothing, and its tenth with
+      // the tie gone -- a record wrong by a coup -- until the re-check
+      // twelve looks on found the plate.
+      //
+      // Whatever the mark or two read: a big road's first ring with two ties
+      // across it was cut by the finer ruling and read as two Bankers, a
+      // "BB" the plate past doubt beside it (BTTPBPPB) does not open with.
+      // A mark or two in a box were never a plate past doubt, and a plate
+      // past doubt in the same lock -- two columns and more, both sides or
+      // a tie among them -- is the board whatever they read as.
+      //
+      // Or a board of pieces: the big road's rings cut by the derived roads'
+      // ruling, pinned where the plate's own was never found, read as a
+      // "big road" of twenty marks for seven coups, each under half the
+      // plate's discs -- and read on, since the plate past doubt beside it
+      // does not go on from what the pieces spell. A big road's rings beside
+      // a plate are two thirds of its discs on any table; marks half the
+      // plate's disc or less are pieces, and the plate past doubt is the
+      // board.
+      const bare = (seq) => seq.replace(/T/g, "");
+      const road = carried.length === 1 && carried[0].kind === "bigroad" ? carried[0] : null;
+      const young = last.length <= OPENING_MARKS && !carried.some((b) => b.sequence.length > last.length);
+      const pieces = (b, plate) => (b.diameter || 0) * 2 <= (plate.diameter || 0);
+      // In the followed board's own column, either way: a table's plate
+      // stands under its big road or beside it, its first column where the
+      // road's first column is, and a plate past doubt a board away across
+      // the screen is a neighbouring table's. Without this, a watched board
+      // that cleared for a shoe change handed its lock to the neighbour's
+      // twenty coups on the new shoe's first mark (the two-table browser
+      // check).
+      const column = (b) => Math.abs(b.box.x - this.lastBox.x)
+        <= 1.5 * Math.max(b.diameter || 0, this.lastSize || 0, this.grid ? this.grid.pitch : 0);
+      if (young || road) {
+        const plate = inLock.find((b) => looksLikePlate(b) && !overlaps(b.box, this.lastBox) && column(b)
+          && (young || pieces(road, b)
+              || (bare(b.sequence).startsWith(bare(road.sequence))
+                  && bare(b.sequence).length <= bare(road.sequence).length + 1)));
+        if (plate) {
+          plate.shown = true;
+          boards = [plate];
+          stayed = false;
+          const pad = Math.max(8, Math.round(plate.diameter || 0));
+          this.region = this.memory = grownToHold(this.region, plate.box, pad, w, h);
+          this.memoryAt = Date.now();
+        }
+      }
     } else {
       boards = this._roadsAmong(boards);
     }
@@ -12248,14 +12335,32 @@ class LiveWatcher {
       // where it is coarser the big road's first ring is the smaller mark --
       // too small, at twelve pixels to the plate's cell (an owner's VLS1003
       // board, its plate under the roads), to read as a ring at all.
+      // Judged by the lattices rather than the marks' hollowness where the
+      // marks cannot say: a plate's disc with a letter across it reads
+      // hollow at some sizes, and a big road's ring reads solid at the same
+      // (an owner's VLS1003 board, black, at eighteen pixels and 1.25 times
+      // the size), so the two swap sides of the disc test and the plate's
+      // lattice was never taken -- while at eight pixels a hollow ring's
+      // box outsizes a solid disc beside it, and size alone sent the pin
+      // to the big road. A plate is ruled coarser than the big road by a
+      // third and more on the VLS1003 board, and never finer than it: a
+      // mark a third again as big as every mark opening the pinned
+      // lattice, opening a lattice coarser than the pinned one by as much,
+      // and filling its cell, opens the plate's.
+      const biggest = anyThere >= 0 && road(openings[anyThere].lattice)
+        && fits(boards[anyThere], openings[anyThere].lattice)
+        && openings[anyThere].lattice.pitch >= this.grid.pitch * OVERSIZE_FOR_CELL
+        && boards.every((b, i) => !(openings[i] && openings[i].pinned)
+                                  || (b.diameter || 0) * 1.3 <= (boards[anyThere].diameter || 0));
       const bigger = discThere >= 0 && road(openings[discThere].lattice)
         && fits(boards[discThere], openings[discThere].lattice)
         && boards.every((b, i) => !(openings[i] && openings[i].pinned)
                                   || (b.diameter || 0) * 1.3 <= (boards[discThere].diameter || 0));
-      if ((!discHere || deeper || bigger) && discThere >= 0) {
+      const take = (!discHere || deeper || bigger) && discThere >= 0 ? discThere : biggest ? anyThere : -1;
+      if (take >= 0) {
         const was = this.grid;
-        this._adoptRuling(openings[discThere].lattice, boards);
-        if (this.grid !== was) adoptedBy = boards[discThere];
+        this._adoptRuling(openings[take].lattice, boards);
+        if (this.grid !== was) adoptedBy = boards[take];
       }
       // Nor, where only rings open anything, a lattice with another of its
       // cell ruled over it on the same edge: the plate is the top of what
@@ -12375,7 +12480,13 @@ class LiveWatcher {
    * lock keeps it, a mark's width around.
    */
   _keepingFollowed(lock, w, h) {
-    const box = this.proven ? this.lastBox : null;
+    // A board of two marks and more being read is kept too, proven or not:
+    // a young column is the shoe's as often as not, and the lock a
+    // re-check gives on a black panel is the big road's rows alone -- the
+    // plate under them, two coups in, was dropped from the lock and the
+    // shoe went unread (an owner's VLS1003 board at eighteen pixels, 1.25
+    // times the size).
+    const box = this.proven || (this.lastRead || "").length >= 2 ? this.lastBox : null;
     if (!box || within(box, lock)) return lock;
     return grownToHold(lock, box, Math.max(8, Math.round(this.lastSize || 0)), w, h);
   }
