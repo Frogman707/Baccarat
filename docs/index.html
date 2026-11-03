@@ -5368,6 +5368,9 @@ function roadSequence(cells, nRows) {
  */
 const TIE_STROKE_INK = 0.6, TIE_STROKE_REACH = 0.3;
 
+/** How near the middle of a tie's green, in the ring's radius, a piece of it must stand. */
+const TIE_STROKE_MIDDLE = 0.5;
+
 /**
  * Count, on a big road's rings, the ties drawn across them in green that came
  * through as no mark (see `greens` in `detectBoards`), and read the board
@@ -5381,8 +5384,19 @@ function tiesAcross(board, greens) {
     const d = 2 * c.r;
     const x = c.minX ?? c.cx - c.r, x2 = c.maxX ?? c.cx + c.r;
     const y = c.minY ?? c.cy - c.r, y2 = c.maxY ?? c.cy + c.r;
-    const on = greens.within(x - 1, y - 1, x2 + 1, y2 + 1);
+    // Not a pixel on its own: a ring's own colour, blurred into the white
+    // around it, leaves single pixels of a tie's green all round its edge --
+    // eight on every Player's ring of a big road at fifteen pixels to the
+    // cell, read as eight ties. And with a piece at the middle of what the
+    // green spans: a slash, a figure and a small ring are drawn through
+    // their own middle, where blur round a ring's edge, all round it, has
+    // nothing. The ring's own middle will not do: a slash across it cuts it,
+    // and what is left of it stands off to one side.
+    const on = greens.within(x - 1, y - 1, x2 + 1, y2 + 1).filter((g) => g.n >= 2);
     if (!on.length) continue;
+    const mx = (Math.min(...on.map((g) => g.minX)) + Math.max(...on.map((g) => g.maxX))) / 2;
+    const my = (Math.min(...on.map((g) => g.minY)) + Math.max(...on.map((g) => g.maxY))) / 2;
+    if (!on.some((g) => Math.hypot(g.cx - mx, g.cy - my) <= c.r * TIE_STROKE_MIDDLE)) continue;
     const ink = on.reduce((sum, g) => sum + g.n, 0);
     const across = Math.max(Math.max(...on.map((g) => g.maxX)) - Math.min(...on.map((g) => g.minX)),
                             Math.max(...on.map((g) => g.maxY)) - Math.min(...on.map((g) => g.minY))) + 1;
@@ -10789,6 +10803,9 @@ const OVERSIZE_FOR_CELL = 1.3;
  */
 const FINER_THAN_A_ROAD = 0.75;
 
+/** And this much finer, a derived road's whatever else is on the screen. */
+const DERIVED_OF_A_ROAD = 0.6;
+
 /**
  * Samples between full-screen re-checks, so a bad lock heals on its own.
  *
@@ -11709,12 +11726,31 @@ class LiveWatcher {
           return g.box.x >= p.box.x - slack && g.box.x2 <= p.box.x2 + slack
             && g.box.y >= p.box.y - slack && g.box.y2 <= p.box.y2 + slack;
         };
+        // At its first cell as the reader asks it of a shoe's first coup
+        // (see `_opening`): a mark and a half from the lattice's corner,
+        // which may stand a row off the plate's own.
         const opensOwn = (p) => (this.grid.siblings || []).some((s) => s.pitch >= p.diameter
           && s.pitch <= p.diameter * 1.6
-          && Math.abs(p.box.x - s.box.x) <= s.pitch / 2 && Math.abs(p.box.y - s.box.y) <= s.pitch / 2);
-        const pieces = plain.boards.some((p) => p.cells.length <= OPENING_MARKS && opensOwn(p)
-          && got.boards.some((g) => inside(g, p) && g.diameter * 2 <= p.diameter
-                                    && g.cells.length > p.cells.length));
+          && Math.abs(p.box.x - s.box.x) <= 1.5 * p.diameter && Math.abs(p.box.y - s.box.y) <= 1.5 * p.diameter);
+        // Or lost to the cut altogether: four pieces of a disc twice the
+        // ruling's cell are a block no board is made of, and with the plate
+        // on the right under the video on a black panel, at twenty pixels to
+        // the cell, the shoe's first coup was not read at all, and its second
+        // as four Players.
+        const lostOrCut = (p) => {
+          const over = got.boards.filter((g) => overlaps(g.box, p.box));
+          return !over.length || over.some((g) => inside(g, p) && g.diameter * 2 <= p.diameter
+                                                  && g.cells.length > p.cells.length);
+        };
+        const pieces = plain.boards.some((p) => p.cells.length <= OPENING_MARKS && opensOwn(p) && lostOrCut(p))
+          // Or where the ruling's own reading has the mark whole beside its
+          // pieces: the cut is of a mark that came through by itself as well,
+          // which no run of one side does. On the photo-like board at 1.25
+          // times the size, no lattice of the plate's was found to say so,
+          // and the shoe's first disc was read as three Players.
+          || got.boards.some((m) => m.cells.length <= OPENING_MARKS
+            && got.boards.some((g) => g !== m && inside(g, m) && g.diameter * 2 <= m.diameter
+                                      && g.cells.length > m.cells.length));
         if (plate(plain) > plate(got) || finer || pieces
             || (biggest(plain) > biggest(got) * 1.3 && (most(plain) >= most(got) || !whole(got)))) got = plain;
       }
@@ -11858,8 +11894,15 @@ class LiveWatcher {
       // Where it was first: a ruling has not usually moved, and one beside
       // the video may not stand out against the whole frame at all.
       const near = this.grid && this.grid.box;
-      const grid = (near && rulingAround(frame, near, this.grid.pitch, w, h, this.gridBox))
+      const found = (near && rulingAround(frame, near, this.grid.pitch, w, h, this.gridBox))
                    || findStrip(frame, w, h);
+      // The same ruling, moved or not -- not a derived road's beside it, at
+      // half its cell: on an owner's VLS1003 board shared at 1.35 times the
+      // size, the re-check around the big road's lattice found the derived
+      // roads' under it, the pin went over to it, and the big road read on
+      // its cells came out as thirty-odd coups that were never dealt. Found
+      // so, the pin stays as it was.
+      const grid = found && this.grid && found.pitch < this.grid.pitch * DERIVED_OF_A_ROAD ? this.grid : found;
       if (grid) {
         const before = this.grid;
         this.gridMisses = 0;
@@ -12050,8 +12093,14 @@ class LiveWatcher {
     // coups in the reader read the big road, both ties lost, for as long
     // as it was watched. Only the same shoe: a neighbouring table's plate
     // is no plate of this one.
-    if (!following && this.pinned === "grid" && boards[0].kind === "bigroad"
-        && !boards.some(looksLikePlate)) {
+    //
+    // Asked on the first look, and on every re-check after while the big road
+    // is what is read: on an owner's VLS1003 board shared at 1.35 times the
+    // size, the plate stood outside the lock from the first coup, and the big
+    // road -- its first ring read as the shoe's first coup -- was followed
+    // from then on.
+    if ((!following || this.samples % RECHECK_EVERY === 0) && this.pinned === "grid"
+        && boards[0].kind === "bigroad" && !boards.some(looksLikePlate)) {
       const plate = this._plateOfTheSameShoe(frame, boards[0]);
       if (plate) {
         boards = [plate.board];
@@ -12164,6 +12213,13 @@ class LiveWatcher {
     // opens the lattice pinned, the lock stays, or moves to the first lattice
     // anything opens: the big road reads as the plate does until a tie, and
     // the plate takes the reading over once it is a plate past doubt.
+    // The disc whose lattice the lock has just moved to is the shoe's first
+    // coup, and nothing else is for opening it: the lattice's panel, grown
+    // across a black page, has its corner at the other road's first cell as
+    // often as not -- with the plate on the right under the video, at twenty
+    // pixels to the cell, the big road's first square on the left was read
+    // as the shoe from the coup that moved the lock to the plate.
+    let adoptedBy = null;
     if (this._ruling() && !boards.some((b) => b.nCols > 1 || looksLikePlate(b))) {
       const openings = boards.map((b) => this._opening(b, boards));
       const disc = (i) => !!openings[i] && !hollow(boards[i]);
@@ -12196,7 +12252,11 @@ class LiveWatcher {
         && fits(boards[discThere], openings[discThere].lattice)
         && boards.every((b, i) => !(openings[i] && openings[i].pinned)
                                   || (b.diameter || 0) * 1.3 <= (boards[discThere].diameter || 0));
-      if ((!discHere || deeper || bigger) && discThere >= 0) this._adoptRuling(openings[discThere].lattice);
+      if ((!discHere || deeper || bigger) && discThere >= 0) {
+        const was = this.grid;
+        this._adoptRuling(openings[discThere].lattice, boards);
+        if (this.grid !== was) adoptedBy = boards[discThere];
+      }
       // Nor, where only rings open anything, a lattice with another of its
       // cell ruled over it on the same edge: the plate is the top of what
       // is ruled. A plate drawn in rings over the big road, both ruled
@@ -12210,16 +12270,25 @@ class LiveWatcher {
         const under = [this.grid, ...(this.grid.siblings || [])].some((g) => g !== lat
           && Math.abs(g.pitch - lat.pitch) <= lat.pitch * 0.12
           && Math.abs(g.box.x - lat.box.x) <= lat.pitch && g.box.y2 <= lat.box.y + lat.pitch);
-        if (!under) this._adoptRuling(lat);
+        if (!under) this._adoptRuling(lat, boards);
       }
     }
     const before = this.sightings, now = [], shown = [];
     for (const b of boards) {
-      if (b.nCols > 1 || this._opensThePanel(b, boards)) { b.shown = true; shown.push(b); continue; }
+      if (b.nCols > 1 || ((!adoptedBy || b === adoptedBy) && this._opensThePanel(b, boards))) {
+        b.shown = true; shown.push(b); continue;
+      }
       const was = before.find((s) => overlaps(s.box, b.box));
       now.push({ box: b.box, sequence: b.sequence,
                  held: was && was.sequence === b.sequence ? was.held + 1 : 1 });
-      if (was && was.held >= 2 && b.sequence.length > was.sequence.length
+      // Not, with a ruling pinned, a column of marks well under its cell: a
+      // derived road's, at half the big road's cell or less, grows as a
+      // shoe's first column does -- on the photo-like board at 1.35 times the
+      // size, the small road's column was read as the shoe from its second
+      // mark, pinned to the big road's ruling. A plate's marks are the big
+      // road's size or bigger.
+      const small = this._ruling() && (b.diameter || 0) < this.grid.pitch * DERIVED_OF_A_ROAD;
+      if (!small && was && was.held >= 2 && b.sequence.length > was.sequence.length
           && b.sequence.startsWith(was.sequence)) {
         b.shown = true;
         shown.push(b);
@@ -12241,15 +12310,16 @@ class LiveWatcher {
   }
 
   /**
-   * A plate past doubt anywhere on the frame, outside the lock, holding the
-   * shoe `road` holds -- the same coups, ties aside, and as many -- with the
-   * frame's bounds; or null.
+   * A plate past doubt anywhere on the frame holding the shoe `road` holds --
+   * the same coups, ties aside, and as many -- with the frame's bounds; or
+   * null. Inside the lock too: a big road being followed is all the lock
+   * hands on (see `boardsCarryingOn`), and a plate beside it in the lock is
+   * not among the boards read.
    */
   _plateOfTheSameShoe(frame, road) {
     const bare = (seq) => seq.replace(/T/g, "");
     const full = detectBoards(frame, { minCells: COLD_CELLS });
-    const board = full.boards.find((b) => looksLikePlate(b) && !within(b.box, this.region)
-      && bare(b.sequence) === bare(road.sequence));
+    const board = full.boards.find((b) => looksLikePlate(b) && bare(b.sequence) === bare(road.sequence));
     if (!board) return null;
     board.shown = true;
     return { board, bounds: full.bounds };
@@ -12474,16 +12544,23 @@ class LiveWatcher {
   }
 
   /** Pin to another lattice of the ruling's, keeping the rest at hand. */
-  _adoptRuling(sibling) {
+  _adoptRuling(sibling, boards = []) {
     const grid = this.grid;
-    // Never down to a lattice much finer than the one pinned: the derived
-    // roads are ruled finer than the plate and the big road on every table,
-    // and a plate is never finer than the big road. On a table with no
+    // Never down to a lattice much finer than a road's that is pinned: the
+    // derived roads are ruled finer than the plate and the big road on every
+    // table, and a plate is never finer than the big road. On a table with no
     // plate, its big road pinned at twelve pixels to the cell, the small
     // road's first disc opened the derived roads' lattice at six, the lock
     // moved there, and a Banker of the small road went down as the shoe's
-    // fourth coup.
-    if (sibling.pitch < grid.pitch * FINER_THAN_A_ROAD) return;
+    // fourth coup. A road's: at half its cell or finer, or with marks of its
+    // cell on the screen -- a lattice found over the video, coarser than any
+    // road and holding nothing, is no road, and the plate's under it is a
+    // quarter finer (an owner's VLS1003 board at one and a half times the
+    // size, where the plate then waited seven coups and read wrong).
+    const road = boards.some((b) => (b.diameter || 0) >= grid.pitch * FILLS_ITS_CELL
+                                    && (b.diameter || 0) <= grid.pitch * OVERSIZE_FOR_CELL);
+    if (sibling.pitch < grid.pitch * FINER_THAN_A_ROAD
+        && (sibling.pitch < grid.pitch * DERIVED_OF_A_ROAD || road)) return;
     const others = [grid, ...(grid.siblings || [])].filter((g) => g !== sibling)
       .map((g) => ({ ...g, siblings: undefined }));
     this.grid = { ...sibling, siblings: others };
