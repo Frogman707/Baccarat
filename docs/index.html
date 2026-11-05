@@ -3208,6 +3208,12 @@ const S = {
     "zh-Hant": "最後儲存的一局：{when}",
     "zh-Hans": "最后保存的一局：{when}",
   },
+  "cloud.lastWrittenStale": {
+    ko: "{days}일 전 · 그 뒤 저장된 판 없음",
+    en: "{days} [days|day|days] ago · nothing saved since",
+    "zh-Hant": "{days} 天前 · 之後沒有儲存",
+    "zh-Hans": "{days} 天前 · 之后没有保存",
+  },
   "cloud.figures": {
     ko: "가장 나은 학습 모델 {model} · 관문 ROI {roi} · p(BH) {p} · 남겨 둔 슈 ROI {held}",
     en: "Best trained model {model} · gate ROI {roi} · p(BH) {p} · kept-back shoes ROI {held}",
@@ -15072,6 +15078,8 @@ const SESSION_KEY = "baccarat.session.v1";
  * out of a tool that works without one. Any answer from the server wins.
  */
 const OFFLINE_DAYS = 7;
+/** A last Firebase save this many days old, and more, is said so in days (see the cloud tab). */
+const STALE_WRITE_DAYS = 3;
 
 /** Problems a person is told about as news rather than as a mistake. */
 const NEWS = new Set(["pending", "requested"]);
@@ -15612,8 +15620,18 @@ function startGate({ onOpen = () => {}, onLock = () => {}, onAdmit = () => {} } 
     // When the page last saved a coup, anyone's: figures that stop moving
     // while the owner plays mean the saving has stopped, not the playing.
     // Runs from before it was kept have none, and say nothing.
+    //
+    // And said plainly when it is old: the owner's record stood at one day
+    // for twelve while the page was in use, and a bare date in a list of
+    // dates is not noticed. A stamp more than a few days old is spelled out
+    // in days, and the line marked, so a saving that stopped is seen at a
+    // glance.
     if (Number.isFinite(latest.lastWritten)) {
-      sec.appendChild(node("p", "sub", t("cloud.lastWritten", { when: when(latest.lastWritten) })));
+      const days = Math.floor((Date.now() - latest.lastWritten) / 86400e3);
+      const stale = days >= STALE_WRITE_DAYS;
+      const line = t("cloud.lastWritten", { when: when(latest.lastWritten) })
+        + (stale ? " · " + t("cloud.lastWrittenStale", { days }) : "");
+      sec.appendChild(node("p", stale ? "sub warn" : "sub", line));
     }
     if (c.bestModel) {
       sec.appendChild(node("p", "sub", t("cloud.figures", {
