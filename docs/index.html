@@ -4894,18 +4894,44 @@ const HOLLOW_MARK = 0.35;
  */
 const SMALL_CELL = 14;
 
-/** Connected components over the classified mask, 4-connectivity. */
+/**
+ * How much of its box a blob joined corner to corner must fill to be
+ * joined. A ring drawn thin -- the big road's, at eight pixels to the cell,
+ * shared with the colour at half resolution -- is a mark's colour along
+ * its sides and across its top and foot, and at the four joints between
+ * them, where the stroke runs diagonally, a pixel too dark or too grey to
+ * be one: four arcs touching only at their corners, none of them a mark
+ * (see `keepMarks`), where a Player's ring, its dark middle just blue
+ * enough to count, came through as a disc. Joined, they fill 0.56 of
+ * their box at eight pixels, a column of them as much, and 0.28 to 0.39
+ * at twelve, where a plate drawn as rings had every Banker and the Tie
+ * in pieces: joined only above 0.3, some of them were marks and some not,
+ * and the plate was read from its one whole ring. A scatter of a tie's
+ * green -- on a white panel, the stretch for glare turns a pixel here
+ * and there to it -- fills 0.22 of its box joined, and gained as a mark
+ * the stretch was taken, and a plate's second coup read as a tie. Such
+ * specks stay specks; a denser cloud is a mark's size and shape, and is
+ * kept from opening a ruling by its size against the cell (see
+ * `LiveWatcher._opening`).
+ */
+const JOINED_FILL = 0.25;
+
+/**
+ * Connected components over the classified mask: 4-connectivity, and then
+ * the pieces that touch only corner to corner joined where what they make
+ * is solid enough to be a mark or a run of them (see `JOINED_FILL`).
+ */
 function labelBlobs(codes, w, h) {
-  const seen = new Uint8Array(w * h);
+  const label = new Int32Array(w * h).fill(-1);
   const stack = new Int32Array(w * h);
-  const blobs = [];
+  const parts = [];
 
   for (let start = 0; start < codes.length; start++) {
-    if (seen[start] || codes[start] === NONE) continue;
-    const code = codes[start];
+    if (label[start] >= 0 || codes[start] === NONE) continue;
+    const code = codes[start], id = parts.length;
     let sp = 0;
     stack[sp++] = start;
-    seen[start] = 1;
+    label[start] = id;
 
     let n = 0, sx = 0, sy = 0;
     let minX = w, maxX = -1, minY = h, maxY = -1;
@@ -4919,12 +4945,45 @@ function labelBlobs(codes, w, h) {
       if (y < minY) minY = y;
       if (y > maxY) maxY = y;
 
-      if (x > 0     && !seen[p - 1] && codes[p - 1] === code) { seen[p - 1] = 1; stack[sp++] = p - 1; }
-      if (x < w - 1 && !seen[p + 1] && codes[p + 1] === code) { seen[p + 1] = 1; stack[sp++] = p + 1; }
-      if (y > 0     && !seen[p - w] && codes[p - w] === code) { seen[p - w] = 1; stack[sp++] = p - w; }
-      if (y < h - 1 && !seen[p + w] && codes[p + w] === code) { seen[p + w] = 1; stack[sp++] = p + w; }
+      if (x > 0     && label[p - 1] < 0 && codes[p - 1] === code) { label[p - 1] = id; stack[sp++] = p - 1; }
+      if (x < w - 1 && label[p + 1] < 0 && codes[p + 1] === code) { label[p + 1] = id; stack[sp++] = p + 1; }
+      if (y > 0     && label[p - w] < 0 && codes[p - w] === code) { label[p - w] = id; stack[sp++] = p - w; }
+      if (y < h - 1 && label[p + w] < 0 && codes[p + w] === code) { label[p + w] = id; stack[sp++] = p + w; }
     }
+    parts.push({ code, n, sx, sy, minX, maxX, minY, maxY });
+  }
 
+  // Which pieces touch corner to corner: each pixel against the two below
+  // it diagonally, which between them meet every diagonal pair once. Only
+  // pieces too thin to be a mark (see `keepMarks`): a ring's arcs, a
+  // stroke's chain of blocks. Whole marks and runs of them stay as they
+  // came -- drawn as rings at twelve pixels to the cell, two of a plate's
+  // neighbours touched at a corner through the blur between them, and
+  // joined, with everything that followed from a block where two marks
+  // had been, the plate was read a cell at a time from its fifth coup.
+  const thin = parts.map((g) => Math.min(g.maxX - g.minX + 1, g.maxY - g.minY + 1) < 6);
+  const root = new Int32Array(parts.length);
+  for (let i = 0; i < parts.length; i++) root[i] = i;
+  const find = (i) => { while (root[i] !== i) { root[i] = root[root[i]]; i = root[i]; } return i; };
+  const join = (a, b) => { a = find(a); b = find(b); if (a !== b) root[a] = b; };
+  const meet = (p, q) => { if (codes[q] === codes[p] && label[q] !== label[p] && thin[label[q]]) join(label[p], label[q]); };
+  for (let y = 0; y + 1 < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const p = y * w + x;
+      if (codes[p] === NONE || !thin[label[p]]) continue;
+      if (x > 0) meet(p, p + w - 1);
+      if (x < w - 1) meet(p, p + w + 1);
+    }
+  }
+  const members = new Map();
+  for (let i = 0; i < parts.length; i++) {
+    const r = find(i);
+    if (!members.has(r)) members.set(r, []);
+    members.get(r).push(parts[i]);
+  }
+
+  const blobs = [];
+  const describe = ({ code, n, sx, sy, minX, maxX, minY, maxY }) => {
     // How hollow the mark is: the longest run of other pixels across the
     // middle of its box, as a share of the box, the wider of the two ways. A
     // ring's hole is most of it (half and more, see `HOLLOW_MARK`); a disc
@@ -4944,6 +5003,43 @@ function labelBlobs(codes, w, h) {
       w: maxX - minX + 1, h: maxY - minY + 1, minX, minY, maxX, maxY,
       hollow: Math.max(across / (maxX - minX + 1), down / (maxY - minY + 1)),
     });
+  };
+  // Joined where what they make reaches the middle of each side of its
+  // box, as a ring's arcs do and a column of rings does, and fills enough
+  // of it (see `JOINED_FILL`). Half a ring, cut by the slash of a tie, has
+  // two sides it never reaches; the slash itself, a chain of green blocks
+  // from one corner of its box to the other, has none, and joined it was
+  // a mark of its own at the ring's middle, with the ring in two marks
+  // beside it, and the coup under the tie read twice.
+  const reaches = (b, id) => {
+    const bw = b.maxX - b.minX + 1, bh = b.maxY - b.minY + 1;
+    const own = (x, y) => label[y * w + x] >= 0 && find(label[y * w + x]) === id;
+    const along = (fixed, lo, hi, vertical) => {
+      for (let d = 0; d < 2; d++) {
+        for (let i = lo; i <= hi; i++) {
+          const x = vertical ? fixed + d : i, y = vertical ? i : fixed + d;
+          if (x >= 0 && x < w && y >= 0 && y < h && own(x, y)) return true;
+        }
+      }
+      return false;
+    };
+    const x1 = b.minX + Math.floor(bw / 3), x2 = b.maxX - Math.floor(bw / 3);
+    const y1 = b.minY + Math.floor(bh / 3), y2 = b.maxY - Math.floor(bh / 3);
+    return along(b.minY, x1, x2, false) && along(b.maxY - 1, x1, x2, false)
+        && along(b.minX, y1, y2, true) && along(b.maxX - 1, y1, y2, true);
+  };
+  for (const [id, group] of members) {
+    if (group.length === 1) { describe(group[0]); continue; }
+    const all = { code: group[0].code, n: 0, sx: 0, sy: 0, minX: w, maxX: -1, minY: h, maxY: -1 };
+    for (const g of group) {
+      all.n += g.n; all.sx += g.sx; all.sy += g.sy;
+      if (g.minX < all.minX) all.minX = g.minX;
+      if (g.maxX > all.maxX) all.maxX = g.maxX;
+      if (g.minY < all.minY) all.minY = g.minY;
+      if (g.maxY > all.maxY) all.maxY = g.maxY;
+    }
+    if (all.n >= (all.maxX - all.minX + 1) * (all.maxY - all.minY + 1) * JOINED_FILL && reaches(all, id)) describe(all);
+    else for (const g of group) describe(g);
   }
   return blobs;
 }
@@ -5854,37 +5950,82 @@ function refit(marks, lat) {
  * the dealer in front of a red wall, the two pixels of the video inside the
  * lock read as a column of four Bankers ahead of the shoe.
  */
+/**
+ * Where a ring's stroke stands in its cell, as shares of the cell, and how
+ * much of that band the stroke must be to be read as the ring's colour
+ * (see `cellMark`).
+ */
+const RING_BAND = [0.22, 0.47], RING_BAND_SHARE = 0.35;
+
+/** The least of a ring's colour in any quarter of its cell, as a share of all of it (see `cellMark`). */
+const RING_QUARTER = 0.1;
+
 function cellMark(codes, w, h, cx, cy, px, py, letter = null) {
-  const r = 0.38 * Math.min(px, py), r2 = r * r;
+  const r = 0.38 * Math.min(px, py);
   if (cx - r < -0.5 || cy - r < -0.5 || cx + r > w - 0.5 || cy + r > h - 0.5) return null;
-  const count = [0, 0, 0, 0];
-  let all = 0;
-  for (let y = Math.ceil(cy - r); y <= Math.floor(cy + r); y += 1) {
-    if (y < 0 || y >= h) continue;
-    for (let x = Math.ceil(cx - r); x <= Math.floor(cx + r); x += 1) {
-      if (x < 0 || x >= w) continue;
-      const dx = x - cx, dy = y - cy;
-      if (dx * dx + dy * dy > r2) continue;
-      const code = codes[y * w + x];
-      // The letter printed across a mark is the mark's, not the ground's:
-      // drawn as an owner's table draws it, at the size they share it, the
-      // white P across a disc took a third of the middle of it, and the
-      // newest coup was read as an empty cell.
-      if (code === NONE && letter && letter(x, y)) continue;
-      all += 1;
-      count[code] += 1;
+  // The colour of the pixels between `lo` and `hi` of the cell's middle,
+  // where one colour is `share` of them and twice any other.
+  const read = (lo, hi, share, around = false) => {
+    const lo2 = lo * lo, hi2 = hi * hi;
+    const count = [0, 0, 0, 0];
+    // The winning colour's pixels by quarter of the cell (see `around`).
+    const quarter = [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]];
+    let all = 0;
+    for (let y = Math.ceil(cy - hi); y <= Math.floor(cy + hi); y += 1) {
+      if (y < 0 || y >= h) continue;
+      for (let x = Math.ceil(cx - hi); x <= Math.floor(cx + hi); x += 1) {
+        if (x < 0 || x >= w) continue;
+        const dx = x - cx, dy = y - cy, d2 = dx * dx + dy * dy;
+        if (d2 > hi2 || d2 < lo2) continue;
+        const code = codes[y * w + x];
+        // The letter printed across a mark is the mark's, not the ground's:
+        // drawn as an owner's table draws it, at the size they share it, the
+        // white P across a disc took a third of the middle of it, and the
+        // newest coup was read as an empty cell.
+        if (code === NONE && letter && letter(x, y)) continue;
+        all += 1;
+        count[code] += 1;
+        quarter[code][(dx < 0 ? 0 : 1) + (dy < 0 ? 0 : 2)] += 1;
+      }
     }
-  }
-  if (all < 4) return null;
-  let code = BANKER;
-  if (count[PLAYER] > count[code]) code = PLAYER;
-  if (count[TIE] > count[code]) code = TIE;
-  const top = count[code];
-  const second = Math.max(...[BANKER, PLAYER, TIE].filter((c) => c !== code).map((c) => count[c]));
-  if (top < all / 2 || top < 2 * second) return null;
+    if (all < 4) return null;
+    let code = BANKER;
+    if (count[PLAYER] > count[code]) code = PLAYER;
+    if (count[TIE] > count[code]) code = TIE;
+    const top = count[code];
+    const second = Math.max(...[BANKER, PLAYER, TIE].filter((c) => c !== code).map((c) => count[c]));
+    // A side's colour with a tie's green close behind it is that side with a
+    // tie drawn across it, as a big road draws one: a slash across a ring of
+    // eight pixels, shared with the colour at half resolution, is as much
+    // green as the ring has blue left, and the cell went unread -- the coup
+    // and its tie both -- while every other cell of the road was read on the
+    // lattice. The tie itself is counted off the green (see `tiesAcross`).
+    const crossed = code !== TIE && second === count[TIE];
+    if (top < all * share || (top < 2 * second && !crossed)) return null;
+    // A ring goes all the way round: its colour is in every quarter of the
+    // cell. What is on one side only -- the blur off a neighbour's edge, a
+    // red page the plate's frame stands on, a tie's green glyph beside the
+    // first cell -- is not a ring, however much of the band it is.
+    if (around && quarter[code].some((n) => n < top * RING_QUARTER)) return null;
+    return { code, n: top, fill: top / all };
+  };
+  // Read at the middle of the cell, where a disc is; or, where the middle is
+  // bare, around a ring a third of the cell out from it, where a ring's
+  // stroke is: a big road's rings are hollow on every table, and on a dark
+  // panel the hole is the panel's own colour. A Player's ring of twelve
+  // pixels, shared, had a middle just blue enough to be read; a Banker's,
+  // and a Tie's, had none, and the cells went unread on the lattice -- on
+  // a plate drawn as rings, every Banker a hole, and the plate read to the
+  // first of them. A ring's stroke is a third of the band and more (see
+  // `RING_BAND_SHARE`): a stroke a pixel and a half wide in a band of
+  // three, less the joints the blur takes out of it; a bare cell beside a
+  // full one has the blur off its neighbour's edge, a tenth of the band.
+  const cell = Math.min(px, py);
+  const got = read(0, r, 0.5) || read(RING_BAND[0] * cell, RING_BAND[1] * cell, RING_BAND_SHARE, true);
+  if (!got) return null;
   const corners = cornersOf((x, y) => (x < 0 || y < 0 || x >= w || y >= h ? -1 : codes[y * w + x]),
-                            cx, cy, px, py, code);
-  return { code, n: top, fill: top / all, solid: filled(corners), corners };
+                            cx, cy, px, py, got.code);
+  return { code: got.code, n: got.n, fill: got.fill, solid: filled(corners), corners };
 }
 
 /** A cell's corners, as the bits of a mask, and how many of them are set. */
@@ -10803,6 +10944,19 @@ const FILLS_ITS_CELL = 0.75;
 const OVERSIZE_FOR_CELL = 1.3;
 
 /**
+ * How much of a lattice's cell a mark must fill across to open it as a
+ * shoe's first coup: a coup is drawn to most of its cell (see
+ * `FILLS_ITS_CELL`), and what is a few pixels in a cell of fifty is not
+ * one. On an owner's felt table, a box drawn loose around the cleared
+ * strip took in the felt's edge above it, and a cloud of its darker
+ * pixels, seven across and a Player's blue by a hair, stood at the
+ * ruling's left edge in its upper half: taken for the new shoe's first
+ * coup, in a cell of fifty-five, it was followed for the shoe, and the
+ * plate filling beside it went unread.
+ */
+const OPENS_ITS_CELL = 0.4;
+
+/**
  * A lattice ruled this much finer than another is a derived road's beside a
  * road's: the derived roads are drawn at half the big road's cell, the
  * plate at its cell or coarser.
@@ -12617,6 +12771,7 @@ class LiveWatcher {
     const grid = this._ruling();
     if (!grid) return null;
     const opens = (g) => {
+      if ((board.diameter || 0) < g.pitch * OPENS_ITS_CELL) return false;
       const reach = 1.5 * (board.diameter || g.pitch);
       const near = (a, b) => Math.abs(a - b) <= reach;
       const at = (corner) => !!corner && near(board.box.x, corner.x) && near(board.box.y, corner.y);
