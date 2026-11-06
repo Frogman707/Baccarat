@@ -5245,7 +5245,7 @@ function groupBlobs(marks, whole = null, pitch = 0) {
  * into its second column by then -- so the rule applies only where it has to,
  * and a full board is never judged by it.
  */
-function opensLikeARoad(board) {
+function opensLikeARoad(board, pitch = 0, bareAt = null) {
   const n = board.cells.length;
 
   // Every road here is six rows, so a block far taller than that is not a
@@ -5279,7 +5279,106 @@ function opensLikeARoad(board) {
   // of any road are one column, so six lying in a row are six chips. Six rows
   // as measured: a young plate with a mark covered at the foot of its first
   // column has a row with nothing in it, which a count of rows skips.
-  return board.nCols === 1 || board.nRows === 6 || board.rowSpan === 6;
+  if (board.nCols === 1 || board.nRows === 6 || board.rowSpan === 6) return true;
+  // Or, on a ruling, marks of its cell's size standing in its cells, column
+  // after column from the first with no cell skipped, each column one side:
+  // the big road's first coups, which lie along its first row for as long
+  // as the sides alternate. A table that shows no bead plate shows its big
+  // road, and a shoe on it was not read until its seventh coup (see the
+  // generator's road-only layout). A row of chips is twice the cell and
+  // stands off the ruling; a table's counts, a disc of each side in a row,
+  // stand whole cells apart. Whether such a board is a shoe's opening is
+  // then the reader's to ask, at the ruling's first cell (see
+  // `LiveWatcher._opening`).
+  return roadOnTheRuling(board, pitch, bareAt);
+}
+
+/** How much of a ruling's cell a mark's colour may fill and the cell still be bare (see `roadOnTheRuling`). */
+const BARE_CELL = 0.05;
+
+/** How far off a cell, as a share of it, a young road's neighbouring marks may stand (see `roadOnTheRuling`). */
+const ROAD_STEP = 0.15;
+
+/**
+ * Whether a young board's marks stand in a ruling's cells as a big road's
+ * first coups do (see `opensLikeARoad`): the cell's size, one column after
+ * another a cell apart, rows likewise, one side to a column, ties aside,
+ * and bare cells where each run and the road itself end (see `bareAt`).
+ */
+function roadOnTheRuling(board, pitch, bareAt = null) {
+  if (!(pitch > 0) || !(board.diameter >= pitch * 0.6 && board.diameter <= pitch * 1.15)) return false;
+  // Not with a tie on its first cell: a big road writes a tie dealt before
+  // any coup on the first cell too (see `BigRoad.tieCells`), so a ring with
+  // a tie across it there is the first coup and then a tie, or a tie and
+  // then the first coup, and the road cannot say which -- the bead plate
+  // can. Drawn as an owner's VLS1003 board draws it, a shoe opening with a
+  // tie was read off the big road as the coup and then the tie, for the
+  // eight coups until the plate was found. Such a road waits, as every
+  // young road did, for its seventh mark.
+  const first = board.cells.find((c) => c.col === 0 && c.row === 0);
+  if (first && (first.ties || first.outcome === "T")) return false;
+  const colsSpan = board.box.x2 - board.box.x, rowsSpan = board.box.y2 - board.box.y;
+  if (Math.abs(colsSpan - board.nCols * pitch) > 0.35 * pitch + pitch * 0.15) return false;
+  if (Math.abs(rowsSpan - board.nRows * pitch) > 0.35 * pitch + pitch * 0.15) return false;
+  // A cell apart exactly, mark to mark: read again on a lattice of their own
+  // size rather than the ruling's -- four cells fitted over five rings of
+  // eight pixels, each a pixel and a half too far from the next -- the marks
+  // stand off the ruling's cells, and a road's never do. Measured between
+  // the middles of the marks' boxes, not their centroids: a tie's slash
+  // across a ring pulls the centroid toward it (see `groupBlobs`).
+  const midX = (c) => (c.minX !== undefined && c.maxX !== undefined ? (c.minX + c.maxX) / 2 : c.cx);
+  const midY = (c) => (c.minY !== undefined && c.maxY !== undefined ? (c.minY + c.maxY) / 2 : c.cy);
+  // Each against the first, so a lattice a little too coarse shows in the
+  // drift across a run, while a ring cut short by a slash, its box a few
+  // pixels off on its own, does not.
+  const stepsOff = (xs) => {
+    const from = Math.min(...xs);
+    return xs.some((v) => Math.abs(v - from - Math.round((v - from) / pitch) * pitch) > ROAD_STEP * pitch);
+  };
+  const byCol = new Map();
+  for (const c of board.cells) { if (!byCol.has(c.col)) byCol.set(c.col, []); byCol.get(c.col).push(c); }
+  for (const cs of byCol.values()) if (stepsOff(cs.map(midY))) return false;
+  const mean = (vs) => vs.reduce((a, b) => a + b, 0) / vs.length;
+  if (stepsOff([...byCol.values()].map((cs) => mean(cs.map(midX))))) return false;
+  const sides = new Map();
+  for (const c of board.cells) {
+    if (c.outcome === "T") continue;
+    const was = sides.get(c.col);
+    if (was && was !== c.outcome) return false;
+    sides.set(c.col, c.outcome);
+  }
+  // And a run ends where the cell under its last mark is bare, and the road
+  // where the cell beside its last column is: a mark lost from a run -- a
+  // ring of eight pixels on a black panel, in pieces the lattice could not
+  // read -- leaves its pieces in the cell, and read as a road without it
+  // the run was a coup short, and every coup after it a place early, for
+  // the rest of the shoe (drawn as the under-right layout draws it, the
+  // plate in rings). Such a board is not a road's opening; what it is, the
+  // reader asks elsewhere, as it did.
+  // In the ruling's rows, not the board's: the rows a board counts are the
+  // rows its marks fell in, and a mark lost from the middle of a run leaves
+  // no row at all -- the run read as one shorter, whole. Measured from the
+  // road's top row, every column's marks are its first rows without a gap.
+  const topY = Math.min(...board.cells.map((c) => c.cy));
+  const rowsOf = new Map();
+  for (const c of board.cells) {
+    const r = Math.round((c.cy - topY) / pitch);
+    if (!rowsOf.has(c.col)) rowsOf.set(c.col, new Set());
+    rowsOf.get(c.col).add(r);
+  }
+  for (const rs of rowsOf.values()) for (let r = 0; r < rs.size; r += 1) if (!rs.has(r)) return false;
+  if (bareAt) {
+    const foot = new Map();
+    for (const c of board.cells) if (!foot.has(c.col) || c.row > foot.get(c.col).row) foot.set(c.col, c);
+    const rows = Math.max(...board.cells.map((c) => c.row)) + 1;
+    for (const c of foot.values()) {
+      if (c.row + 1 < 6 && !bareAt(c.cx, c.cy + pitch)) return false;
+    }
+    const last = [...foot.values()].reduce((a, b) => (a.col > b.col ? a : b));
+    const top = board.cells.find((c) => c.col === last.col && c.row === 0) || last;
+    if (rows < 6 && !bareAt(top.cx + pitch, top.cy)) return false;
+  }
+  return true;
 }
 
 /**
@@ -5637,7 +5736,21 @@ function buildBoard(marks, diameter) {
   // for a long run turned under along its foot -- so its foot is not counted.
   const showsIt = unique.some((c) => c.outcome === "T" && c.fill >= SOLID_TIE && c.r * 2 >= diameter * 0.8)
     || mixedColumns(unique.filter((c) => c.row < nRows - 1)) >= 2;
-  const kind = nRows <= 6 && (occupancy >= 0.82
+  //
+  // And a board of six marks or fewer in more than one column is a big
+  // road's opening, however full its cells: a bead plate's first six marks
+  // are one column, and the big road's lie along its first row while the
+  // sides alternate (see `opensLikeARoad`). Read as a bead plate, two marks
+  // side by side were one coup and a hole. Not a plate with a mark hidden
+  // in its first column, which stands in two columns too: its column
+  // reaches the sixth row past the hole, or starts below the top where the
+  // hidden mark is its first -- where a road's columns each start at the
+  // top and a young one reaches no sixth row.
+  const tops = new Map();
+  for (const c of unique) tops.set(c.col, Math.min(tops.get(c.col) ?? 9, c.row));
+  const opening = unique.length <= 6 && nCols > 1 && nRows < 6
+    && [...tops.values()].every((r) => r === 0) && beadPlaces(unique).rows < 6;
+  const kind = !opening && nRows <= 6 && (occupancy >= 0.82
     || (fillsLikeABeadPlate(unique, nCols, nRows) && (hasTie || mixesSides(unique)))
     || (occupancy >= 0.5 && showsIt))
     ? "bead" : "bigroad";
@@ -6551,12 +6664,31 @@ function detectBoards(imageData, { region = null, minCells = 8, whole = null, pi
     for (const b of merged.slice(0, 12)) console.log(`[detect]   merged blob ${b.size.toFixed(0)}px at ${Math.round(b.cx)},${Math.round(b.cy)}`);
   }
   const boards = [];
+  // Whether a cell of the ruling, in the frame's own pixels, holds next to
+  // nothing of a mark's colour: a twentieth of the disc the ruling's cell
+  // would hold, where a mark fills half of it and the pieces of one lost a
+  // third (see `roadOnTheRuling`).
+  const bareAt = (cx, cy) => {
+    const r = 0.47 * pitch, r2 = r * r;
+    let all = 0, inked = 0;
+    for (let y = Math.ceil(cy - r); y <= Math.floor(cy + r); y += 1) {
+      for (let x = Math.ceil(cx - r); x <= Math.floor(cx + r); x += 1) {
+        const dx = x - cx, dy = y - cy;
+        if (dx * dx + dy * dy > r2) continue;
+        const px = x - x0, py = y - y0;
+        if (px < 0 || py < 0 || px >= w || py >= h) return true;
+        all += 1;
+        if (codes[py * w + px] !== NONE) inked += 1;
+      }
+    }
+    return all === 0 || inked <= all * BARE_CELL;
+  };
   for (const g of groups) {
     if (g.cells.length < minCells) continue;
     const board = buildBoard(g.cells, g.d);
     if (board.kind === "bigroad") tiesAcross(board, greens);
     markFrameCut(board, H);
-    if (opensLikeARoad(board)) boards.push(board);
+    if (opensLikeARoad(board, pitch, pitch > 0 ? bareAt : null)) boards.push(board);
   }
   // How sure each reading is, kept beside it (see `assessBoard`). Nothing
   // below reads it: the boards are found, ranked and read exactly as before.
@@ -10930,6 +11062,16 @@ const OPENING_MARKS = 2;
 const ROAD_ROWS_MAX = 8;
 
 /**
+ * Whether a board is a road by its shape alone: into its second column
+ * past a column's worth of marks, or a column deep. A big road's first
+ * coups lie along its first row, a column each while the sides alternate
+ * (see `opensLikeARoad`), and are no more a road past doubt than a mark or
+ * two in a column are: whether they are a shoe's opening is asked at the
+ * ruling's first cell, as of any young board (see `_opening`).
+ */
+const settled = (b) => b.nCols > 1 && (b.cells.length > 6 || b.nRows >= 6 || (b.rowSpan || 0) >= 6);
+
+/**
  * How much of its cell a road's mark fills across, at the least: a disc,
  * a ring or a tile is drawn to most of its cell on every table, and a mark
  * well under that in a lattice's first cell is another, finer road's.
@@ -12467,7 +12609,7 @@ class LiveWatcher {
     // pixels to the cell, the big road's first square on the left was read
     // as the shoe from the coup that moved the lock to the plate.
     let adoptedBy = null;
-    if (this._ruling() && !boards.some((b) => b.nCols > 1 || looksLikePlate(b))) {
+    if (this._ruling() && !boards.some((b) => settled(b) || looksLikePlate(b))) {
       const openings = boards.map((b) => this._opening(b, boards));
       const disc = (i) => !!openings[i] && !hollow(boards[i]);
       const discHere = boards.some((b, i) => disc(i) && openings[i].pinned);
@@ -12540,7 +12682,7 @@ class LiveWatcher {
     }
     const before = this.sightings, now = [], shown = [];
     for (const b of boards) {
-      if (b.nCols > 1 || ((!adoptedBy || b === adoptedBy) && this._opensThePanel(b, boards))) {
+      if (settled(b) || ((!adoptedBy || b === adoptedBy) && this._opensThePanel(b, boards))) {
         b.shown = true; shown.push(b); continue;
       }
       const was = before.find((s) => overlaps(s.box, b.box));
@@ -12583,6 +12725,11 @@ class LiveWatcher {
    */
   _plateOfTheSameShoe(frame, road) {
     const bare = (seq) => seq.replace(/T/g, "");
+    // Of a road past a column's worth of coups: a young road of two or
+    // three, read along the big road's first row now (see
+    // `opensLikeARoad`), is the first coups of a neighbouring table's shoe
+    // as often as not, and that table's plate is no plate of this one.
+    if (bare(road.sequence).length <= 6) return null;
     const full = detectBoards(frame, { minCells: COLD_CELLS });
     const board = full.boards.find((b) => looksLikePlate(b) && bare(b.sequence) === bare(road.sequence));
     if (!board) return null;
@@ -12810,7 +12957,7 @@ class LiveWatcher {
     // Only where nothing on the screen is a road already: beside a plate
     // being read, the big road's first ring opens the big road's lattice
     // every look, and moving the lock there read one ring for the shoe.
-    if (boards.some((o) => o !== board && (o.nCols > 1 || looksLikePlate(o)))) return null;
+    if (boards.some((o) => o !== board && (settled(o) || looksLikePlate(o)))) return null;
     const sibling = (grid.siblings || []).find((g) => g.panel && opens(g));
     return sibling ? { lattice: sibling, pinned: false } : null;
   }
